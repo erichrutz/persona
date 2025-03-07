@@ -1,5 +1,45 @@
 // Memory Compression Extension for Anthropic Chat Client
 // This module extends the existing memory system to periodically compress long-term memories
+const util = require('util');
+
+// Use the same logger from server if available, otherwise create one
+let logger;
+if (typeof global.logger === 'undefined') {
+  const DEBUG = process.env.DEBUG_MODE || 'true';
+  logger = {
+    info: (message, ...args) => {
+      console.log(`[COMPRESSOR-INFO] ${message}`, ...args);
+    },
+    debug: (message, ...args) => {
+      if (DEBUG === 'true') {
+        console.log(`[COMPRESSOR-DEBUG] ${message}`, ...args);
+      }
+    },
+    error: (message, err) => {
+      console.error(`[COMPRESSOR-ERROR] ${message}`);
+      if (err) {
+        console.error(`\tMessage: ${err.message}`);
+        console.error(`\tStack: ${err.stack}`);
+        
+        // Log detailed error properties if available
+        if (err.response) {
+          console.error(`\tAPI Response: ${util.inspect(err.response.data || {}, { depth: 3 })}`);
+        }
+        
+        // Log circular object-safe details
+        try {
+          const details = util.inspect(err, { depth: 2, colors: true });
+          console.error(`\tDetails: ${details}`);
+        } catch (inspectErr) {
+          console.error(`\tCould not inspect error details: ${inspectErr.message}`);
+        }
+      }
+    }
+  };
+}
+else {
+  logger = global.logger;
+}
 
 class MemoryCompressor {
   constructor(options = {}) {
@@ -75,12 +115,13 @@ class MemoryCompressor {
     }
     
     this.isCompressing = true;
-    console.log('Starting memory compression process...');
+    logger.info('Starting memory compression process...');
+    logger.debug('Memory count before compression:', memorySystem.longTermMemory.length);
     
     try {
       // Skip if there's not enough to compress
       if (memorySystem.longTermMemory.length <= 8) {
-        console.log('Not enough long-term memories to compress');
+        logger.info('Not enough long-term memories to compress');
         this.isCompressing = false;
         return { compressed: false, reason: 'Not enough memories' };
       }
@@ -131,7 +172,8 @@ class MemoryCompressor {
       // Update timestamps
       this.lastCompressionTime = new Date();
       
-      console.log(`Compressed long-term memory from ${memorySystem.longTermMemory.length} to ${compressedMemories.length} items`);
+      logger.info(`Compressed long-term memory from ${memorySystem.longTermMemory.length} to ${compressedMemories.length} items`);
+      logger.debug(`Compression ratio: ${(compressedMemories.length / memorySystem.longTermMemory.length * 100).toFixed(2)}%`);
       
       this.isCompressing = false;
       return { 
@@ -140,7 +182,7 @@ class MemoryCompressor {
         compressedCount: compressedMemories.length
       };
     } catch (error) {
-      console.error('Error compressing long-term memory:', error);
+      logger.error('Error compressing long-term memory:', error);
       this.isCompressing = false;
       return { compressed: false, error: error.message };
     }
@@ -242,7 +284,15 @@ COMPRESSED MEMORIES:`;
       const data = await response.json();
       return data.content[0].text.trim();
     } catch (error) {
-      console.error('Error in memory compression request:', error);
+      logger.error('Error in memory compression request:', error);
+      // Log detailed API error information
+      if (error.response) {
+        logger.error('API response error details:', {
+          status: error.response.status,
+          headers: error.response.headers,
+          data: error.response.data
+        });
+      }
       return null;
     }
   }
@@ -332,7 +382,15 @@ COMPRESSED MEMORIES:`;
         const data = await response.json();
         return data.content[0].text.trim();
       } catch (error) {
-        console.error('Error in memory compression request:', error);
+        logger.error('Error in simplified memory compression request:', error);
+        // Log detailed API error information
+        if (error.response) {
+          logger.error('API response error details:', {
+            status: error.response.status,
+            headers: error.response.headers,
+            data: error.response.data
+          });
+        }
         return null;
       }
     }
@@ -491,7 +549,7 @@ function extendAnthropicChatClient() {
 // Initialize the extension when the module is loaded
 if (typeof AnthropicChatClient !== 'undefined') {
   extendAnthropicChatClient();
-  console.log('Memory compression extension loaded');
+  logger.info('Memory compression extension loaded');
 }
 
 // Export for module usage

@@ -2,11 +2,46 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const util = require('util');
 require('dotenv').config(); // Load environment variables from .env file
 const { AnthropicChatClient, MemorySystem } = require('./anthropic-chat-client');
 const { MemoryPersistence } = require('./memory-persistence');
 const { CharacterProfileHandler } = require('./character-profile-handler');
 const characterProfiles = require('./character-profile-example');
+
+// Enhanced logging setup
+const DEBUG = process.env.DEBUG_MODE || 'true';
+global.logger = {
+  info: (message, ...args) => {
+    console.log(`[INFO] ${message}`, ...args);
+  },
+  debug: (message, ...args) => {
+    if (DEBUG === 'true') {
+      console.log(`[DEBUG] ${message}`, ...args);
+    }
+  },
+  error: (message, err) => {
+    console.error(`[ERROR] ${message}`);
+    if (err) {
+      console.error(`\tMessage: ${err.message}`);
+      console.error(`\tStack: ${err.stack}`);
+      
+      // Log detailed error properties if available
+      if (err.response) {
+        console.error(`\tAPI Response: ${util.inspect(err.response.data || {}, { depth: 3 })}`);
+      }
+      
+      // Log circular object-safe details
+      try {
+        const details = util.inspect(err, { depth: 2, colors: true });
+        console.error(`\tDetails: ${details}`);
+      } catch (inspectErr) {
+        console.error(`\tCould not inspect error details: ${inspectErr.message}`);
+      }
+    }
+  }
+};
+const logger = global.logger;
 
 // Create Express app
 const app = express();
@@ -119,7 +154,7 @@ app.post('/api/session', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error creating session:', error);
+    logger.error('Error creating session:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -130,7 +165,7 @@ app.get('/api/sessions', async (req, res) => {
     const sessions = await memoryPersistence.listSessions();
     res.json(sessions);
   } catch (error) {
-    console.error('Error listing sessions:', error);
+    logger.error('Error listing sessions:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -152,7 +187,7 @@ app.delete('/api/session/:sessionId', async (req, res) => {
       res.status(404).json({ error: result.reason });
     }
   } catch (error) {
-    console.error('Error deleting session:', error);
+    logger.error('Error deleting session:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -210,7 +245,7 @@ app.post('/api/message', async (req, res) => {
       model: chatClient.model 
     });
   } catch (error) {
-    console.error('Error sending message:', error);
+    logger.error('Error sending message:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -246,7 +281,7 @@ app.get('/api/memory/:sessionId', async (req, res) => {
     
     res.json(memoryState);
   } catch (error) {
-    console.error('Error getting memory state:', error);
+    logger.error('Error getting memory state:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -275,7 +310,7 @@ app.post('/api/compression/toggle', async (req, res) => {
     
     res.json({ success: true, enabled: result.enabled });
   } catch (error) {
-    console.error('Error toggling compression:', error);
+    logger.error('Error toggling compression:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -334,7 +369,7 @@ app.post('/api/compression/compress', async (req, res) => {
       memoryState
     });
   } catch (error) {
-    console.error('Error compressing memory:', error);
+    logger.error('Error compressing memory:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -360,7 +395,7 @@ app.get('/api/compression/stats/:sessionId', async (req, res) => {
     
     res.json(stats);
   } catch (error) {
-    console.error('Error fetching compression stats:', error);
+    logger.error('Error fetching compression stats:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -372,24 +407,37 @@ app.get('/', (req, res) => {
 
 // Start server
 app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Memory compression system enabled`);
+  logger.info(`Server running on port ${PORT}`);
+  logger.info(`Memory compression system enabled`);
+  logger.info(`Debug mode: ${DEBUG}`);
 });
 
 // Handle cleanup on server shutdown
 process.on('SIGINT', async () => {
-  console.log('Shutting down server...');
+  logger.info('Shutting down server...');
   // Save all active sessions
   if (activeSessions.size > 0) {
-    console.log(`Saving ${activeSessions.size} active sessions...`);
+    logger.info(`Saving ${activeSessions.size} active sessions...`);
     for (const [sessionId, client] of activeSessions.entries()) {
       try {
         await client.saveState();
-        console.log(`Saved session ${sessionId}`);
+        logger.info(`Saved session ${sessionId}`);
       } catch (error) {
-        console.error(`Error saving session ${sessionId}:`, error);
+        logger.error(`Error saving session ${sessionId}:`, error);
       }
     }
   }
   process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  logger.error('UNCAUGHT EXCEPTION:', err);
+  // Keep the process running, but log the error
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('UNHANDLED REJECTION:', { reason });
+  // Keep the process running, but log the error
 });

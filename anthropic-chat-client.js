@@ -1,8 +1,48 @@
 // Anthropic Chat Client with 2-Layer Memory System and Memory Compression
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const API_URL = 'https://api.anthropic.com/v1/messages';
+const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
-const {MemoryCompressor} = require('./memory-compressor');
+const { MemoryCompressor } = require('./memory-compressor');
+
+// Use the same logger from server if available, otherwise create one
+let logger;
+if (typeof global.logger === 'undefined') {
+  const DEBUG = process.env.DEBUG_MODE || 'true';
+  logger = {
+    info: (message, ...args) => {
+      console.log(`[CLIENT-INFO] ${message}`, ...args);
+    },
+    debug: (message, ...args) => {
+      if (DEBUG === 'true') {
+        console.log(`[CLIENT-DEBUG] ${message}`, ...args);
+      }
+    },
+    error: (message, err) => {
+      console.error(`[CLIENT-ERROR] ${message}`);
+      if (err) {
+        console.error(`\tMessage: ${err.message}`);
+        console.error(`\tStack: ${err.stack}`);
+        
+        // Log detailed error properties if available
+        if (err.response) {
+          console.error(`\tAPI Response: ${util.inspect(err.response.data || {}, { depth: 3 })}`);
+        }
+        
+        // Log circular object-safe details
+        try {
+          const details = util.inspect(err, { depth: 2, colors: true });
+          console.error(`\tDetails: ${details}`);
+        } catch (inspectErr) {
+          console.error(`\tCould not inspect error details: ${inspectErr.message}`);
+        }
+      }
+    }
+  };
+}
+else {
+  logger = global.logger;
+}
 
 class MemorySystem {
   constructor(options = {}) {
@@ -69,7 +109,8 @@ class MemorySystem {
       // Return the short-term memory if it exists
       return jsonObj["memorize-short-term"] || null;
     } catch (error) {
-      console.error("Error parsing JSON:", error);
+      logger.error("Error parsing JSON for short-term memory:", error);
+      logger.debug("JSON parse failed for input string:", inputString);
       
       // Alternative approach: direct regex extraction if JSON parsing fails
       const shortTermRegex = /"memorize-short-term"\s*:\s*"([^"]+)"/;
@@ -100,7 +141,8 @@ class MemorySystem {
       // Return the short-term memory if it exists
       return jsonObj["memorize-long-term"] || null;
     } catch (error) {
-      console.error("Error parsing JSON:", error);
+      logger.error("Error parsing JSON for long-term memory:", error);
+      logger.debug("JSON parse failed for input string:", inputString);
       
       // Alternative approach: direct regex extraction if JSON parsing fails
       const longTermRegex = /"memorize-long-term"\s*:\s*"([^"]+)"/;
@@ -213,7 +255,7 @@ class MemorySystem {
       accessCount: 0
     });
     
-    console.log("Added to long-term memory:", {
+    logger.debug("Added to long-term memory:", {
       content: information,
       topicGroup,
       subtopic,
@@ -1013,10 +1055,10 @@ For anything important to remember add this JSON block at the end of your respon
       const memoryContext = this.memory.getAllMemoriesForPrompt();
       
       // Print full memory context for debugging
-      console.log("MEMORY CONTEXT FOR PROMPT:", memoryContext);
+      logger.debug("MEMORY CONTEXT FOR PROMPT:", memoryContext);
       
       // Log what we're including in the prompt
-      console.log("Including memory context in prompt:", memoryContext.length > 0);
+      logger.debug("Including memory context in prompt:", memoryContext.length > 0);
       
       // Create a more optimized system prompt
       let fullSystemPrompt = this.systemPrompt;
@@ -1036,7 +1078,7 @@ For anything important to remember add this JSON block at the end of your respon
       }
 
       // Log a shorter version of the prompt for debugging
-      console.log('System prompt length:', fullSystemPrompt.length);
+      logger.debug('System prompt length:', fullSystemPrompt.length);
       
       // Request options for Anthropic API with token optimization
       const requestOptions = {
@@ -1062,18 +1104,57 @@ For anything important to remember add this JSON block at the end of your respon
         body: JSON.stringify(requestOptions)
       });
 
-      console.log('Response:', response.status);
+      logger.debug('API Response status:', response.status);
       
       if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
+        // Get the response body if possible for better error logging
+        let responseBody;
+        try {
+          responseBody = await response.text();
+          logger.error('API Response error body:', responseBody);
+        } catch (bodyError) {
+          logger.error('Could not read API error response body:', bodyError);
+        }
+        
+        throw new Error(`API request failed with status ${response.status}: ${responseBody || 'No response body'}`);
       }
       
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+        if (!data || !data.content || !data.content[0] || !data.content[0].text) {
+          throw new Error('Invalid API response format');
+        }
+      } catch (parseError) {
+        logger.error('Failed to parse API response JSON:', parseError);
+        // Get the raw response text for debugging
+        let responseText = '';
+        try {
+          // Need to clone the response since we already attempted to read it as JSON
+          const responseClone = response.clone();
+          responseText = await responseClone.text();
+          logger.debug('Raw API response text:', responseText.substring(0, 1000) + '...');
+        } catch (textError) {
+          logger.error('Failed to read raw response text:', textError);
+        }
+        throw new Error(`Failed to parse API response: ${parseError.message}`);
+      }
+      
       const assistantResponse = data.content[0].text;
       
       // Add assistant response to conversation history
       const assistantMsg = { role: 'assistant', content: assistantResponse };
-      assistantMsg.content=assistantMsg.content.split('}')[0] + '}';
+      
+      // Safely extract JSON if present
+      try {
+        // Only split if a '}' exists in the string
+        if (assistantMsg.content.includes('}')) {
+          assistantMsg.content = assistantMsg.content.split('}')[0] + '}';
+        }
+      } catch (splitError) {
+        logger.error('Error processing response content:', splitError);
+        logger.debug('Content that caused the error:', assistantResponse);
+      }
 
       this.messages.push(assistantMsg);
       await this.memory.addToShortTermMemory(assistantMsg);
@@ -1103,8 +1184,16 @@ For anything important to remember add this JSON block at the end of your respon
       // Return the response without the memory JSON part (if present)
       return this.cleanResponse(assistantMsg.content);
     } catch (error) {
-      console.log('Error communicating with Anthropic API:', error);
-      return `Error: ${error.message}`;
+      logger.error('Error communicating with Anthropic API:', error);
+      
+      // Return more detailed error information
+      if (error.response) {
+        return `API Error (${error.response.status}): ${error.message}`;
+      } else if (error.request) {
+        return `Network Error: Request failed to reach the API - ${error.message}`;
+      } else {
+        return `Error: ${error.message}`;
+      }
     }
   }
   
@@ -1243,6 +1332,8 @@ For anything important to remember add this JSON block at the end of your respon
       const memory = this.memory.extractLongTermMemory(response);
 
       if(memory) {
+        logger.debug('Processing memory information from response:', { memory });
+        
         // Process memory information for proper categorization before adding
         // This prevents memory explosion by properly organizing items
         
@@ -1258,7 +1349,7 @@ For anything important to remember add this JSON block at the end of your respon
           
           // Add to long-term memory with existing categorization
           await this.memory.addToLongTermMemory(memory);
-          console.log(`Added to long-term memory: ${memory}`);
+          logger.debug(`Added to long-term memory with existing topic formatting: ${memory}`);
         } else {
           // Auto-categorize if no explicit topic tag
           
@@ -1280,7 +1371,7 @@ For anything important to remember add this JSON block at the end of your respon
             // Automatically categorize as user appearance
             const categorizedMemory = `[USER_IDENTITY:appearance] ${memory}`;
             await this.memory.addToLongTermMemory(categorizedMemory);
-            console.log(`Added categorized memory: ${categorizedMemory}`);
+            logger.debug(`Added categorized memory (appearance): ${categorizedMemory}`);
           }
           // Check for core user identity info
           else if (memory.toLowerCase().includes("name") || 
@@ -1294,7 +1385,7 @@ For anything important to remember add this JSON block at the end of your respon
             
             const categorizedMemory = `[USER_IDENTITY:core] ${memory}`;
             await this.memory.addToLongTermMemory(categorizedMemory);
-            console.log(`Added categorized memory: ${categorizedMemory}`);
+            logger.debug(`Added categorized memory (core identity): ${categorizedMemory}`);
           }
           // Check for preferences
           else if (memory.toLowerCase().includes("like") || 
@@ -1306,7 +1397,7 @@ For anything important to remember add this JSON block at the end of your respon
             
             const categorizedMemory = `[USER_IDENTITY:preferences] ${memory}`;
             await this.memory.addToLongTermMemory(categorizedMemory);
-            console.log(`Added categorized memory: ${categorizedMemory}`);
+            logger.debug(`Added categorized memory (preferences): ${categorizedMemory}`);
           }
           // Check for relationship info
           else if (memory.toLowerCase().includes("relationship") || 
@@ -1317,18 +1408,21 @@ For anything important to remember add this JSON block at the end of your respon
             
             const categorizedMemory = `[RELATIONSHIP:dynamics] ${memory}`;
             await this.memory.addToLongTermMemory(categorizedMemory);
-            console.log(`Added categorized memory: ${categorizedMemory}`);
+            logger.debug(`Added categorized memory (relationship): ${categorizedMemory}`);
           }
           // Default to conversation thread
           else {
             const categorizedMemory = `[CONVERSATION_THREADS:ongoing] ${memory}`;
             await this.memory.addToLongTermMemory(categorizedMemory);
-            console.log(`Added categorized memory: ${categorizedMemory}`);
+            logger.debug(`Added categorized memory (conversation): ${categorizedMemory}`);
           }
         }
+      } else {
+        logger.debug('No memory information found in response');
       }
     } catch (error) {
-      console.error('Error processing memory information:', error);
+      logger.error('Error processing memory information:', error);
+      logger.debug('Response that caused the error:', response);
     }
   }
   
@@ -1369,13 +1463,13 @@ For anything important to remember add this JSON block at the end of your respon
       }
       
       const data = await response.json();
-      console.log('Memory categorization:', data.content[0].text);
+      logger.debug('Memory categorization:', data.content[0].text);
       
       // Here you could further process the categorization to optimize memory
       // For example, set expiration dates, organize memories by category, etc.
       
     } catch (error) {
-      console.error('Error categorizing memory:', error);
+      logger.error('Error categorizing memory:', error);
     }
   }
   
