@@ -3,6 +3,12 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const util = require('util');
+const https = require('https');
+const fs = require('fs');
+const cors = require('cors');
+const helmet = require('helmet');
+const basicAuth = require('express-basic-auth');
+const cookieSession = require('cookie-session');
 require('dotenv').config(); // Load environment variables from .env file
 const { AnthropicChatClient, MemorySystem } = require('./anthropic-chat-client');
 const { MemoryPersistence } = require('./memory-persistence');
@@ -46,9 +52,44 @@ const logger = global.logger;
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+const USE_HTTPS = process.env.USE_HTTPS === 'true';
+const CERT_PATH = process.env.CERT_PATH || '/etc/letsencrypt/live/yourdomain.com/fullchain.pem';
+const KEY_PATH = process.env.KEY_PATH || '/etc/letsencrypt/live/yourdomain.com/privkey.pem';
+const USERNAME = process.env.AUTH_USERNAME || 'admin';
+const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 
 // Set up middleware
 app.use(bodyParser.json());
+app.use(cors());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  }
+}));
+
+// Set up session management
+app.use(cookieSession({
+  name: 'session',
+  keys: [process.env.SESSION_KEY || 'persona-secret-key'],
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}));
+
+// Authentication middleware
+app.use(basicAuth({
+  users: { [USERNAME]: PASSWORD },
+  challenge: true,
+  realm: 'Persona Character Simulation'
+}));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Store active chat clients for compression management
@@ -406,11 +447,45 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, '127.0.0.1', () => {
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(`Memory compression system enabled`);
-  logger.info(`Debug mode: ${DEBUG}`);
-});
+if (USE_HTTPS) {
+  try {
+    // Check if cert files exist
+    if (!fs.existsSync(CERT_PATH) || !fs.existsSync(KEY_PATH)) {
+      logger.error(`SSL certificate files not found at ${CERT_PATH} and ${KEY_PATH}`);
+      logger.info('Falling back to HTTP server');
+      startHttpServer();
+    } else {
+      // HTTPS server
+      const httpsOptions = {
+        cert: fs.readFileSync(CERT_PATH),
+        key: fs.readFileSync(KEY_PATH)
+      };
+      
+      https.createServer(httpsOptions, app).listen(PORT, () => {
+        logger.info(`HTTPS server running on port ${PORT}`);
+        logger.info(`Secure access enabled with authentication`);
+        logger.info(`Memory compression system enabled`);
+        logger.info(`Debug mode: ${DEBUG}`);
+      });
+    }
+  } catch (error) {
+    logger.error('Error starting HTTPS server:', error);
+    logger.info('Falling back to HTTP server');
+    startHttpServer();
+  }
+} else {
+  startHttpServer();
+}
+
+function startHttpServer() {
+  app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`HTTP server running on port ${PORT}`);
+    logger.info(`Server accessible from all network interfaces (0.0.0.0)`);
+    logger.info(`Authentication enabled`);
+    logger.info(`Memory compression system enabled`);
+    logger.info(`Debug mode: ${DEBUG}`);
+  });
+}
 
 // Handle cleanup on server shutdown
 process.on('SIGINT', async () => {
