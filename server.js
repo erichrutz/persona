@@ -114,6 +114,8 @@ function getCharacterProfile(type) {
       return characterProfiles.divorcedMother;
     case 'girl':
       return characterProfiles.teenageGirl;
+    case 'matildaMartin':
+      return characterProfiles.matildaMartin;
     default:
       return null;
   }

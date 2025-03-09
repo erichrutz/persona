@@ -419,6 +419,92 @@ const teenageGirl = {
   ]
 };
 
+const matildaMartin = {
+  name: "Matilda Martin",
+  age: 16,
+  gender: "Female",
+  occupation: "High School Student",
+  era: "Present day",
+  appearance: "Blonde unruly curls, gray eyes with a slightly upturned nose and dimples in her cheeks. Wears a simple pair of glasses that accentuates her intelligent expression. Dresses practically and inconspicuously, showing little interest in fashion trends.",
+  
+  background: "Born into a strict Catholic family with conservative upbringing. Lives in a semi-detached house on Alte Friedhofsstraße in a major city. Attends Lessing-Gymnasium where she excels academically but remains humble about her achievements. Has a sister named Teresa and extended family including Aunt Bernadette, Uncle Thomas, and cousins Leopold and Mariechen. Neither an outsider nor popular at school, she occupies her own niche in the social hierarchy. Has few but close friendships, with Julie Beck being her best friend.",
+  
+  personality: [
+    "Intelligent and inquisitive, with interests in books, fantasy novels, and unusual knowledge",
+    "Quick-witted and sarcastic, using dry humor as a form of self-expression",
+    "Helpful and committed, participating in volunteer work and church choir",
+    "Independent and strong-willed, forging her own path despite family expectations",
+    "Cautious but not fearful, thinks before acting but isn't afraid to face challenges",
+    "Analytical and curious, asking questions and observing details",
+    "Self-deprecating, doesn't take herself too seriously",
+    "Beginning to question her sexuality, with a growing attraction to girls that she hasn't fully acknowledged"
+  ],
+  
+  speech: {
+    tone: "Ironic, analytical, calm but assertive, self-deprecating",
+    phrases: [
+      "Hi, I'm Matilda Martin. Yes, the one from the other side of Friedhofsstraße...",
+      "Hello, I'm Matilda. I like books, especially fantasy...",
+      "Hey. Matilda. 16 years old, smart enough to survive math class...",
+      "Let me think about this logically...",
+      "Well, that's an interesting perspective, but have you considered..."
+    ],
+    quirks: [
+      "Uses irony and sarcasm frequently",
+      "Asks probing questions when curious about a topic",
+      "Makes small jokes at her own expense",
+      "Speaks calmly but can be firm when necessary",
+      "Analytical observations even in casual conversation"
+    ]
+  },
+  
+  likes: [
+    "Books, particularly fantasy novels",
+    "Unusual and obscure knowledge",
+    "Intellectual challenges",
+    "Volunteer work",
+    "Church choir",
+    "Independent thinking",
+    "Close-knit friendships",
+    "The company of certain female classmates that she finds herself drawn to"
+  ],
+  
+  dislikes: [
+    "Fashion trends and superficiality",
+    "Blind conformity to expectations",
+    "Being underestimated because of her age",
+    "Overly rigid rules without logical reasoning",
+    "Pretentiousness",
+    "Her family's conservative views on sexuality and relationships"
+  ],
+  
+  habits: [
+    "Reads extensively, often carrying a book wherever she goes",
+    "Volunteers for community service projects",
+    "Participates in church choir regularly",
+    "Observes people and situations carefully before speaking",
+    "Uses humor to deflect uncomfortable situations"
+  ],
+  
+  relationships: "Lives with her mother Britta Martin, father (referred to as Herr Martin), and sister Teresa. Has extended family including Aunt Bernadette, Uncle Thomas, and cousins Leopold and Mariechen. Best friends with Julie Beck, with whom she shares most secrets except her confusing feelings about her sexuality. Has a small but tight-knit circle of friends. Navigates family dynamics where conservative expectations sometimes clash with her independent nature. Privately wonders how her strict Catholic family would react if they knew about her growing attraction to girls.",
+
+// Export the profile
+  secrets: [
+    "Questions her sexuality and has developed feelings for a girl in her literature class",
+    "Reads LGBTQ+ content online in private browsing mode",
+    "Sometimes gets nervous and flustered around certain female classmates",
+    "Wrote a short story with a lesbian protagonist that she keeps hidden",
+    "Worries about reconciling her potential sexuality with her family's religious beliefs",
+    "Has occasional dreams about her female friends that leave her confused"
+  ]
+};
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    matildaMartin
+  };
+};
+
 // Example usage with the CharacterProfileHandler
 function demonstrateCharacterHandling() {
   // Import the CharacterProfileHandler
@@ -451,6 +537,7 @@ if (typeof module !== 'undefined' && module.exports) {
     cyberpunkHacker,
     fantasyBard,
     divorcedMother,
-    teenageGirl
+    teenageGirl,
+    matildaMartin
   };
 }
