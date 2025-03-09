@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Persona - Professional Character Simulation</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -374,6 +376,10 @@
     
     /* For better mobile experience */
     @media (max-width: 768px) {
+      body {
+        font-size: 16px; /* Ensures readable text on mobile */
+      }
+      
       .message {
         max-width: 90%;
       }
@@ -381,6 +387,139 @@
       .character-selection {
         grid-template-columns: 1fr;
       }
+      
+      .navbar-brand {
+        font-size: 1.2rem;
+      }
+      
+      .app-subtitle {
+        display: none; /* Hide subtitle on very small screens */
+      }
+      
+      .card-header {
+        padding: 0.75rem 1rem;
+      }
+      
+      .btn {
+        padding: 0.375rem 0.5rem;
+      }
+      
+      .chat-container {
+        height: calc(100vh - 250px); /* More dynamic height for mobile */
+        padding: 1rem;
+      }
+      
+      .memory-container {
+        height: 250px;
+      }
+      
+      .tooltip-text {
+        width: 250px;
+        margin-left: -125px;
+      }
+    }
+    
+    /* iPhone-specific adjustments */
+    @media (max-width: 428px) { /* Covers iPhone 14 Pro Max width and below */
+      .message-input-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: white;
+        z-index: 1000;
+        padding: 10px;
+        border-top: 1px solid #eaeaea;
+        transition: transform 0.3s ease;
+      }
+      
+      .chat-container {
+        padding-bottom: 70px; /* Space for fixed input container */
+      }
+      
+      .message-avatar {
+        width: 30px;
+        height: 30px;
+      }
+      
+      .message-bubble {
+        max-width: calc(100% - 40px);
+      }
+      
+      .message-input {
+        font-size: 16px; /* Prevent zoom on iOS */
+      }
+      
+      /* Fix safe area issues on iPhone X and newer */
+      .message-input-container {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      }
+      
+      /* Adjustments for when keyboard is open */
+      .message-input-container.keyboard-open {
+        position: absolute;
+        bottom: 0;
+        transform: translateY(-50vh); /* This will be adjusted by JS */
+      }
+    }
+    
+    /* iOS-specific styles */
+    .ios-device {
+      /* Disable overscroll bounce effect */
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .ios-device body {
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      height: 100%;
+    }
+    
+    /* Use CSS variables for dynamic viewport height */
+    .ios-device .chat-container {
+      height: calc(var(--vh, 1vh) * 100 - 250px);
+    }
+    
+    /* Adjust for keyboard visibility */
+    .ios-device .keyboard-visible .chat-container {
+      height: calc(var(--vh, 1vh) * 50); /* Approximately half the screen when keyboard is open */
+    }
+    
+    /* Prevent iOS from zooming on form elements */
+    .ios-device input[type="text"],
+    .ios-device input[type="password"],
+    .ios-device textarea {
+      font-size: 16px;
+    }
+    
+    /* Fix for iOS Safari bottom bar */
+    @supports (-webkit-touch-callout: none) {
+      .message-input-container {
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+      }
+    }
+    
+    /* When keyboard is visible, adjust positioning */
+    .keyboard-visible .message-input-container {
+      position: absolute;
+      bottom: 0;
+    }
+    
+    /* Add tap highlight improvements for iOS */
+    .ios-device a, 
+    .ios-device button,
+    .ios-device input[type="button"],
+    .ios-device .btn {
+      -webkit-tap-highlight-color: rgba(0,0,0,0);
+    }
+    
+    /* Better scrolling for iOS */
+    .ios-device .chat-container,
+    .ios-device .memory-container {
+      -webkit-overflow-scrolling: touch;
     }
   </style>
 </head>
@@ -392,19 +531,19 @@
         <i class="fas fa-comments me-2" style="color: var(--primary-color);"></i>
         Persona <span class="app-subtitle ms-2">Professional Character Simulation</span>
       </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
-          <li class="nav-item">
-            <button id="new-session-btn" class="btn btn-outline-primary me-2">
-              <i class="fas fa-plus-circle me-1"></i> New Session
+          <li class="nav-item mb-2 mb-lg-0 me-lg-2">
+            <button id="new-session-btn" class="btn btn-outline-primary w-100">
+              <i class="fas fa-plus-circle me-1"></i> <span>New Session</span>
             </button>
           </li>
           <li class="nav-item">
-            <button id="load-session-btn" class="btn btn-outline-primary">
-              <i class="fas fa-folder-open me-1"></i> Load Session
+            <button id="load-session-btn" class="btn btn-outline-primary w-100">
+              <i class="fas fa-folder-open me-1"></i> <span>Load Session</span>
             </button>
           </li>
         </ul>
@@ -414,13 +553,13 @@
 
   <div class="container my-4">
     <!-- Session Info Card -->
-    <div id="session-info-card" class="session-info-card d-flex justify-content-between align-items-center" style="display: none;">
-      <div>
-        <span id="session-info" class="fw-semibold">No active session</span>
-        <span class="text-muted ms-2 small" id="save-status"></span>
+    <div id="session-info-card" class="session-info-card d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center" style="display: none;">
+      <div class="mb-2 mb-sm-0">
+        <div id="session-info" class="fw-semibold">No active session</div>
+        <div class="text-muted small" id="save-status"></div>
       </div>
       <button id="save-session-btn" class="btn btn-sm btn-primary" disabled>
-        <i class="fas fa-save me-1"></i> Save Session
+        <i class="fas fa-save me-1"></i> <span>Save Session</span>
       </button>
     </div>
     
@@ -583,12 +722,12 @@
                 </ul>
               </div>
             </div>
-            <div>
+            <div class="d-flex">
               <button id="show-memory" class="btn btn-sm btn-outline-primary me-2">
-                <i class="fas fa-brain me-1"></i> Memory
+                <i class="fas fa-brain"></i> <span class="d-none d-sm-inline">Memory</span>
               </button>
               <button id="compress-memory" class="btn btn-sm btn-primary">
-                <i class="fas fa-compress-alt me-1"></i> Compress
+                <i class="fas fa-compress-alt"></i> <span class="d-none d-sm-inline">Compress</span>
               </button>
             </div>
           </div>
@@ -604,7 +743,7 @@
           <div class="card-body chat-container" id="messages"></div>
           
           <!-- Message input -->
-          <div class="message-input-container">
+          <div class="message-input-container" id="message-input-container">
             <div class="input-group">
               <textarea id="message-input" class="form-control message-input" placeholder="Type your message... (Shift+Enter for new line)" rows="1"></textarea>
               <button id="send-message" class="btn btn-primary send-button">
@@ -684,6 +823,90 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      // Check if on iOS device
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      
+      // Apply iOS-specific adjustments
+      if (isIOS) {
+        document.documentElement.classList.add('ios-device');
+        
+        // Handle iOS keyboard issues
+        const messageInput = document.getElementById('message-input');
+        const messageInputContainer = document.getElementById('message-input-container');
+        const messagesContainer = document.getElementById('messages');
+        
+        // Set viewport height variable for proper sizing
+        function setVhVariable() {
+          const vh = window.innerHeight * 0.01;
+          document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        
+        // Set initially and on resize
+        setVhVariable();
+        window.addEventListener('resize', setVhVariable);
+        
+        if (messageInput) {
+          // Focus event - when keyboard appears
+          messageInput.addEventListener('focus', () => {
+            // Add class for iOS keyboard visibility
+            document.body.classList.add('keyboard-visible');
+            
+            // Add a small delay to let keyboard appear
+            setTimeout(() => {
+              // Scroll to input
+              if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+              }
+              
+              // Add class for fixed positioning adjustments
+              if (messageInputContainer) {
+                messageInputContainer.classList.add('keyboard-open');
+              }
+            }, 300);
+          });
+          
+          // Blur event - when keyboard disappears
+          messageInput.addEventListener('blur', () => {
+            // Remove keyboard visibility class
+            document.body.classList.remove('keyboard-visible');
+            
+            // Remove fixed positioning adjustment class
+            if (messageInputContainer) {
+              messageInputContainer.classList.remove('keyboard-open');
+            }
+          });
+        }
+        
+        // Additional iOS viewport resize detection (mainly for keyboard)
+        let lastViewportHeight = window.innerHeight;
+        
+        window.addEventListener('resize', () => {
+          const currentViewportHeight = window.innerHeight;
+          const diff = lastViewportHeight - currentViewportHeight;
+          
+          // If viewport height becomes significantly smaller, keyboard likely appeared
+          if (diff > 150) {
+            document.body.classList.add('keyboard-visible');
+            if (messagesContainer) {
+              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+          } 
+          // If viewport height becomes significantly larger, keyboard likely disappeared
+          else if (diff < -150) {
+            document.body.classList.remove('keyboard-visible');
+          }
+          
+          lastViewportHeight = currentViewportHeight;
+        });
+      }
+      
+      // Prevent double-tap zoom on buttons
+      document.querySelectorAll('button, .btn').forEach(button => {
+        button.addEventListener('touchend', (e) => {
+          e.preventDefault();
+        });
+      });
+      
       // Function to update model badge
       function updateModelBadge(model) {
         const modelBadge = document.getElementById('model-badge');
