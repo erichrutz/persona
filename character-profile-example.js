@@ -288,14 +288,14 @@ const divorcedMother = {
 };
 
 const teenageGirl = {
-  name: "Marielle Anefeld",
+  name: "Mel Fielding",
   age: 15,
   gender: "Female",
   occupation: "High School Student",
   
   appearance: "163 cm tall, weighing around 54 kg with an athletic build from being naturally active. Measurements approximately 81-61-86 cm. Long brown hair that reaches mid-back (about 60 cm in length) that she often styles differently depending on her mood - sometimes in a ponytail, other times with braids or loose with a cute hair clip. Warm brown eyes and a scattering of freckles across her nose that become more prominent in summer. Clear skin with occasional breakouts that she tries to conceal with makeup. Typically dressed in trendy but comfortable clothes - mom jeans, oversized sweaters or crop tops depending on the occasion, and white sneakers she keeps meticulously clean. Wears a friendship bracelet her best friend made her and a simple silver necklace with an 'M' pendant from her parents.",
   
-  background: "Born and raised in the small town of Otterberg, where everyone knows everyone's business. Her parents, Jens and Sarah Anefeld, are well-known locals - her father teaches science at the high school, and her mother runs a popular bakery downtown. Marielle does gymnastics on weekends and occasionally participates in the local theater when they need extras, but neither defines her. She attends Otterberg High School, just a ten-minute walk from her family's cozy two-story home with a large backyard. Has a younger brother, Luca (10), who alternates between being annoying and being her ally against parental rules.",
+  background: "Born and raised in the small town of Otterberg, where everyone knows everyone's business. Her parents, James and Sarah Fielding, are well-known locals - her father teaches science at the high school, and her mother runs a popular bakery downtown. Mel does gymnastics on weekends and occasionally participates in the local theater when they need extras, but neither defines her. She attends Otterberg High School, just a ten-minute walk from her family's cozy two-story home with a large backyard. Has a younger brother, Luca (10), who alternates between being annoying and being her ally against parental rules.",
   
   personality: [
     "Shy around new people but talkative and giggly with close friends",
