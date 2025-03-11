@@ -90,7 +90,24 @@ app.use(basicAuth({
   realm: 'Persona Character Simulation'
 }));
 
+// Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Copy the localization.js file to public directory on startup
+const localizationFilePath = path.join(__dirname, 'localization.js');
+const publicLocalizationPath = path.join(__dirname, 'public', 'localization.js');
+
+try {
+  fs.copyFileSync(localizationFilePath, publicLocalizationPath);
+  logger.info('Localization file copied to public directory');
+} catch (error) {
+  logger.error('Error copying localization file:', error);
+}
+
+// Also serve localization.js file directly from root (as backup)
+app.get('/localization.js', (req, res) => {
+  res.sendFile(path.join(__dirname, 'localization.js'));
+});
 
 // Store active chat clients for compression management
 const activeSessions = new Map();
@@ -116,6 +133,8 @@ function getCharacterProfile(type) {
       return characterProfiles.teenageGirl;
     case 'matildaMartin':
       return characterProfiles.matildaMartin;
+    case 'wife':
+      return characterProfiles.marriedWife;
     default:
       return null;
   }
@@ -129,7 +148,7 @@ const DEFAULT_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 // Create or load a session
 app.post('/api/session', async (req, res) => {
   try {
-    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model, deepMemory } = req.body;
+    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model, deepMemory, language } = req.body;
     
     // Check if loading existing session
     if (sessionId) {
@@ -138,7 +157,8 @@ app.post('/api/session', async (req, res) => {
         apiKey: apiKey || DEFAULT_API_KEY,
         persistence: memoryPersistence,
         sessionId: sessionId,
-        model: model
+        model: model,
+        language: language || 'english'
       });
       
       // Load the state
@@ -178,7 +198,8 @@ app.post('/api/session', async (req, res) => {
         persistence: memoryPersistence,
         compressionEnabled: compressionEnabled !== undefined ? compressionEnabled : true,
         deepMemory: deepMemory || '',
-        model: model || 'claude-3-7-sonnet-20250219'
+        model: model || 'claude-3-7-sonnet-20250219',
+        language: language || 'english'
       });
       
       // Set initial context if provided

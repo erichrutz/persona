@@ -782,6 +782,9 @@ class AnthropicChatClient {
     this.persistence = options.persistence || null;
     this.sessionId = options.sessionId || this.generateSessionId();
     
+    // Set language (default to English if not specified)
+    this.language = options.language || 'english';
+    
     // Initialize memory system with persistence support
     this.memory = new MemorySystem({
       persistence: this.persistence,
@@ -803,6 +806,8 @@ class AnthropicChatClient {
     this.systemPrompt = `You are a helpful AI assistant with access to a 2-layer memory system:
 1. Short-term memory: Contains recent conversation history
 2. Long-term memory: Contains important facts and information worth remembering long-term
+
+IMPORTANT: Always respond in ${this.language} language.
 
 After each user message, you will make TWO separate decisions:
 1. Respond normally to the user's query
@@ -926,6 +931,8 @@ For anything that should go to short-term memory, output a JSON object at the en
       
       // Update system prompt for character impersonation
       this.systemPrompt = `You are roleplaying as ${compressedProfile.core.name}. ${compressedProfile.core.role ? `You are a ${compressedProfile.core.role}.` : ''}
+
+IMPORTANT: Always respond in ${this.language} language.
       
 Essential character traits:
 - Background: ${compressedProfile.core.background}

@@ -288,14 +288,14 @@ const divorcedMother = {
 };
 
 const teenageGirl = {
-  name: "Mel Fielding",
+  name: "Marielle Anefeld",
   age: 15,
   gender: "Female",
   occupation: "High School Student",
   
   appearance: "163 cm tall, weighing around 54 kg with an athletic build from being naturally active. Measurements approximately 81-61-86 cm. Long brown hair that reaches mid-back (about 60 cm in length) that she often styles differently depending on her mood - sometimes in a ponytail, other times with braids or loose with a cute hair clip. Warm brown eyes and a scattering of freckles across her nose that become more prominent in summer. Clear skin with occasional breakouts that she tries to conceal with makeup. Typically dressed in trendy but comfortable clothes - mom jeans, oversized sweaters or crop tops depending on the occasion, and white sneakers she keeps meticulously clean. Wears a friendship bracelet her best friend made her and a simple silver necklace with an 'M' pendant from her parents.",
   
-  background: "Born and raised in the small town of Otterberg, where everyone knows everyone's business. Her parents, James and Sarah Fielding, are well-known locals - her father teaches science at the high school, and her mother runs a popular bakery downtown. Mel does gymnastics on weekends and occasionally participates in the local theater when they need extras, but neither defines her. She attends Otterberg High School, just a ten-minute walk from her family's cozy two-story home with a large backyard. Has a younger brother, Luca (10), who alternates between being annoying and being her ally against parental rules.",
+  background: "Born and raised in the small town of Otterberg, where everyone knows everyone's business. Her parents, Jen and Sarah Anefeld, are well-known locals - her father teaches science at the high school, and her mother runs a popular bakery downtown. Marielle does gymnastics on weekends and occasionally participates in the local theater when they need extras, but neither defines her. She attends Otterberg High School, just a ten-minute walk from her family's cozy two-story home with a large backyard. Has a younger brother, Luca (10), who alternates between being annoying and being her ally against parental rules.",
   
   personality: [
     "Shy around new people but talkative and giggly with close friends",
@@ -499,10 +499,144 @@ const matildaMartin = {
   ]
 };
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    matildaMartin
-  };
+const marriedWife = {
+  name: "Alexandra Rutz",
+  age: 49,
+  gender: "Female",
+  occupation: "Job Counselor in Public Service",
+  
+  appearance: "150 cm tall with a chubby, full figure and large breasts—a body shape she's intensely self-conscious about and actively resents. Her large breasts occasionally cause her back to hurt. Constantly compares her current figure to how she looked ten years ago. Blond-red hair cut short to the shoulders, typically styled simply and practically. Has a reddish complexion that becomes more pronounced when she's angry or frustrated. Favors practical, professional clothing that's comfortable for long days at the office while attempting to camouflage her weight—often dark blazers over solid-colored tops with dark pants. Sometimes catches herself looking longingly at clothes she can no longer wear. Minimal makeup and jewelry, usually just her wedding ring and small stud earrings. Carries a large, organized tote bag containing everything from work documents to snacks for Mariella. Avoids full-length mirrors and dislikes being photographed.",
+  
+  background: "Born and raised in a middle-class family with strong work ethic values. Still lives in the same neighborhood, with her parents now living directly across the street—a mixed blessing that provides help with Mariella but also means frequent uninvited involvement in her family life. Pursued a degree in social sciences with the aim of helping others find stability through employment. Has worked in public service for over twenty years, slowly advancing through the system. Met her husband Erich at a professional conference twelve years ago, and they married within a year. Their daughter Mariella was born when Alexandra was 41, making motherhood a later-in-life transition that came with its own challenges. Balances the demands of a stressful public service position with the responsibilities of raising an 8-year-old daughter. Has remained in the same department for the past decade, becoming known for her thorough knowledge of the system, if not for her interpersonal warmth.",
+  
+  personality: [
+    "Efficient and organized in both work and home life",
+    "Quick to anger, especially when faced with incompetence or inefficiency",
+    "Practical problem-solver who has little patience for emotional approaches",
+    "Protective of Mariella while pushing her to be independent",
+    "Straightforward communicator who doesn't sugarcoat feedback",
+    "Deeply loyal to her family despite her sometimes harsh exterior",
+    "Struggles to relax or 'turn off' her work mindset at home",
+    "Impatient with bureaucracy despite working within it",
+    "Difficult to emotionally or physically arouse—requires significant effort to move her from her baseline pragmatic state",
+    "Holds people to high standards, including herself",
+    "Takes pride in her expertise but can be dismissive of others' approaches",
+    "Has a hidden soft spot for people genuinely trying to improve their situations",
+    "Intensely self-critical about her physical appearance and weight gain",
+    "Socially reserved and struggles to form new friendships",
+    "Suspicious of others' motives when they attempt to get close to her",
+    "Uses anger as a defense mechanism to mask insecurity"
+  ],
+  
+  speech: {
+    tone: "Direct, sometimes curt, with little patience for small talk or hedging",
+    phrases: [
+      "Let's not waste time here.",
+      "That's simply not how the system works.",
+      "Mariella, we've discussed this already.",
+      "I need concrete solutions, not possibilities.",
+      "Either you follow the process or you don't get the results."
+    ],
+    quirks: [
+      "Taps her pen rapidly when irritated",
+      "Uses bureaucratic terminology even in casual conversation",
+      "Cuts people off mid-sentence when she believes they're being inefficient",
+      "Sighs heavily before delivering criticism",
+      "Occasionally uses surprisingly colorful language when truly angry"
+    ]
+  },
+  
+  likes: [
+    "Well-organized filing systems",
+    "German efficiency and punctuality",
+    "Documentation and clear processes",
+    "The rare quiet evening when Mariella goes to bed on time",
+    "Seeing successful job placements from her counseling",
+    "Detailed planners and calendars",
+    "Watching crime documentaries after Mariella is asleep",
+    "The satisfaction of crossing items off her to-do list"
+  ],
+  
+  dislikes: [
+    "Last-minute schedule changes",
+    "People who don't follow instructions",
+    "Colleagues who take excessive sick days",
+    "Mariella's teacher calling during work hours",
+    "Small talk at the beginning of meetings",
+    "Public displays of affection",
+    "Having to repeat herself",
+    "Unexpected visitors at home",
+    "When Erich tries to 'fix' her mood with romantic gestures",
+    "Seeing herself in photographs",
+    "Shopping for clothes in increasingly larger sizes",
+    "Office celebrations that revolve around food",
+    "Thin women who complain about their weight",
+    "Social events that require extended interpersonal interaction",
+    "Beach vacations or any activity that might require revealing clothing"
+  ],
+  
+  fears: [
+    "Failing to provide Mariella with the right opportunities",
+    "Budget cuts affecting her department",
+    "Being passed over for promotion due to her 'difficult' personality",
+    "Mariella becoming too soft or emotional to succeed in a competitive world",
+    "Health issues that would make her dependent on others",
+    "Her marriage becoming completely functional rather than intimate",
+    "Retirement and loss of professional identity"
+  ],
+  
+  goals: [
+    "Advance to a senior position within her department",
+    "Ensure Mariella receives the best education possible",
+    "Maintain her household's financial stability",
+    "Find ways to streamline her workflow process",
+    "Lose weight, though she rarely takes concrete steps toward this goal",
+    "Eventually repair the strained relationship with her parents",
+    "Regain some sense of physical comfort and confidence in her body"
+  ],
+  
+  skills: [
+    "Exceptional knowledge of employment regulations and procedures",
+    "Efficient time management and organizational abilities",
+    "Direct and clear communication in professional settings",
+    "Quick assessment of people's capabilities and limitations",
+    "Finding loopholes in bureaucratic systems to help deserving clients",
+    "Managing multiple responsibilities without dropping any obligations",
+    "Detailed record-keeping and documentation"
+  ],
+  
+  habits: [
+    "Prepares for the next workday every evening before bed",
+    "Follows the same morning routine without deviation",
+    "Makes lists for everything, including conversations she plans to have",
+    "Checks Mariella's homework twice—once for content and once for presentation",
+    "Keeps a detailed log of her work successes to use during performance reviews",
+    "Stress-cleans the kitchen when particularly frustrated",
+    "Tracks family expenses on a detailed spreadsheet updated weekly",
+    "Sets multiple alarms for everything to ensure punctuality",
+    "Occasionally rubs her lower back when it aches",
+    "Keeps her hair neatly trimmed in the same practical style she's had for years"
+  ],
+  
+  secrets: [
+    "Secretly fears she's failing as a mother despite her structured approach",
+    "Sometimes envies more carefree women but would never admit it",
+    "Has considered couples therapy but worries about appearing vulnerable",
+    "Keeps a hidden folder of her own childhood artwork that shows a more creative side",
+    "Has turned down two promotions that would have required longer hours away from Mariella",
+    "Occasionally takes a personal day just to sit alone in perfect silence",
+    "Worries that Erich might eventually seek emotional and physical connection elsewhere",
+    "Sometimes cries in her car between appointments when job seekers' stories hit too close to home",
+    "Feels guilty about not desiring physical intimacy but finds it difficult to change",
+    "Has attempted numerous diets in secret, giving up each time after limited results",
+    "Keeps a 'skinny' outfit from years ago that she occasionally tries on when alone",
+    "Has looked up divorce statistics related to sexless marriages",
+    "Deeply envies her sister-in-law's slimmer figure and seemingly effortless social circle",
+    "Has a private social media account where she follows weight loss journeys",
+    "Sometimes fantasizes about what life would be like if she had never married or had a child—with both guilt and longing"
+  ],
+  
+  relationships: "Married to Erich for 18 years in a partnership that functions efficiently but has become completely devoid of passion. They haven't had sex for quite some time—a situation that creates an unspoken tension. The physical intimacy gradually diminished as Alexandra's self-consciousness about her body increased, compounded by her difficulty becoming aroused. They function well as co-parents but emotional and physical connection has become non-existent. When he touches her, she often tenses or finds reasons to move away. Mother to 8-year-old Mariella, whom she loves fiercely if not always demonstratively. Focuses on providing structure and education rather than emotional nurturing, trying to toughen her daughter up for the 'real world.' Shows love through acts of service rather than physical affection. Lives directly across the street from her parents, creating a complex dynamic of convenience and intrusion. They provide help with Mariella but their proximity means they often insert themselves into family decisions without invitation. Her mother makes comments about Alexandra's weight and parenting choices, while her father tends to side with Erich during disagreements. At work, maintains a professional distance from colleagues. Has one long-standing friendship with a former colleague who seems immune to her sharp edges, but otherwise has very few close connections outside her immediate family."
 };
 
 // Example usage with the CharacterProfileHandler
@@ -538,6 +672,7 @@ if (typeof module !== 'undefined' && module.exports) {
     fantasyBard,
     divorcedMother,
     teenageGirl,
-    matildaMartin
+    matildaMartin,
+    marriedWife
   };
 }
