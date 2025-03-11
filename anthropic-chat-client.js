@@ -49,6 +49,7 @@ class MemorySystem {
     this.shortTermMemory = options.shortTermMemory || [];
     this.shortTermMemoryDetailled = options.shortTermMemoryDetailled || [];
     this.longTermMemory = options.longTermMemory || [];
+    this.deepMemory = options.deepMemory || ''; // New deep memory that's never compressed
     this.shortTermMemoryLimit = options.shortTermMemoryLimit || 7;
     this.shortTermMemoryDetailedLimit = options.shortTermMemoryDetailedLimit || 2;
     
@@ -278,6 +279,13 @@ class MemorySystem {
     const MAX_MEMORIES = 7; // Slightly increased to accommodate structured topics
     let context = "";
     
+    // Add deep memory first as it's the most important
+    if (this.deepMemory && this.deepMemory.trim() !== '') {
+      context += "DEEP MEMORY (CRITICAL INFORMATION):\n";
+      context += this.deepMemory;
+      context += "\n\n";
+    }
+    
     // Add short-term memory (recent conversation) - but only the most recent 3 messages
     if (this.shortTermMemory.length > 0) {
       const recentMessages = this.shortTermMemory.slice(-3); // Only take the last 3 messages
@@ -473,6 +481,13 @@ class MemorySystem {
   getAllMemoriesForPrompt() {
     let context = "";
     
+    // Add deep memory with special emphasis
+    if (this.deepMemory && this.deepMemory.trim() !== '') {
+      context += "DEEP MEMORY (CRITICAL INFORMATION - NEVER FORGET):\n";
+      context += this.deepMemory;
+      context += "\n\n(IMPORTANT: The information above is critical and must always be respected in your responses)\n\n";
+    }
+    
     // Add short-term memory
     if (this.shortTermMemory.length > 0) {
       context += "Recent conversation:\n";
@@ -646,11 +661,29 @@ class MemorySystem {
     }
   }
 
+  // Add or update deep memory
+  setDeepMemory(content) {
+    this.deepMemory = content;
+    
+    // Auto-save if enabled
+    if (this.autoSave && this.persistence && this.sessionId) {
+      this.saveToStorage();
+    }
+    
+    return { success: true };
+  }
+  
+  // Get deep memory content
+  getDeepMemory() {
+    return this.deepMemory;
+  }
+  
   // Get full memory contents (for debugging)
   getMemoryContents() {
     return {
       shortTerm: [...this.shortTermMemory, ...this.shortTermMemoryDetailled],
       longTerm: this.longTermMemory,
+      deepMemory: this.deepMemory,
       compressionMetadata: this.compressionMetadata
     };
   }
@@ -663,8 +696,9 @@ class MemorySystem {
     
     try {
       const memoryState = {
-        shortTermMemory:  [...this.shortTermMemory, ...this.shortTermMemoryDetailled],
+        shortTermMemory: [...this.shortTermMemory, ...this.shortTermMemoryDetailled],
         longTermMemory: this.longTermMemory,
+        deepMemory: this.deepMemory,
         compressionMetadata: this.compressionMetadata,
         timestamp: new Date().toISOString()
       };
@@ -692,6 +726,7 @@ class MemorySystem {
       // Update memory from loaded state
       this.shortTermMemory = loadedState.memoryState.shortTermMemory || [];
       this.longTermMemory = loadedState.memoryState.longTermMemory || [];
+      this.deepMemory = loadedState.memoryState.deepMemory || '';
   
       // Load compression metadata if available
       if (loadedState.memoryState.compressionMetadata) {
@@ -755,6 +790,7 @@ class AnthropicChatClient {
       shortTermMemoryLimit: options.shortTermMemoryLimit || 10,
       shortTermMemory: options.shortTermMemory || [],
       longTermMemory: options.longTermMemory || [],
+      deepMemory: options.deepMemory || '',
       compressionEnabled: options.compressionEnabled !== undefined ? options.compressionEnabled : true
     });
     
@@ -1535,6 +1571,23 @@ For anything important to remember add this JSON block at the end of your respon
       compressionCount: this.memory.compressionMetadata.compressionCount,
       isCurrentlyCompressing: false // This would need proper tracking
     };
+  }
+  
+  // Set deep memory
+  async setDeepMemory(content) {
+    const result = this.memory.setDeepMemory(content);
+    
+    // Save state if persistence is enabled
+    if (this.persistence) {
+      await this.saveState();
+    }
+    
+    return result;
+  }
+  
+  // Get deep memory
+  getDeepMemory() {
+    return this.memory.getDeepMemory();
   }
 }
 

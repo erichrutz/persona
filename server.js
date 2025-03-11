@@ -129,7 +129,7 @@ const DEFAULT_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 // Create or load a session
 app.post('/api/session', async (req, res) => {
   try {
-    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model } = req.body;
+    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model, deepMemory } = req.body;
     
     // Check if loading existing session
     if (sessionId) {
@@ -177,12 +177,18 @@ app.post('/api/session', async (req, res) => {
         characterProfile: profile,
         persistence: memoryPersistence,
         compressionEnabled: compressionEnabled !== undefined ? compressionEnabled : true,
+        deepMemory: deepMemory || '',
         model: model || 'claude-3-7-sonnet-20250219'
       });
       
       // Set initial context if provided
       if (startScenario) {
         chatClient.initialContext = startScenario;
+      }
+      
+      // Set deep memory if provided
+      if (deepMemory) {
+        await chatClient.setDeepMemory(deepMemory);
       }
       
       // Save state
@@ -354,6 +360,56 @@ app.post('/api/compression/toggle', async (req, res) => {
     res.json({ success: true, enabled: result.enabled });
   } catch (error) {
     logger.error('Error toggling compression:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update deep memory
+app.post('/api/deep-memory/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { content } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+    
+    // Get chat client for this session
+    let chatClient = activeSessions.get(sessionId);
+    
+    // If not in active sessions, try to load it
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId
+      });
+      
+      const loadResult = await chatClient.loadState(sessionId);
+      
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      // Add to active sessions
+      activeSessions.set(sessionId, chatClient);
+    }
+    
+    // Set deep memory
+    await chatClient.setDeepMemory(content);
+    
+    // Save state
+    await chatClient.saveState();
+    
+    // Get updated memory state
+    const memoryState = chatClient.getMemoryState();
+    
+    res.json({
+      success: true,
+      memoryState
+    });
+  } catch (error) {
+    logger.error('Error updating deep memory:', error);
     res.status(500).json({ error: error.message });
   }
 });
