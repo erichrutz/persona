@@ -492,6 +492,18 @@
             </div>
           </div>
           
+          <!-- Deep Memory Configuration -->
+          <div class="card mt-3">
+            <div class="card-header">Deep Memory</div>
+            <div class="card-body">
+              <div class="form-floating mb-3">
+                <textarea class="form-control" id="deep-memory" rows="3" style="height: 100px"></textarea>
+                <label for="deep-memory">Persistent Deep Memory</label>
+                <div class="form-text">Add important information that will never be compressed or forgotten. This will always be included with each prompt.</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Advanced Options -->
           <div class="card mt-3">
             <div class="card-header">Advanced Options</div>
@@ -628,6 +640,9 @@
                 <button class="nav-link" id="long-term-tab" data-bs-toggle="tab" data-bs-target="#long-term-content" type="button" role="tab">Long-Term</button>
               </li>
               <li class="nav-item" role="presentation">
+                <button class="nav-link" id="deep-memory-tab" data-bs-toggle="tab" data-bs-target="#deep-memory-content" type="button" role="tab">Deep Memory</button>
+              </li>
+              <li class="nav-item" role="presentation">
                 <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats-content" type="button" role="tab">Stats</button>
               </li>
             </ul>
@@ -644,6 +659,20 @@
               <div class="tab-pane fade h-100" id="long-term-content" role="tabpanel">
                 <div class="memory-container h-100">
                   <ul id="long-term-memory" class="list-unstyled"></ul>
+                </div>
+              </div>
+              
+              <!-- Deep Memory Tab -->
+              <div class="tab-pane fade h-100" id="deep-memory-content" role="tabpanel">
+                <div class="memory-container h-100">
+                  <div id="deep-memory-display" class="mb-3"></div>
+                  <div class="form-floating mb-3">
+                    <textarea class="form-control" id="update-deep-memory" rows="3" style="height: 100px"></textarea>
+                    <label for="update-deep-memory">Update Deep Memory</label>
+                  </div>
+                  <button id="save-deep-memory" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i> Save Deep Memory
+                  </button>
                 </div>
               </div>
               
@@ -1050,12 +1079,16 @@
         const modelSelect = document.getElementById('model-select');
         const selectedModel = modelSelect ? modelSelect.value : 'claude-3-7-sonnet-20250219';
         
+        // Get deep memory if provided
+        const deepMemory = document.getElementById('deep-memory').value.trim();
+        
         // Prepare request data
         const requestData = {
           characterType: selectedCharacterType,
           apiKey: apiKey || null,
           startScenario: startScenario,
           compressionEnabled: compressionEnabled,
+          deepMemory: deepMemory,
           model: selectedModel
         };
         
@@ -1501,12 +1534,61 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
       
+      // Handle deep memory save
+      if (document.getElementById('save-deep-memory')) {
+        document.getElementById('save-deep-memory').addEventListener('click', async () => {
+          if (!activeSessionId) return;
+          
+          const deepMemoryContent = document.getElementById('update-deep-memory').value.trim();
+          
+          try {
+            const response = await fetch(`/api/deep-memory/${activeSessionId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                content: deepMemoryContent
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              // Update memory display if visible
+              if (memoryPanel.style.display !== 'none') {
+                updateMemoryDisplay(data.memoryState);
+              }
+              
+              addSystemMessage('Deep memory updated successfully');
+            } else {
+              addSystemMessage(`Error updating deep memory: ${data.error}`);
+            }
+          } catch (error) {
+            console.error('Error updating deep memory:', error);
+            addSystemMessage(`Error updating deep memory: ${error.message}`);
+          }
+        });
+      }
+      
       function updateMemoryDisplay(memoryState) {
         if (!memoryState) return;
         
         // Clear current memory display
         shortTermMemoryList.innerHTML = '';
         longTermMemoryList.innerHTML = '';
+        
+        // Update deep memory display
+        const deepMemoryDisplay = document.getElementById('deep-memory-display');
+        const updateDeepMemoryInput = document.getElementById('update-deep-memory');
+        
+        if (deepMemoryDisplay && memoryState.deepMemory) {
+          deepMemoryDisplay.innerHTML = `<div class="card p-3 bg-light"><h5>Current Deep Memory:</h5><p>${memoryState.deepMemory.replace(/\n/g, '<br>')}</p></div>`;
+        }
+        
+        if (updateDeepMemoryInput && memoryState.deepMemory) {
+          updateDeepMemoryInput.value = memoryState.deepMemory;
+        }
         
         // Add short-term memory items
         if (memoryState.shortTerm && Array.isArray(memoryState.shortTerm)) {
