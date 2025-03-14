@@ -452,7 +452,8 @@
               <option value="wife" data-i18n="character_married_wife">Alexandra Rutz - Married Wife</option>
               <option value="detective" data-i18n="character_inspector">Inspector Blackwood - Analytical problem solver</option>
               <option value="girl" data-i18n="character_teenage_girl">Teenage girl - Adolescent problems</option>
-              <option value="matildaMartin" data-i18n="character_matilda">Matilda</option>
+              <option value="matildaMartin" data-i18n="character_matilda">Matilda - A fantasy novel hero</option>
+              <option value="adiposeGirl" data-i18n="character_adipose_girl">Adipose girl - Body looks discussions</option>
               <option value="custom" data-i18n="character_custom">Custom Character - Create your own</option>
             </select>
             <div class="form-text" data-i18n="character_select_help">Select a character type for your conversation simulation.</div>
@@ -927,6 +928,11 @@
               case 'matildaMartin':
                 characterTitle.textContent = 'Matilda Martin';
                 characterDescription.textContent = 'Character from german fantasy novel.';
+                characterPreview.style.backgroundColor = '#4a6572';
+                break;
+              case 'adiposeGirl':
+                characterTitle.textContent = 'Alina Becker';
+                characterDescription.textContent = 'Chubby girl with no friends';
                 characterPreview.style.backgroundColor = '#4a6572';
                 break;
               case 'custom':
