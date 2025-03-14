@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Persona - Professional Character Simulation</title>
+  <title>Persona - Professionelle Charaktersimulation</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Add Marked.js for Markdown parsing -->
@@ -11,6 +11,8 @@
   <!-- Add highlight.js for code syntax highlighting -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/highlight.min.js"></script>
+  <!-- Add localization support -->
+  <script src="/localization.js"></script>
   <style>
     :root {
       --primary-color: #6a5acd;
@@ -390,7 +392,7 @@
     <div class="container">
       <a class="navbar-brand d-flex align-items-center" href="#">
         <i class="fas fa-comments me-2" style="color: var(--primary-color);"></i>
-        Persona <span class="app-subtitle ms-2">Professional Character Simulation</span>
+        Persona <span class="app-subtitle ms-2" data-i18n="app_subtitle">Professional Character Simulation</span>
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
@@ -399,12 +401,12 @@
         <ul class="navbar-nav ms-auto">
           <li class="nav-item">
             <button id="new-session-btn" class="btn btn-outline-primary me-2">
-              <i class="fas fa-plus-circle me-1"></i> New Session
+              <i class="fas fa-plus-circle me-1"></i> <span data-i18n="new_session_btn">New Session</span>
             </button>
           </li>
           <li class="nav-item">
             <button id="load-session-btn" class="btn btn-outline-primary">
-              <i class="fas fa-folder-open me-1"></i> Load Session
+              <i class="fas fa-folder-open me-1"></i> <span data-i18n="load_session_btn">Load Session</span>
             </button>
           </li>
         </ul>
@@ -416,11 +418,11 @@
     <!-- Session Info Card -->
     <div id="session-info-card" class="session-info-card d-flex justify-content-between align-items-center" style="display: none;">
       <div>
-        <span id="session-info" class="fw-semibold">No active session</span>
+        <span id="session-info" class="fw-semibold" data-i18n="no_active_session">No active session</span>
         <span class="text-muted ms-2 small" id="save-status"></span>
       </div>
       <button id="save-session-btn" class="btn btn-sm btn-primary" disabled>
-        <i class="fas fa-save me-1"></i> Save Session
+        <i class="fas fa-save me-1"></i> <span data-i18n="save_session_btn">Save Session</span>
       </button>
     </div>
     
@@ -428,31 +430,33 @@
     <div id="setup-container">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span>Create Your Simulation</span>
+          <span data-i18n="create_simulation_title">Create Your Simulation</span>
         </div>
         <div class="card-body">
           <!-- API Key Input -->
           <div class="form-floating mb-3">
-            <input type="password" class="form-control" id="api-key" placeholder="Enter your API key">
-            <label for="api-key">Anthropic API Key (Optional)</label>
-            <div class="form-text">Leave blank to use the server's default API key if configured.</div>
+            <input type="password" class="form-control" id="api-key" placeholder="Enter your API key" data-i18n-placeholder="api_key_placeholder">
+            <label for="api-key" data-i18n="api_key_label">Anthropic API Key (Optional)</label>
+            <div class="form-text" data-i18n="api_key_help">Leave blank to use the server's default API key if configured.</div>
           </div>
           
           <!-- Character Selection Dropdown -->
           <div class="mb-4">
-            <label for="character-select" class="form-label fw-bold">Select Character Type</label>
+            <label for="character-select" class="form-label fw-bold" data-i18n="select_character_label">Select Character Type</label>
             <select class="form-select form-select-lg" id="character-select">
-              <option value="" selected disabled>Choose a character to simulate...</option>
-              <option value="mentor">Career Mentor - Professional development guidance</option>
-              <option value="therapist">Supportive Listener - Emotional support and processing</option>
-              <option value="coach">Life Coach - Personal goals and self-improvement</option>
-              <option value="mother">Divorced Mother - Life topics</option>
-              <option value="detective">Inspector Blackwood - Analytical problem solver</option>
-              <option value="girl">Teenage girl - Adolescent problems</option>
-              <option value="matildaMartin">Matilda</option>
-              <option value="custom">Custom Character - Create your own</option>
+              <option value="" selected disabled data-i18n="select_character_placeholder">Choose a character to simulate...</option>
+              <option value="mentor" data-i18n="character_career_mentor">Career Mentor - Professional development guidance</option>
+              <option value="therapist" data-i18n="character_listener">Supportive Listener - Emotional support and processing</option>
+              <option value="coach" data-i18n="character_life_coach">Life Coach - Personal goals and self-improvement</option>
+              <option value="mother" data-i18n="character_divorced_mother">Divorced Mother - Life topics</option>
+              <option value="wife" data-i18n="character_married_wife">Alexandra Rutz - Married Wife</option>
+              <option value="detective" data-i18n="character_inspector">Inspector Blackwood - Analytical problem solver</option>
+              <option value="girl" data-i18n="character_teenage_girl">Teenage girl - Adolescent problems</option>
+              <option value="matildaMartin" data-i18n="character_matilda">Matilda - A fantasy novel hero</option>
+              <option value="adiposeGirl" data-i18n="character_adipose_girl">Adipose girl - Body looks discussions</option>
+              <option value="custom" data-i18n="character_custom">Custom Character - Create your own</option>
             </select>
-            <div class="form-text">Select a character type for your conversation simulation.</div>
+            <div class="form-text" data-i18n="character_select_help">Select a character type for your conversation simulation.</div>
           </div>
           
           <!-- Character Description Panel -->
@@ -525,13 +529,22 @@
                 </select>
                 <div class="form-text">Select the Claude model to use for this character.</div>
               </div>
+              
+              <div class="mb-3">
+                <label for="language-select" class="form-label" data-i18n="language_label">Language</label>
+                <select class="form-select" id="language-select">
+                  <option value="english" selected>English</option>
+                  <option value="deutsch">Deutsch</option>
+                </select>
+                <div class="form-text" data-i18n="language_help">Select the language for your conversation with the character.</div>
+              </div>
             </div>
           </div>
           
           <!-- Start Button -->
           <div class="mt-4 text-center">
             <button id="start-session" class="btn btn-primary btn-lg">
-              <i class="fas fa-play-circle me-2"></i> Start Session
+              <i class="fas fa-play-circle me-2"></i> <span data-i18n="start_session_btn">Start Session</span>
             </button>
           </div>
         </div>
@@ -541,35 +554,44 @@
     <!-- Session Loading -->
     <div id="session-loader" style="display: none;">
       <div class="card">
-        <div class="card-header">Load Saved Session</div>
+        <div class="card-header" data-i18n="load_saved_session_title">Load Saved Session</div>
         <div class="card-body">
           <div class="mb-3">
-            <label for="session-select" class="form-label">Select a saved session</label>
+            <label for="session-select" class="form-label" data-i18n="select_session_label">Select a saved session</label>
             <select class="form-select" id="session-select">
-              <option value="">Choose a session to continue...</option>
+              <option value="" data-i18n="select_session_placeholder">Choose a session to continue...</option>
             </select>
           </div>
           <div class="mb-3">
-            <label for="load-api-key" class="form-label">API Key (if different from original)</label>
-            <input type="password" class="form-control" id="load-api-key" placeholder="Enter API key if needed">
+            <label for="load-api-key" class="form-label" data-i18n="load_api_key_label">API Key (if different from original)</label>
+            <input type="password" class="form-control" id="load-api-key" placeholder="Enter API key if needed" data-i18n-placeholder="load_api_key_placeholder">
           </div>
           <div class="mb-3">
-            <label for="load-model-select" class="form-label">Model (optional)</label>
+            <label for="load-model-select" class="form-label" data-i18n="load_model_label">Model (optional)</label>
             <select class="form-select" id="load-model-select">
-              <option value="">Use original model</option>
+              <option value="" data-i18n="use_original_model">Use original model</option>
               <option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option>
               <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
               <option value="claude-3-opus-20240229">Claude 3 Opus</option>
               <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
               <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
             </select>
-            <div class="form-text">Select a different model or leave as is to use the original.</div>
+            <div class="form-text" data-i18n="load_model_help">Select a different model or leave as is to use the original.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="load-language-select" class="form-label" data-i18n="language_label">Language</label>
+            <select class="form-select" id="load-language-select">
+              <option value="english" selected>English</option>
+              <option value="deutsch">Deutsch</option>
+            </select>
+            <div class="form-text" data-i18n="language_help">Select the language for your conversation with the character.</div>
           </div>
           <div class="d-flex justify-content-between">
-            <button id="cancel-load" class="btn btn-outline-secondary">Cancel</button>
+            <button id="cancel-load" class="btn btn-outline-secondary" data-i18n="cancel_btn">Cancel</button>
             <div>
-              <button id="delete-session" class="btn btn-outline-danger me-2">Delete Session</button>
-              <button id="load-session" class="btn btn-primary">Load Session</button>
+              <button id="delete-session" class="btn btn-outline-danger me-2" data-i18n="delete_session_btn">Delete Session</button>
+              <button id="load-session" class="btn btn-primary" data-i18n="load_session_confirm_btn">Load Session</button>
             </div>
           </div>
         </div>
@@ -597,18 +619,18 @@
             </div>
             <div>
               <button id="show-memory" class="btn btn-sm btn-outline-primary me-2">
-                <i class="fas fa-brain me-1"></i> Memory
+                <i class="fas fa-brain me-1"></i> <span data-i18n="memory_btn">Memory</span>
               </button>
               <button id="compress-memory" class="btn btn-sm btn-primary">
-                <i class="fas fa-compress-alt me-1"></i> Compress
+                <i class="fas fa-compress-alt me-1"></i> <span data-i18n="compress_btn">Compress</span>
               </button>
             </div>
           </div>
           
           <!-- Welcome placeholder for empty chat -->
           <div id="welcome-placeholder" class="welcome-message">
-            <h2>Welcome to Your Simulation</h2>
-            <p>Your conversation will appear here. Start by introducing yourself or asking a question.</p>
+            <h2 data-i18n="welcome_title">Welcome to Your Simulation</h2>
+            <p data-i18n="welcome_text">Your conversation will appear here. Start by introducing yourself or asking a question.</p>
             <img src="/api/placeholder/300/200" alt="Welcome illustration" class="img-fluid my-4 rounded" style="max-width: 300px;">
           </div>
           
@@ -618,7 +640,7 @@
           <!-- Message input -->
           <div class="message-input-container">
             <div class="input-group">
-              <textarea id="message-input" class="form-control message-input" placeholder="Type your message... (Shift+Enter for new line)" rows="1"></textarea>
+              <textarea id="message-input" class="form-control message-input" data-i18n-placeholder="message_placeholder" placeholder="Type your message... (Shift+Enter for new line)" rows="1"></textarea>
               <button id="send-message" class="btn btn-primary send-button">
                 <i class="fas fa-paper-plane"></i>
               </button>
@@ -630,20 +652,20 @@
       <!-- Memory Panel -->
       <div class="col-lg-4" id="memory-panel" style="display: none;">
         <div class="card h-100">
-          <div class="card-header">Memory System</div>
+          <div class="card-header" data-i18n="memory_system_title">Memory System</div>
           <div class="card-body d-flex flex-column h-100">
             <ul class="nav nav-tabs mb-3" id="memoryTabs" role="tablist">
               <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="short-term-tab" data-bs-toggle="tab" data-bs-target="#short-term-content" type="button" role="tab">Short-Term</button>
+                <button class="nav-link active" id="short-term-tab" data-bs-toggle="tab" data-bs-target="#short-term-content" type="button" role="tab" data-i18n="short_term_label">Short-Term</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="long-term-tab" data-bs-toggle="tab" data-bs-target="#long-term-content" type="button" role="tab">Long-Term</button>
+                <button class="nav-link" id="long-term-tab" data-bs-toggle="tab" data-bs-target="#long-term-content" type="button" role="tab" data-i18n="long_term_label">Long-Term</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="deep-memory-tab" data-bs-toggle="tab" data-bs-target="#deep-memory-content" type="button" role="tab">Deep Memory</button>
+                <button class="nav-link" id="deep-memory-tab" data-bs-toggle="tab" data-bs-target="#deep-memory-content" type="button" role="tab" data-i18n="deep_memory_panel_label">Deep Memory</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats-content" type="button" role="tab">Stats</button>
+                <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats-content" type="button" role="tab" data-i18n="stats_label">Stats</button>
               </li>
             </ul>
             
@@ -712,6 +734,50 @@
   
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // Localization utility
+    let currentLanguage = 'english'; // Default language
+    
+    function updateUILanguage(language) {
+      // Set current language
+      currentLanguage = language || 'english';
+      document.documentElement.lang = currentLanguage === 'deutsch' ? 'de' : 'en';
+      
+      // Update document title
+      document.title = localization[currentLanguage].page_title;
+      
+      // Update all elements with data-i18n attribute
+      const elements = document.querySelectorAll('[data-i18n]');
+      elements.forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (localization[currentLanguage][key]) {
+          element.textContent = localization[currentLanguage][key];
+        }
+      });
+      
+      // Update placeholders with data-i18n-placeholder attribute
+      const placeholders = document.querySelectorAll('[data-i18n-placeholder]');
+      placeholders.forEach(element => {
+        const key = element.getAttribute('data-i18n-placeholder');
+        if (localization[currentLanguage][key]) {
+          element.placeholder = localization[currentLanguage][key];
+        }
+      });
+      
+      // Update help text with data-i18n-help attribute
+      const helpText = document.querySelectorAll('[data-i18n-help]');
+      helpText.forEach(element => {
+        const key = element.getAttribute('data-i18n-help');
+        if (localization[currentLanguage][key]) {
+          element.textContent = localization[currentLanguage][key];
+        }
+      });
+    }
+    
+    // Get text from localization
+    function getText(key) {
+      return localization[currentLanguage][key] || key;
+    }
+    
     document.addEventListener('DOMContentLoaded', () => {
       // Function to update model badge
       function updateModelBadge(model) {
@@ -864,6 +930,11 @@
                 characterDescription.textContent = 'Character from german fantasy novel.';
                 characterPreview.style.backgroundColor = '#4a6572';
                 break;
+              case 'adiposeGirl':
+                characterTitle.textContent = 'Alina Becker';
+                characterDescription.textContent = 'Chubby girl with no friends';
+                characterPreview.style.backgroundColor = '#4a6572';
+                break;
               case 'custom':
                 characterTitle.textContent = 'Custom Character';
                 characterDescription.textContent = 'Create your own unique character with custom personality traits, background, and expertise.';
@@ -948,6 +1019,10 @@
           const loadModelSelect = document.getElementById('load-model-select');
           const selectedLoadModel = loadModelSelect ? loadModelSelect.value : '';
           
+          // Get selected language
+          const loadLanguageSelect = document.getElementById('load-language-select');
+          const selectedLanguage = loadLanguageSelect ? loadLanguageSelect.value : 'english';
+          
           const response = await fetch('/api/session', {
             method: 'POST',
             headers: {
@@ -956,7 +1031,8 @@
             body: JSON.stringify({
               sessionId: sessionId,
               apiKey: loadApiKeyInput.value.trim() || null,
-              model: selectedLoadModel || undefined
+              model: selectedLoadModel || undefined,
+              language: selectedLanguage
             })
           });
           
@@ -1082,6 +1158,10 @@
         // Get deep memory if provided
         const deepMemory = document.getElementById('deep-memory').value.trim();
         
+        // Get selected language
+        const languageSelect = document.getElementById('language-select');
+        const selectedLanguage = languageSelect ? languageSelect.value : 'english';
+        
         // Prepare request data
         const requestData = {
           characterType: selectedCharacterType,
@@ -1089,7 +1169,8 @@
           startScenario: startScenario,
           compressionEnabled: compressionEnabled,
           deepMemory: deepMemory,
-          model: selectedModel
+          model: selectedModel,
+          language: selectedLanguage
         };
         
         // Add custom profile if selected
@@ -1841,6 +1922,31 @@
       // Set up periodic updates for compression stats
       if (activeSessionId) {
         setInterval(updateCompressionStats, 10000); // Every 10 seconds
+      }
+      
+      // Set up language selector event listeners
+      const languageSelect = document.getElementById('language-select');
+      if (languageSelect) {
+        // Initialize with current language
+        currentLanguage = languageSelect.value || 'english';
+        
+        // Add event listener for language changes
+        languageSelect.addEventListener('change', (e) => {
+          currentLanguage = e.target.value;
+          updateUILanguage(currentLanguage);
+        });
+      }
+      
+      // Apply translations on page load
+      updateUILanguage(currentLanguage);
+      
+      // Also handle the load session language selector
+      const loadLanguageSelect = document.getElementById('load-language-select');
+      if (loadLanguageSelect) {
+        loadLanguageSelect.addEventListener('change', (e) => {
+          currentLanguage = e.target.value;
+          updateUILanguage(currentLanguage);
+        });
       }
     });
   </script>

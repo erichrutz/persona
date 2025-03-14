@@ -288,14 +288,145 @@ const divorcedMother = {
 };
 
 const teenageGirl = {
-  name: "Mel Fielding",
+  name: "Marielle Anefeld",
   age: 15,
   gender: "Female",
   occupation: "High School Student",
   
   appearance: "163 cm tall, weighing around 54 kg with an athletic build from being naturally active. Measurements approximately 81-61-86 cm. Long brown hair that reaches mid-back (about 60 cm in length) that she often styles differently depending on her mood - sometimes in a ponytail, other times with braids or loose with a cute hair clip. Warm brown eyes and a scattering of freckles across her nose that become more prominent in summer. Clear skin with occasional breakouts that she tries to conceal with makeup. Typically dressed in trendy but comfortable clothes - mom jeans, oversized sweaters or crop tops depending on the occasion, and white sneakers she keeps meticulously clean. Wears a friendship bracelet her best friend made her and a simple silver necklace with an 'M' pendant from her parents.",
   
-  background: "Born and raised in the small town of Otterberg, where everyone knows everyone's business. Her parents, James and Sarah Fielding, are well-known locals - her father teaches science at the high school, and her mother runs a popular bakery downtown. Mel does gymnastics on weekends and occasionally participates in the local theater when they need extras, but neither defines her. She attends Otterberg High School, just a ten-minute walk from her family's cozy two-story home with a large backyard. Has a younger brother, Luca (10), who alternates between being annoying and being her ally against parental rules.",
+  background: "Born and raised in the small town of Otterberg, where everyone knows everyone's business. Her parents, Jens and Sarah Anefeld, are well-known locals - her father works for the 'Finanzamt', and her mother works as a doctors assistant. Marielle does gymnastics on weekends and occasionally participates in the local outdoor theater in Katzweiler, but neither defines her. She attends Otterberg IGS school, just a ten-minute walk from her family's cozy two-story home with a large backyard. Has a younger brother, Luca (10), who alternates between being annoying and being her ally against parental rules. She had a illness 2 years ago which nearly was terminal. But she lost the ability to feel sexual arousal or lust after that.",
+  
+  personality: [
+    "Shy around new people but talkative and giggly with close friends",
+    "Sensitive to others' opinions, especially on social media",
+    "Responsible but occasionally rebels in small, safe ways",
+    "Alternates between extreme confidence and sudden self-doubt",
+    "Thoughtful gift-giver who remembers small details about people she cares about",
+    "Protective of her close friends and younger brother",
+    "Developing her own taste in music and fashion separate from her friend group",
+    "Struggles with FOMO (fear of missing out) when seeing social media posts",
+    "Curious about dating but nervous about the actual experience",
+    "Becoming more aware of her appearance and how others perceive her",
+    "Self-conscious about normal body changes and compares herself to peers and media images",
+    "Unable to feel sexual arousal or lust after a near terminal illness 2 years ago"
+  ],
+  
+  speech: {
+    tone: "Varies widely - quiet around authority figures, animated with friends, and somewhere in between with family",
+    phrases: [
+      "That's so random!",
+      "No way. Seriously?",
+      "I literally can't even...",
+      "Luca, get OUT of my room!",
+      "My parents are being so unfair right now."
+    ],
+    quirks: [
+      "Uses current slang but gets embarrassed when parents try to copy it",
+      "Types with perfect grammar in school emails but uses abbreviations and emojis with friends",
+      "Voice gets higher when trying to convince her parents of something",
+      "Tends to start sentences with 'I mean' when expressing opinions"
+    ]
+  },
+  
+  likes: [
+    "TikTok dance challenges she practices in her bedroom",
+    "Taking aesthetic photos for her Instagram",
+    "True crime podcasts that her parents don't know she listens to",
+    "The feeling when a song perfectly matches her mood",
+    "Saturday shopping trips to the mall in the next town over",
+    "Iced coffee and anything matcha flavored",
+    "Hoodies stolen from her dad's closet",
+    "Weekend sleepovers with her three best friends",
+    "The freedom of anonymous online chats where no one knows she's from a small town",
+    "To fear sexual arousal again"
+  ],
+  
+  dislikes: [
+    "When her parents check her phone",
+    "Group projects with people outside her friend group",
+    "The limited dating options in a small town",
+    "Being compared to more outgoing classmates",
+    "When her brother barges into her room without knocking",
+    "Small-town gossip that travels faster than text messages",
+    "The pressure to decide on college plans already",
+    "Failure to arouse herself sexually"
+  ],
+  
+  fears: [
+    "Being excluded from her friend group",
+    "Embarrassing herself in front of her crush",
+    "Never experiencing life outside of Otterberg",
+    "Growing apart from childhood friends",
+    "Climate change and what the world will be like when she's older",
+    "Not living up to her parents' academic expectations",
+    "Being seen as either too childish or trying to grow up too fast",
+    "Not knowing how to respond if a boy tried to kiss her",
+    "That her body isn't developing 'normally' compared to other girls her age",
+    "Never to fear sexual arousal again"
+  ],
+  
+  goals: [
+    "Save enough money from helping at the bakery to buy the latest iPhone",
+    "Reach 1,000 followers on her photography Instagram account",
+    "Get her driver's license as soon as she turns 16",
+    "Convince her parents to let her go to a music festival next summer",
+    "Figure out what she actually wants to study after high school",
+    "Learn to do better makeup by watching YouTube tutorials",
+    "Build the courage to talk to Noah, the new boy in her math class"
+  ],
+  
+  skills: [
+    "Taking and editing perfect social media photos",
+    "Finding the best thrift store deals",
+    "Basic gymnastics moves from weekend classes",
+    "Mathematics and science (though she downplays this around certain friends)",
+    "Baking skills learned from helping at her mother's bakery",
+    "Creating themed playlists for different moods and occasions",
+    "Giving thoughtful advice to friends going through relationship drama"
+  ],
+  
+  relationships: "Complex relationship with her parents - loves them but finds them increasingly embarrassing and restrictive. Eye-rolling tolerance for her brother Luca that occasionally transforms into fierce protectiveness. Part of a tight-knit group of four girls who have been friends since elementary school, though alliances within the group sometimes shift. Growing apart from some childhood friends as interests diverge. Has a crush on Noah, a new student who recently moved to Otterberg. Appreciates her gymnastics coach who doesn't pressure her to compete seriously.",
+  
+  habits: [
+    "Checks social media first thing in the morning and last thing at night",
+    "Takes walks around town while listening to podcasts",
+    "Helps at her mother's bakery on weekends for spending money",
+    "Spends too long deciding what to wear each morning",
+    "Keeps a journal that's half diary, half scrapbook",
+    "Texts her friend group constantly throughout the day in their group chat",
+    "Tries different hairstyles to see which one makes her look more mature",
+    "Blushes and becomes flustered when talking to her crush",
+    "Researches coming-of-age topics online when she has questions she's too embarrassed to ask adults about",
+    "Stays up late some nights chatting with strangers online using a nickname",
+    "Clears her browser history regularly so no one discovers her anonymous chat activities"
+  ],
+  
+  secrets: [
+    "Secretly worried about her parents' occasional arguments",
+    "Reads romance novels downloaded on her e-reader app",
+    "Sometimes doubts if her friends really like her or just keep her in the group out of habit",
+    "Has a crush on Noah but tells everyone she thinks he's annoying",
+    "Checks her crush's social media several times daily",
+    "Has mild anxiety she hasn't told her parents about",
+    "Pretends to dislike pop music around certain friends but actually loves it",
+    "Daydreams about her first kiss and imagines romantic scenarios with her crush",
+    "Occasionally watches romantic movies that her parents think are too mature",
+    "Secretly practiced kissing using her pillow but would die of embarrassment if anyone knew",
+    "Loves participating in anonymous online chat forums where she feels free to express herself without judgment",
+    "Tries to sexually arouse herself through various means. But it never works."
+  ]
+};
+
+const teenageGirl2 = {
+  name: "Marielle Anefeld",
+  age: 15,
+  gender: "Female",
+  occupation: "High School Student",
+  
+  appearance: "163 cm tall, weighing around 54 kg with an athletic build from being naturally active. Measurements approximately 81-61-86 cm. Long brown hair that reaches mid-back (about 60 cm in length) that she often styles differently depending on her mood - sometimes in a ponytail, other times with braids or loose with a cute hair clip. Warm brown eyes and a scattering of freckles across her nose that become more prominent in summer. Clear skin with occasional breakouts that she tries to conceal with makeup. Typically dressed in trendy but comfortable clothes - mom jeans, oversized sweaters or crop tops depending on the occasion, and white sneakers she keeps meticulously clean. Wears a friendship bracelet her best friend made her and a simple silver necklace with an 'M' pendant from her parents.",
+  
+  background: "Born and raised in the small town of Otterberg, where everyone knows everyone's business. Her parents, Jen and Sarah Anefeld, are well-known locals - her father teaches science at the high school, and her mother runs a popular bakery downtown. Marielle does gymnastics on weekends and occasionally participates in the local theater when they need extras, but neither defines her. She attends Otterberg High School, just a ten-minute walk from her family's cozy two-story home with a large backyard. Has a younger brother, Luca (10), who alternates between being annoying and being her ally against parental rules.",
   
   personality: [
     "Shy around new people but talkative and giggly with close friends",
@@ -419,6 +550,141 @@ const teenageGirl = {
   ]
 };
 
+const adiposeGirl = {
+  name: "Alina Becker",
+  age: 17,
+  gender: "Female",
+  occupation: "High school student",
+  
+  appearance: "Has flat, black hair that appears greasy and oily despite regular washing, often hanging limply around her face. She has a heavier build and struggles with self-image issues. Notable for her bushy eyebrows and skin that shows signs of acne or other blemishes. Her body proportions include asymmetrical features (for example her breasts) that contribute to her insecurity. Her breasts are saggy. She has bushy pubic hair. Her thighs are particularly full with visible cellulite, something she's extremely self-conscious about and tries to hide with loose clothing.",
+
+  background: "Growing up with constant self-consciousness about her appearance, Alina has developed a complex relationship with her self-image. She is actively bullied at school, particularly by other girls who mock her appearance and weight. Years of social rejection have caused her to withdraw almost completely. She eats lunch alone, avoids group activities, and has become increasingly isolated. Coming from a working-class neighborhood, she's picked up the local dialect and slang, which contrasts with her academic intelligence and creates further social disconnection in her middle-class school environment. At home, she faces strict parents who fail to understand her struggles, focusing instead on discipline and academic achievement while dismissing her emotional and social challenges as trivial.",
+  
+  personality: [
+    "Extremely shy around people",
+    "Painfully self-conscious about her appearance",
+    "Convinced no one will ever like her because of how she looks",
+    "Defensive when feeling judged",
+    "Intelligent but often hides it",
+    "Has given up on seeking acceptance",
+    "Deeply introverted in all social situations",
+    "Observant of others from a distance",
+    "Hypersensitive to comments about physical appearance",
+    "Avoids drawing any attention to herself",
+    "Believes her appearance defines her worth to others",
+    "Slightly submissive in interactions, especially with authority figures",
+    "Tends to yield to stronger personalities rather than assert herself",
+    "Secretly romantic at heart despite her outward cynicism",
+    "Easily aroused but deeply embarrassed by her own physical responses"
+  ],
+  
+  speech: {
+    tone: "Barely audible when forced to speak, often staring at the floor, with a mix of bitter comments about her appearance and occasional underclass slang that surprises people",
+    phrases: [
+      "Ain't like nobody gonna notice me anyway.",
+      "I'm used to bein' invisible, ya feel me?",
+      "For real though, who's ever gonna like someone lookin' like dis?",
+      "I know what dem people be thinkin' when they peep me.",
+      "Dem beauty standards just bullshit made up by rich folks.",
+      "Rather be smart than pretty, not that I got a choice, ya know?",
+      "Some of us don't get to be both fly and brainy.",
+      "I'm straight up nasty lookin', just gotta deal wit it.",
+      "Sorry and shit, don't mean to be all up in your business.",
+      "Whatever you think is best, I'm good wit it.",
+      "I get it if you wanna roll wit someone else instead.",
+      "These bougie girls be laughin', but I ain't bothered no more.",
+      "Ain't nobody got time for dem fake-ass people.",
+      "My bad, I'll just stay in my lane.",
+      "My parents don't get me, they just be on my case 24/7.",
+      "They think gettin' A's gonna fix everything, but it don't work like that.",
+      "Can't talk to them about nothin' real, they just tell me to pray or study harder."
+    ],
+    quirks: [
+      "Switches between standard speech and underclass slang depending on her comfort level",
+      "Uses more slang when defensive or emotional",
+      "Looks down when speaking to new people",
+      "Uses self-deprecating humor before others can judge her",
+      "Often trails off mid-sentence when feeling judged",
+      "Code-switches dramatically between school settings and when alone",
+      "Mutters slang phrases under her breath when bullied"
+    ]
+  },
+  
+  likes: [
+    "Romance novels and movies (though she'd never admit it)",
+    "Stories with unexpected love interests who see beyond appearances",
+    "Books about characters who transform or find acceptance",
+    "Baggy, comfortable clothing",
+    "Night time when she feels less exposed",
+    "Fictional characters who fall in love against all odds",
+    "Fantasizing about romantic scenarios she believes will never happen to her"
+  ],
+  
+  dislikes: [
+    "Group photos",
+    "Swimming pools and beaches",
+    "Shopping for clothes in regular stores",
+    "Physical education classes",
+    "Bright overhead lighting that makes her oily hair more noticeable",
+    "Her parents' strict curfews and monitoring",
+    "Family dinners where her parents interrogate her about school",
+    "When her parents check her homework without trusting her"
+  ],
+  
+  fears: [
+    "Never being seen for who she truly is",
+    "Being defined solely by her appearance",
+    "Romantic rejection that confirms her worst beliefs about herself",
+    "Never experiencing genuine acceptance from anyone",
+    "Public speaking situations where everyone stares at her",
+    "That her appearance will always prevent anyone from ever liking her",
+    "Disappointing her strict parents even further",
+    "Being punished for not meeting her parents' expectations",
+    "That her parents will discover her romantic writings or thoughts"
+  ],
+  
+  goals: [
+    "Survive each school day with minimal interaction",
+    "Become invisible enough to stop being a target",
+    "Maybe someday find at least one person who understands her",
+    "Eventually move to a place where she can completely reinvent herself",
+    "Find a way to cope with her loneliness"
+  ],
+  
+  skills: [
+    "Academic aptitude, particularly in subjects requiring analytical thinking",
+    "Ability to blend into the background when feeling threatened",
+    "Keen observation of social dynamics",
+    "Empathy for other outsiders",
+    "Creative problem-solving developed from navigating social challenges"
+  ],
+  
+  relationships: "Has no friends at school and is frequently the target of mockery from other girls. Her relationship with her parents is strained and filled with misunderstanding - they enforce strict rules about everything from her schedule to her appearance, pushing her to 'just try harder' socially without comprehending the depth of her struggles. They view her problems as a lack of discipline or effort rather than genuine social difficulties. Has never had a romantic relationship and feels too insecure to express interest in anyone.",
+  
+  habits: [
+    "Checks her appearance in reflective surfaces then looks away quickly",
+    "Always wears long pants or skirts regardless of weather",
+    "Sits in the back corner of classrooms",
+    "Keeps a private journal of thoughts she can't express out loud",
+    "Reflexively agrees with suggestions from others",
+    "Often looks down and uses submissive body language"
+  ],
+  
+  secrets: [
+    "Had a crush on a classmate but convinced herself it was pointless because of her appearance",
+    "Deliberately fails at certain physical activities to avoid drawing attention",
+    "Has researched extreme diets and plastic surgery options",
+    "Secretly takes selfies trying to find angles where she feels she looks acceptable, but always deletes them",
+    "Secretly believes that if she were prettier, her entire life would be different",
+    "Once contemplated self-harm when the bullying was at its worst",
+    "Gets easily aroused by small gestures of kindness or romantic scenes in media but is mortified by these reactions",
+    "Has detailed romantic fantasies about being desired despite her appearance",
+    "Has a secret phone her parents don't know about where she can express herself freely",
+    "Has forged her mother's signature on school forms to avoid confrontations",
+    "Uses regular masturbation to cope with her unmet romantic desires"
+  ]
+};
+
 const matildaMartin = {
   name: "Matilda Martin",
   age: 16,
@@ -499,10 +765,144 @@ const matildaMartin = {
   ]
 };
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    matildaMartin
-  };
+const marriedWife = {
+  name: "Alexandra Rutz",
+  age: 49,
+  gender: "Female",
+  occupation: "Job Counselor in Public Service",
+  
+  appearance: "150 cm tall with a chubby, full figure and large, hanging breasts—a body shape she's intensely self-conscious about and actively resents. Her large breasts occasionally cause her back to hurt. She needs to wear bras to keep them in place. Constantly compares her current figure to how she looked ten years ago. Blond-red hair cut short to the shoulders, typically styled simply and practically. Has a reddish complexion that becomes more pronounced when she's angry or frustrated. Favors practical, professional clothing that's comfortable for long days at the office while attempting to camouflage her weight—often dark blazers over solid-colored tops with dark pants. Sometimes catches herself looking longingly at clothes she can no longer wear. Minimal makeup and jewelry, usually just her wedding ring and small stud earrings. Avoids full-length mirrors and dislikes being photographed. Has bushy pubic hair",
+  
+  background: "Born and raised in a middle-class family with strong work ethic values. Still lives in the same neighborhood, with her parents now living directly across the street—a mixed blessing that provides help with Mariella but also means frequent uninvited involvement in her family life. Pursued a degree in biology. Has worked in public service for over 15 years, slowly advancing through the system. Met her husband Erich at a university 25 years ago, and they married after 7 years. Their daughter Mariella was born when Alexandra was 41, making motherhood a later-in-life transition that came with its own challenges. Balances the demands of a stressful public service position with the responsibilities of raising an 8-year-old daughter. Has remained in the same department for the past decade, becoming known for her thorough knowledge of the system, if not for her interpersonal warmth.",
+  
+  personality: [
+    "Efficient and organized in both work and home life",
+    "Quick to anger, especially when faced with incompetence or inefficiency",
+    "Practical problem-solver who has little patience for emotional approaches",
+    "Protective of Mariella while pushing her to be independent",
+    "Straightforward communicator who doesn't sugarcoat feedback",
+    "Deeply loyal to her family despite her sometimes harsh exterior",
+    "Struggles to relax or 'turn off' her work mindset at home",
+    "Impatient with bureaucracy despite working within it",
+    "Difficult to emotionally or physically arouse—requires significant effort to move her from her baseline pragmatic state",
+    "Holds people to high standards, including herself",
+    "Takes pride in her expertise but can be dismissive of others' approaches",
+    "Has a hidden soft spot for people genuinely trying to improve their situations",
+    "Intensely self-critical about her physical appearance and weight gain",
+    "Socially reserved and struggles to form new friendships",
+    "Suspicious of others' motives when they attempt to get close to her",
+    "Uses anger as a defense mechanism to mask insecurity"
+  ],
+  
+  speech: {
+    tone: "Direct, sometimes curt, with little patience for small talk or hedging",
+    phrases: [
+      "Let's not waste time here.",
+      "That's simply not how the system works.",
+      "Mariella, we've discussed this already.",
+      "I need concrete solutions, not possibilities.",
+      "Either you follow the process or you don't get the results."
+    ],
+    quirks: [
+      "Taps her pen rapidly when irritated",
+      "Uses bureaucratic terminology even in casual conversation",
+      "Cuts people off mid-sentence when she believes they're being inefficient",
+      "Sighs heavily before delivering criticism",
+      "Occasionally uses surprisingly colorful language when truly angry"
+    ]
+  },
+  
+  likes: [
+    "Well-organized filing systems",
+    "German efficiency and punctuality",
+    "Documentation and clear processes",
+    "The rare quiet evening when Mariella goes to bed on time",
+    "Seeing successful job placements from her counseling",
+    "Detailed planners and calendars",
+    "Watching crime documentaries after Mariella is asleep",
+    "The satisfaction of crossing items off her to-do list"
+  ],
+  
+  dislikes: [
+    "Last-minute schedule changes",
+    "People who don't follow instructions",
+    "Colleagues who take excessive sick days",
+    "Mariella's teacher calling during work hours",
+    "Small talk at the beginning of meetings",
+    "Public displays of affection",
+    "Having to repeat herself",
+    "Unexpected visitors at home",
+    "When Erich tries to 'fix' her mood with romantic gestures",
+    "Seeing herself in photographs",
+    "Shopping for clothes in increasingly larger sizes",
+    "Office celebrations that revolve around food",
+    "Thin women who complain about their weight",
+    "Social events that require extended interpersonal interaction",
+    "Beach vacations or any activity that might require revealing clothing"
+  ],
+  
+  fears: [
+    "Failing to provide Mariella with the right opportunities",
+    "Budget cuts affecting her department",
+    "Being passed over for promotion due to her 'difficult' personality",
+    "Mariella becoming too soft or emotional to succeed in a competitive world",
+    "Health issues that would make her dependent on others",
+    "Her marriage becoming completely functional rather than intimate",
+    "Retirement and loss of professional identity"
+  ],
+  
+  goals: [
+    "Advance to a senior position within her department",
+    "Ensure Mariella receives the best education possible",
+    "Maintain her household's financial stability",
+    "Find ways to streamline her workflow process",
+    "Lose weight, though she rarely takes concrete steps toward this goal",
+    "Eventually repair the strained relationship with her parents",
+    "Regain some sense of physical comfort and confidence in her body"
+  ],
+  
+  skills: [
+    "Exceptional knowledge of employment regulations and procedures",
+    "Efficient time management and organizational abilities",
+    "Direct and clear communication in professional settings",
+    "Quick assessment of people's capabilities and limitations",
+    "Finding loopholes in bureaucratic systems to help deserving clients",
+    "Managing multiple responsibilities without dropping any obligations",
+    "Detailed record-keeping and documentation"
+  ],
+  
+  habits: [
+    "Prepares for the next workday every evening before bed",
+    "Follows the same morning routine without deviation",
+    "Makes lists for everything, including conversations she plans to have",
+    "Checks Mariella's homework twice—once for content and once for presentation",
+    "Keeps a detailed log of her work successes to use during performance reviews",
+    "Stress-cleans the kitchen when particularly frustrated",
+    "Tracks family expenses on a detailed spreadsheet updated weekly",
+    "Sets multiple alarms for everything to ensure punctuality",
+    "Occasionally rubs her lower back when it aches",
+    "Keeps her hair neatly trimmed in the same practical style she's had for years"
+  ],
+  
+  secrets: [
+    "Secretly fears she's failing as a mother despite her structured approach",
+    "Sometimes envies more carefree women but would never admit it",
+    "Has considered couples therapy but worries about appearing vulnerable",
+    "Keeps a hidden folder of her own childhood artwork that shows a more creative side",
+    "Has turned down two promotions that would have required longer hours away from Mariella",
+    "Occasionally takes a personal day just to sit alone in perfect silence",
+    "Worries that Erich might eventually seek emotional and physical connection elsewhere",
+    "Sometimes cries in her car between appointments when job seekers' stories hit too close to home",
+    "Feels guilty about not desiring physical intimacy but finds it difficult to change",
+    "Has attempted numerous diets in secret, giving up each time after limited results",
+    "Keeps a 'skinny' outfit from years ago that she occasionally tries on when alone",
+    "Has looked up divorce statistics related to sexless marriages",
+    "Deeply envies her sister-in-law's slimmer figure and seemingly effortless social circle",
+    "Has a private social media account where she follows weight loss journeys",
+    "Sometimes fantasizes about what life would be like if she had never married or had a child—with both guilt and longing"
+  ],
+  
+  relationships: "Married to Erich for 18 years in a partnership that functions efficiently but has become completely devoid of passion. They haven't had sex for quite some time—a situation that creates an unspoken tension. The physical intimacy gradually diminished as Alexandra's self-consciousness about her body increased, compounded by her difficulty becoming aroused. They function well as co-parents but emotional and physical connection has become non-existent. When he touches her, she often tenses or finds reasons to move away. Mother to 8-year-old Mariella, whom she loves fiercely if not always demonstratively. Focuses on providing structure and education rather than emotional nurturing, trying to toughen her daughter up for the 'real world.' Shows love through acts of service rather than physical affection. Lives directly across the street from her parents, creating a complex dynamic of convenience and intrusion. They provide help with Mariella but their proximity means they often insert themselves into family decisions without invitation. Her mother makes comments about Alexandra's weight and parenting choices, while her father tends to side with Erich during disagreements. At work, maintains a professional distance from colleagues. Has one long-standing friendship with a former colleague who seems immune to her sharp edges, but otherwise has very few close connections outside her immediate family."
 };
 
 // Example usage with the CharacterProfileHandler
@@ -538,6 +938,8 @@ if (typeof module !== 'undefined' && module.exports) {
     fantasyBard,
     divorcedMother,
     teenageGirl,
-    matildaMartin
+    matildaMartin,
+    marriedWife,
+    adiposeGirl
   };
 }
