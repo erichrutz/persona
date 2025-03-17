@@ -46,7 +46,8 @@ class MemoryPersistence {
         timestamp: new Date().toISOString(),
         memoryState,
         messages: memoryState.messages || [],
-        characterProfile: memoryState.characterProfile
+        characterProfile: memoryState.characterProfile,
+        clothing: memoryState.clothing
       };
       
       // Update cache first to improve performance

@@ -287,7 +287,7 @@ const divorcedMother = {
   ]
 };
 
-const teenageGirl = {
+const teenageGirl2 = {
   name: "Marielle Anefeld",
   age: 15,
   gender: "Female",
@@ -418,7 +418,7 @@ const teenageGirl = {
   ]
 };
 
-const teenageGirl2 = {
+const teenageGirl = {
   name: "Marielle Anefeld",
   age: 15,
   gender: "Female",

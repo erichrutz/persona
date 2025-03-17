@@ -60,7 +60,11 @@ const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 
 // Set up middleware
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -201,7 +205,8 @@ app.post('/api/session', async (req, res) => {
         compressionEnabled: compressionEnabled !== undefined ? compressionEnabled : true,
         deepMemory: deepMemory || '',
         model: model || 'claude-3-7-sonnet-20250219',
-        language: language || 'english'
+        language: language || 'english',
+        characterName: profile?.name || 'AI Assistant'
       });
       
       // Set initial context if provided

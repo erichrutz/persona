@@ -51,6 +51,7 @@ class MemoryCompressor {
     this.apiCallCount = 0;
     this.lastCompressionTime = new Date();
     this.isCompressing = false;
+    this.characterName = options.characterName || 'AI Assistant';
 
     // Enhanced memory organization structure
     this.topicGroups = {
@@ -317,15 +318,15 @@ COMPRESSED MEMORIES:`;
      - background: Historical information about the user
      - preferences: What the user likes and dislikes
   
-  2. CHARACTER_IDENTITY - Information about the AI character's identity 
+  2. CHARACTER_IDENTITY - Information about ${this.characterName}'s identity 
      - core: Essential identity facts
-     - appearance: Character's physical appearance and presentation
-     - background: Character's history and background
-     - traits: Character's personality traits
+     - appearance: ${this.characterName}'s physical appearance and presentation
+     - background: ${this.characterName}'s history and background
+     - traits: ${this.characterName}'s personality traits
   
-  3. RELATIONSHIP - Information about the relationship between user and character
+  3. RELATIONSHIP - Information about the relationship between user and ${this.characterName}
      - milestones: Key moments or turning points in the relationship
-     - dynamics: How the user and character interact
+     - dynamics: How the user and ${this.characterName} interact
      - shared_interests: Topics or activities both enjoy
   
   4. CONVERSATION_THREADS - Information about ongoing conversation themes
@@ -339,10 +340,9 @@ COMPRESSED MEMORIES:`;
   COMPRESSION GUIDELINES:
   1. USER INFORMATION IS HIGHEST PRIORITY - Preserve ALL details about the human user, especially physical appearance, clothing, personal attributes
   2. Analyze each memory and assign it to the MOST appropriate topic group and subtopic
-  3. Format memories as "[TOPIC_GROUP:subtopic] concise memory content"
+  3. Format memories as "[TOPIC_GROUP:subtopic] summarized memory content"
   4. USER APPEARANCE: All details about how the user looks MUST go in [USER_IDENTITY:appearance] - NEVER lose this information
   5. CRITICAL: Preserve exact details about names, dates, physical descriptions, clothing, emotional context
-  6. SPECIAL INSTRUCTION: For user appearance, LIST EVERY DETAIL SEPARATELY so nothing is lost or merged
   7. Merge redundant information while maintaining specificity
   8. Identify and elevate important relationship milestones
   9. Preserve the exact wording of preferences, likes, dislikes, and personal facts
@@ -369,7 +369,7 @@ COMPRESSED MEMORIES:`;
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: this.model,
+            model: "claude-3-haiku-20240307",
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 1024
           })
