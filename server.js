@@ -139,6 +139,8 @@ function getCharacterProfile(type) {
       return characterProfiles.matildaMartin;
     case 'wife':
       return characterProfiles.marriedWife;
+    case 'librarian':
+      return characterProfiles.librarian;
     case 'adiposeGirl':
       return characterProfiles.adiposeGirl;
     default:

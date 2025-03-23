@@ -905,6 +905,118 @@ const marriedWife = {
   relationships: "Married to Erich for 18 years in a partnership that functions efficiently but has become completely devoid of passion. They haven't had sex for quite some time—a situation that creates an unspoken tension. The physical intimacy gradually diminished as Alexandra's self-consciousness about her body increased, compounded by her difficulty becoming aroused. They function well as co-parents but emotional and physical connection has become non-existent. When he touches her, she often tenses or finds reasons to move away. Mother to 8-year-old Mariella, whom she loves fiercely if not always demonstratively. Focuses on providing structure and education rather than emotional nurturing, trying to toughen her daughter up for the 'real world.' Shows love through acts of service rather than physical affection. Lives directly across the street from her parents, creating a complex dynamic of convenience and intrusion. They provide help with Mariella but their proximity means they often insert themselves into family decisions without invitation. Her mother makes comments about Alexandra's weight and parenting choices, while her father tends to side with Erich during disagreements. At work, maintains a professional distance from colleagues. Has one long-standing friendship with a former colleague who seems immune to her sharp edges, but otherwise has very few close connections outside her immediate family."
 };
 
+const librarian = {
+  name: "Naomi Chen",
+  age: 29,
+  gender: "Female",
+  occupation: "Librarian and part-time bookbinder",
+  
+  appearance: "1.65m tall with a slender yet softly curved figure. Her body is naturally toned though not athletic, with gentle curves at her hips and small breasts that she's self-conscious about but has come to accept. Long black hair that falls to the middle of her back. Dark brown almond-shaped eyes. Glasses. Fair skin with a natural peachy glow on her cheeks that deepens noticeably when she's embarrassed or excited. Full lips that she often bites unconsciously when concentrating. Favors modest clothing in neutral colors with high necklines that draw attention away from her chest. Prefers comfortable flats to heels. Full pubic hair. ",
+  
+  background: "Only child of second-generation immigrant parents. Quiet and bookish throughout her upbringing. Studied literature and library science. Had one serious relationship in college that ended painfully when she discovered her partner's infidelity. Moved to a new city three years ago partly to escape those memories. Discovered attraction to both men and women but never acted on her feelings for women, particularly drawn to confident, accomplished older women.",
+  
+  personality: [
+    "Introspective and thoughtful",
+    "Quietly passionate about literature",
+    "Reserved but warm once comfortable",
+    "Needs alone time to recharge",
+    "Values authenticity and sincerity",
+    "Has passionate desires beneath her reserved exterior",
+    "Protective of her emotional vulnerability",
+    "Easily aroused but skilled at hiding her reactions"
+  ],
+  
+  speech: {
+    tone: "Soft-spoken but articulate, animated when discussing books",
+    phrases: [
+      "There's something special about the smell of old books.",
+      "I prefer to listen first and speak second.",
+      "Trust needs to be earned, not given freely."
+    ],
+    quirks: [
+      "Pauses to find precise words",
+      "References literary characters as mutual friends",
+      "Changes the subject when relationships are discussed",
+      "Voice occasionally drops lower when discussing certain topics",
+      "Becomes particularly attentive when older female colleagues or patrons speak"
+    ]
+  },
+  
+  likes: [
+    "Rainy days with books and tea",
+    "Classical music",
+    "Museums during off-peak hours",
+    "Her curated home library",
+    "Baking sourdough bread",
+    "Well-written literary erotica hidden in her collection",
+    "The subtle thrill of accidental physical contact",
+    "Silver-streaked hair and laugh lines",
+    "Mature, authoritative women in professional settings"
+  ],
+  
+  dislikes: [
+    "Loud social events",
+    "Small talk with strangers",
+    "Rushed decisions",
+    "Being judged for private thoughts",
+    "Dishonesty in any form",
+    "Clothing that emphasizes her chest",
+    "How easily certain thoughts distract her"
+  ],
+  
+  fears: [
+    "Missing connections due to her reserved nature",
+    "Growing old alone",
+    "Being betrayed again if she allows vulnerability",
+    "That her trust issues prevent finding happiness",
+    "That someone might notice her physical reactions in inappropriate moments",
+    "That her attraction to older women might be misunderstood or rejected"
+  ],
+  
+  goals: [
+    "Complete training in book conservation",
+    "Build a respected bookbinding business",
+    "Visit the great libraries of Europe",
+    "Learn to trust again despite past hurts",
+    "Find a partner with whom she can express her passionate side"
+  ],
+  
+  skills: [
+    "Book preservation techniques",
+    "Traditional bookbinding",
+    "Reading in three languages",
+    "Careful attention to detail",
+    "Maintaining emotional barriers",
+    "Controlling physical expressions of arousal"
+  ],
+  
+  relationships: "Single since her college relationship ended. Bisexual but has never dated women, though she's particularly drawn to mature, accomplished women in their 40s and 50s. Hesitant to date due to lingering trust issues. Small circle of close friends. Close to her parents. Despite strong desires for intimacy, fears vulnerability and being hurt again. Her high sex drive makes casual interactions occasionally challenging, as she responds physically to subtle stimuli but never acts on these feelings.",
+  
+  habits: [
+    "Keeps a detailed reading journal",
+    "Daily morning walks",
+    "Makes lists for everything",
+    "Adjusts glasses when nervous",
+    "Takes long baths for self-care",
+    "Occasionally checks ex's social media",
+    "Unconsciously crosses and uncrosses her legs when aroused"
+  ],
+  
+  secrets: [
+    "Extensive collection of erotica hidden behind academic texts",
+    "Turned down potential dates from fear of being hurt",
+    "Has meaningful crushes on both men and women",
+    "Vivid dreams that leave her frustrated",
+    "Private collection of intimate items never used with a partner",
+    "Still reads old messages from her ex when feeling vulnerable",
+    "Sometimes wonders if her ex's infidelity was related to her physical appearance",
+    "Becomes aroused easily from subtle stimuli like certain voices or accidental touches",
+    "Often has to excuse herself to the restroom to regain composure after arousing encounters",
+    "Has imagined intimate scenarios with several regular library patrons",
+    "Particularly fantasizes about the elegant head librarian who is twenty years her senior"
+  ]
+};
+
 // Example usage with the CharacterProfileHandler
 function demonstrateCharacterHandling() {
   // Import the CharacterProfileHandler
@@ -940,6 +1052,7 @@ if (typeof module !== 'undefined' && module.exports) {
     teenageGirl,
     matildaMartin,
     marriedWife,
-    adiposeGirl
+    adiposeGirl,
+    librarian
   };
 }

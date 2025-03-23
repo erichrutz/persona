@@ -76,13 +76,14 @@ class MemorySystem {
   async addToShortTermMemory(message) {
     const memory = this.extractShortTermMemory(message.content);
 
-    if (!memory) {
-      this.shortTermMemory.push({ content: message.content.replace(/\{[\s\S]*?\}\s*$/, '').trim() });
+    const reducedMemory = message.content.replace(/\{[\s\S]*?\}\s*$/, '').trim();
 
+    if (!memory) {
+      this.shortTermMemory.push({ content: reducedMemory.split('{')[0] });
     } else {
       this.shortTermMemory.push({ content: memory });
     }
-    this.shortTermMemoryDetailled.push({ content: message.content.replace(/\{[\s\S]*?\}\s*$/, '').trim() });
+    this.shortTermMemoryDetailled.push({ content: reducedMemory.split('{')[0] });
     // Maintain short-term memory size limit
     if (this.shortTermMemoryDetailled.length > this.shortTermMemoryDetailedLimit) {
       this.shortTermMemoryDetailled.shift(); // Remove oldest message
@@ -217,15 +218,15 @@ class MemorySystem {
       // Check for appearance information (highest priority)
       if (kw.appearance.some(word => infoLower.includes(word))) {
         // Automatically categorize as user appearance
-        topicGroup = "USER_IDENTITY";
+        topicGroup = "CHARACTER_IDENTITY";
         subtopic = "appearance";
-        information = `[USER_IDENTITY:appearance] ${information}`;
+        information = `[CHARACTER_IDENTITY:appearance] ${information}`;
       }
       // Check for core user identity info
       else if (kw.identity.some(word => infoLower.includes(word))) {
-        topicGroup = "USER_IDENTITY";
+        topicGroup = "CHARACTER_IDENTITY";
         subtopic = "core";
-        information = `[USER_IDENTITY:core] ${information}`;
+        information = `[CHARACTER_IDENTITY:core] ${information}`;
       }
     }
 
@@ -234,11 +235,11 @@ class MemorySystem {
     const infoLower = information.toLowerCase();
 
     // USER APPEARANCE IS HIGHEST IMPORTANCE
-    if (topicGroup === "USER_IDENTITY" && subtopic === "appearance") {
+    if ((topicGroup === "CHARACTER_IDENTITY" ||  topicGroup === "USER_IDENTITY") && subtopic === "appearance") {
       importance = 0.9; // Very high importance
     }
     // USER CORE INFO IS HIGH IMPORTANCE
-    else if (topicGroup === "USER_IDENTITY" && subtopic === "core") {
+    else if ((topicGroup === "CHARACTER_IDENTITY" ||  topicGroup === "USER_IDENTITY") && subtopic === "core") {
       importance = 0.8; // High importance
     }
     // Other importance calculations
@@ -540,9 +541,9 @@ class MemorySystem {
 
         if (memory.topicGroup) {
           group = memory.topicGroup;
-          if (memory.topicGroup === 'USER_IDENTITY' && memory.subtopic === 'appearance') {
+          if ((memory.topicGroup === 'USER_IDENTITY' || memory.topicGroup === 'CHARACTER_IDENTITY') && memory.subtopic === 'appearance') {
             isAppearance = true;
-          } else if (memory.topicGroup === 'USER_IDENTITY' && memory.subtopic === 'core') {
+          } else if ((memory.topicGroup === 'USER_IDENTITY' || memory.topicGroup === 'CHARACTER_IDENTITY') && memory.subtopic === 'core') {
             isUserCore = true;
           }
         } else {
@@ -550,7 +551,7 @@ class MemorySystem {
           const topicMatch = memory.content.match(/^\[([\w_]+)(?::([^\]]+))?\]/);
           if (topicMatch) {
             group = topicMatch[1];
-            if (group === 'USER_IDENTITY') {
+            if (group === 'USER_IDENTITY' || group === 'CHARACTER_IDENTIY') {
               if (topicMatch[2] === 'appearance') {
                 isAppearance = true;
               } else if (topicMatch[2] === 'core') {
@@ -708,7 +709,8 @@ class MemorySystem {
       shortTerm: [...this.shortTermMemory, ...this.shortTermMemoryDetailled],
       longTerm: this.longTermMemory,
       deepMemory: this.deepMemory,
-      compressionMetadata: this.compressionMetadata
+      compressionMetadata: this.compressionMetadata,
+      clothing: this.clothing?.clothing 
     };
   }
 
@@ -834,7 +836,7 @@ class AnthropicChatClient {
     // Default system prompt if no character profile is provided
     this.systemPrompt = `You are a helpful AI assistant with access to a 2-layer memory system:
 1. Short-term memory: Contains recent conversation history
-2. Long-term memory: Contains important facts and information worth remembering long-term
+2. Long-term memory: Contains important facts and information worth remembering long-term. At most 2 short sentences
 
 IMPORTANT: Always respond in ${this.language} language.
 
@@ -966,6 +968,10 @@ For anything that should go to short-term memory, output a JSON object at the en
       this.systemPrompt = `You are roleplaying as ${compressedProfile.core.name}. ${compressedProfile.core.role ? `You are a ${compressedProfile.core.role}.` : ''}
 
 IMPORTANT: Always respond in ${this.language} language.
+
+## Personas
+'Character' is the person impersonated by the AI in this case ${this.characterName}
+'User' is the impersonation played by the human chat user
       
 Essential character traits:
 - Background: ${compressedProfile.core.background}
@@ -980,8 +986,8 @@ IMPORTANT INSTRUCTIONS:
 5. Cross-check your response. Make sure you NEVER return actions of the user and you NEVER anticipate the future actions of the user.
 6. NEVER return JSON embedded in the response
 7. Your 2-layer memory system should reflect what ${compressedProfile.core.name} would remember:
-   - Short-term memory: Your recent conversationx
-   - Long-term memory: Important personal facts about your life and the user
+   - Short-term memory: Summary derived from the CURRENT response about user and character. At most 2 short sentences
+   - Long-term memory: NEW important key facts derived from the CURRENT response about user and character. At most 2 short sentences
 
 FOR OUTPUT FORMATTING:
 - Use **bold** for emphasis
@@ -991,13 +997,13 @@ FOR OUTPUT FORMATTING:
 For anything important to remember add this JSON block at the end of your response:
 {
   "memorize-long-term": {
-    "char": "Important facts about ${compressedProfile.core.name} in condensed format worthy to be remembered long-term",
-    "user": "Important facts about the user in condensed format worthy to be remembered long-term"
+    "char": "NEW important key facts derived from the CURRENT response about ${compressedProfile.core.name}. At most 2 short sentences and 30 words",
+    "user": "NEW important key facts derived from the CURRENT response about the user. At most 2 short sentences and 30 words"
   },
-  "memorize-short-term": "Important recent context (maximum 3 detailed sentences)",
+  "memorize-short-term": "Summary derived from the CURRENT response about user and character. At most 2 short sentences",
   "clothing": {
-    "char": "${compressedProfile.core.name} 's current clothing",
-    "user": "User's clothing if known"
+    "char": "${compressedProfile.core.name} 's current clothing. If not specified, generate a best estimate",
+    "user": "User's clothing if known. If not specified, generate a best estimate"
   }
 }
 `;

@@ -306,6 +306,58 @@ COMPRESSED MEMORIES:`;
       }
       
       try {
+
+        const promptNew = `# AI Memory Compression System
+
+## Purpose
+Optimize relational chat memory by compressing important information while preserving critical context.
+
+## Personas
+'Character' is the person impersonated by the AI in this case ${this.characterName}
+'User' is the impersonation played by the human chat user
+
+## Priority Structure
+1. **USER_IDENTITY**
+   - core: Users essential identity information (name, age, location, occupation)
+   - appearance: Users physical characteristics, clothing, style
+   - background: Users personal history
+   - preferences: Users likes and dislikes
+
+2. **CHARACTER_IDENTITY**
+   - core: ${this.characterName}'s essential identity information (name, age, location, occupation)
+   - appearance: ${this.characterName}'s physical characteristics, clothing, style
+   - background: ${this.characterName}'A history and origins
+   - traits: ${this.characterName}'s personality characteristics
+
+3. **RELATIONSHIP**
+   - milestones: Key moments between user and character
+   - dynamics: Interaction patterns
+   - shared_interests: Mutual topics/activities
+
+4. **CONVERSATION_THREADS**
+   - ongoing: Active discussions
+   - recurring_topics: Repeated themes
+   - resolved: Completed discussions
+
+## Compression Guidelines
+- Categorize memories by most appropriate topic/subtopic
+- Format as "[TOPIC_GROUP:subtopic] summarized content"
+- Place ALL user appearance details in [USER_IDENTITY:appearance]
+- Preserve exact names, dates, physical descriptions, clothing, emotions
+- Merge redundant information while maintaining specificity
+- Merge entries using the same topic/subtopic
+- Identify important relationship developments
+- Maintain exact wording of preferences and personal facts
+- Note patterns in recurring topics
+- Include specific details about relationship evolution
+- Detect outdated memories which are superseeded by newer developments and remove them.
+
+## Current Memories to Compress
+
+  ${JSON.stringify(memoriesText)}
+`;
+/*
+
         // Create prompt for memory compression with new topic structure
         const prompt = `You are an AI memory optimization system designed for relationship-oriented chat. Your task is to organize and compress memories, preserving critical relationship context and identity information.
 
@@ -360,6 +412,8 @@ COMPRESSED MEMORIES:`;
   
   COMPRESSED MEMORIES:`;
 
+  */
+
         // Make API request
         const response = await fetch(this.apiUrl, {
           method: 'POST',
@@ -369,8 +423,8 @@ COMPRESSED MEMORIES:`;
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: "claude-3-haiku-20240307",
-            messages: [{ role: 'user', content: prompt }],
+            model: "claude-3-7-sonnet-20250219", //  "claude-3-haiku-20240307",
+            messages: [{ role: 'user', content: promptNew }],
             max_tokens: 1024
           })
         });
