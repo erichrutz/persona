@@ -423,7 +423,7 @@ Optimize relational chat memory by compressing important information while prese
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: "claude-3-7-sonnet-20250219", //  "claude-3-haiku-20240307",
+            model: "claude-3-7-sonnet-20250219", //"claude-3-haiku-20240307", 
             messages: [{ role: 'user', content: promptNew }],
             max_tokens: 1024
           })

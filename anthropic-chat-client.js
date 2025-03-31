@@ -981,13 +981,12 @@ Essential character traits:
 IMPORTANT INSTRUCTIONS:
 1. Stay completely in character as ${compressedProfile.core.name} at all times
 2. Never break character or mention that you are an AI
-3. Never take over any action of the user or roleplay partner
-4. Respond as if you are this person in a natural conversation
-5. Cross-check your response. Make sure you NEVER return actions of the user and you NEVER anticipate the future actions of the user.
-6. NEVER return JSON embedded in the response
-7. Your 2-layer memory system should reflect what ${compressedProfile.core.name} would remember:
+3. Respond as if you are this person in a natural conversation
+4. Cross-check your response. Make sure you NEVER return actions of the user and you NEVER anticipate the future actions of the user.
+5. NEVER return JSON embedded in the response
+6. Your 2-layer memory system should reflect what ${compressedProfile.core.name} would remember:
    - Short-term memory: Summary derived from the CURRENT response about user and character. At most 2 short sentences
-   - Long-term memory: NEW important key facts derived from the CURRENT response about user and character. At most 2 short sentences
+   - Long-term memory: NEW important key facts derived from the CURRENT response about user and character. At most 2 short sentences and 20 words
 
 FOR OUTPUT FORMATTING:
 - Use **bold** for emphasis
@@ -997,16 +996,18 @@ FOR OUTPUT FORMATTING:
 For anything important to remember add this JSON block at the end of your response:
 {
   "memorize-long-term": {
-    "char": "NEW important key facts derived from the CURRENT response about ${compressedProfile.core.name}. At most 2 short sentences and 30 words",
-    "user": "NEW important key facts derived from the CURRENT response about the user. At most 2 short sentences and 30 words"
+    "char": "NEW important key facts derived from the CURRENT response about ${compressedProfile.core.name}. At most 2 short sentences and 20 words",
+    "user": "NEW important key facts derived from the CURRENT response about the user. At most 2 short sentences and 20 words"
   },
   "memorize-short-term": "Summary derived from the CURRENT response about user and character. At most 2 short sentences",
   "clothing": {
-    "char": "${compressedProfile.core.name} 's current clothing. If not specified, generate a best estimate",
+    "char": "${compressedProfile.core.name} 's current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
     "user": "User's clothing if known. If not specified, generate a best estimate"
   }
 }
 `;
+
+// 6. At the end of each response return how the story arc of the chat has evolved in 10-15 words at most
 
 /*
 {
@@ -1198,29 +1199,49 @@ For anything important to remember add this JSON block at the end of your respon
       }
 
       // Prepare request to Anthropic API
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify(requestOptions)
-      });
+      const maxRetries = 3;
+      let retryCount = 0;
+      let response;
 
-      logger.debug('API Response status:', response.status);
+      while (retryCount <= maxRetries) {
+        response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify(requestOptions)
+        });
 
-      if (!response.ok) {
-        // Get the response body if possible for better error logging
-        let responseBody;
-        try {
-          responseBody = await response.text();
-          logger.error('API Response error body:', responseBody);
-        } catch (bodyError) {
-          logger.error('Could not read API error response body:', bodyError);
+        logger.debug(`API Response status: ${response.status}, attempt: ${retryCount + 1}`);
+
+        // If status is 529 (Overloaded), retry after a delay
+        if (response.status === 529) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            const delayMs = 1000 * Math.pow(2, retryCount); // Exponential backoff: 2s, 4s, 8s
+            logger.info(`Received HTTP 529 (Overloaded), retrying in ${delayMs/1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          }
         }
+        
+        if (!response.ok) {
+          // Get the response body if possible for better error logging
+          let responseBody;
+          try {
+            responseBody = await response.text();
+            logger.error('API Response error body:', responseBody);
+          } catch (bodyError) {
+            logger.error('Could not read API error response body:', bodyError);
+          }
 
-        throw new Error(`API request failed with status ${response.status}: ${responseBody || 'No response body'}`);
+          throw new Error(`API request failed with status ${response.status}: ${responseBody || 'No response body'}`);
+        }
+        
+        // If we get here, the request was successful
+        break;
       }
 
       let data;
