@@ -60,7 +60,11 @@ const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 
 // Set up middleware
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -135,6 +139,8 @@ function getCharacterProfile(type) {
       return characterProfiles.matildaMartin;
     case 'wife':
       return characterProfiles.marriedWife;
+    case 'librarian':
+      return characterProfiles.librarian;
     case 'adiposeGirl':
       return characterProfiles.adiposeGirl;
     default:
@@ -201,7 +207,8 @@ app.post('/api/session', async (req, res) => {
         compressionEnabled: compressionEnabled !== undefined ? compressionEnabled : true,
         deepMemory: deepMemory || '',
         model: model || 'claude-3-7-sonnet-20250219',
-        language: language || 'english'
+        language: language || 'english',
+        characterName: profile?.name || 'AI Assistant'
       });
       
       // Set initial context if provided
@@ -433,6 +440,68 @@ app.post('/api/deep-memory/:sessionId', async (req, res) => {
     });
   } catch (error) {
     logger.error('Error updating deep memory:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update clothing information
+app.post('/api/clothing/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { characterClothing, userClothing } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+    
+    // Get chat client for this session
+    let chatClient = activeSessions.get(sessionId);
+    
+    // If not in active sessions, try to load it
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId
+      });
+      
+      const loadResult = await chatClient.loadState(sessionId);
+      
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      // Add to active sessions
+      activeSessions.set(sessionId, chatClient);
+    }
+    
+    // Update clothing information with proper structure checking
+    if (!chatClient.memory.clothing) {
+      chatClient.memory.clothing = { clothing: { char: "", user: "" } };
+    } else if (!chatClient.memory.clothing.clothing) {
+      // Make sure there's a nested clothing property if it doesn't exist
+      chatClient.memory.clothing = { clothing: { char: "", user: "" } };
+    }
+    
+    // Update with new values
+    chatClient.memory.clothing.clothing.char = characterClothing || chatClient.memory.clothing.clothing.char;
+    chatClient.memory.clothing.clothing.user = userClothing || chatClient.memory.clothing.clothing.user;
+    
+    // Log the structure for debugging
+    logger.debug('Updated clothing structure:', JSON.stringify(chatClient.memory.clothing));
+    
+    // Save state
+    await chatClient.saveState();
+    
+    // Get updated memory state
+    const memoryState = chatClient.getMemoryState();
+    
+    res.json({
+      success: true,
+      memoryState
+    });
+  } catch (error) {
+    logger.error('Error updating clothing information:', error);
     res.status(500).json({ error: error.message });
   }
 });

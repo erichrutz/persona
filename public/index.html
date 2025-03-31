@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Persona - Professionelle Charaktersimulation</title>
+  <title>Intimate Persona - Advanced Character Simulation</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Add Marked.js for Markdown parsing -->
@@ -15,29 +15,35 @@
   <script src="/localization.js"></script>
   <style>
     :root {
-      --primary-color: #6a5acd;
+      --primary-color: #e94e77;
       --secondary-color: #f8f9fa;
-      --accent-color: #9370db;
+      --accent-color: #c6436e;
       --text-color: #333;
-      --light-accent: #e6e6fa;
-      --dark-accent: #483d8b;
+      --light-accent: #fde8ee;
+      --dark-accent: #a52c4e;
       --success-color: #4caf50;
       --warning-color: #ff9800;
       --danger-color: #f44336;
       --border-radius: 12px;
-      --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      --background-color: #f9f0f2;
+      --card-bg-color: rgba(255, 255, 255, 0.95);
     }
     
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       color: var(--text-color);
-      background-color: #f5f5f7;
+      background-color: var(--background-color);
       line-height: 1.6;
+      background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.05) 75%, transparent 75%);
+      background-size: 40px 40px;
     }
     
     .navbar {
-      background-color: white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      background-color: var(--card-bg-color);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(5px);
+      border-bottom: 1px solid rgba(233, 78, 119, 0.1);
     }
     
     .navbar-brand {
@@ -77,13 +83,21 @@
       border: none;
       box-shadow: var(--card-shadow);
       overflow: hidden;
+      background-color: var(--card-bg-color);
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s, box-shadow 0.3s;
+    }
+    
+    .card:hover {
+      box-shadow: 0 6px 18px rgba(233, 78, 119, 0.15);
     }
     
     .card-header {
-      background-color: white;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      background-color: rgba(255, 255, 255, 0.8);
+      border-bottom: 1px solid rgba(233, 78, 119, 0.1);
       padding: 1rem 1.5rem;
       font-weight: 600;
+      color: var(--dark-accent);
     }
     
     .session-info-card {
@@ -113,17 +127,21 @@
       padding: 14px 20px;
       border-radius: 18px 18px 4px 18px;
       margin-left: auto;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-top: 1px solid rgba(255, 255, 255, 0.5);
+      border-left: 1px solid rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(4px);
     }
     
     .assistant-message {
-      background-color: white;
+      background-color: rgba(255, 255, 255, 0.85);
       color: var(--text-color);
       padding: 14px 20px;
       border-radius: 18px 18px 18px 4px;
       margin-right: auto;
-      border: 1px solid #eaeaea;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(233, 78, 119, 0.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      backdrop-filter: blur(4px);
     }
     
     .system-message {
@@ -156,36 +174,53 @@
     }
     
     .message-input-container {
-      background-color: white;
-      border-top: 1px solid #eaeaea;
-      padding: 15px;
+      background-color: rgba(255, 255, 255, 0.8);
+      border-top: 1px solid rgba(233, 78, 119, 0.1);
+      padding: 18px;
       border-radius: 0 0 var(--border-radius) var(--border-radius);
+      backdrop-filter: blur(5px);
     }
     
     .message-input {
-      border-radius: 20px;
-      padding: 12px 20px;
+      border-radius: 24px;
+      padding: 14px 24px;
       resize: none;
-      border: 1px solid #ddd;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-      transition: border-color 0.2s, box-shadow 0.2s;
-      min-height: 50px;
+      border: 1px solid rgba(233, 78, 119, 0.2);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+      min-height: 54px;
       max-height: 150px;
+      background-color: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(4px);
+      font-size: 1rem;
     }
     
     .message-input:focus {
       border-color: var(--primary-color);
-      box-shadow: 0 1px 3px rgba(106, 90, 205, 0.2);
+      box-shadow: 0 3px 10px rgba(233, 78, 119, 0.15);
+      outline: none;
+      background-color: white;
     }
     
     .send-button {
       border-radius: 50%;
-      width: 46px;
-      height: 46px;
+      width: 54px;
+      height: 54px;
       padding: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      box-shadow: 0 4px 12px rgba(233, 78, 119, 0.25);
+      transition: all 0.3s ease;
+    }
+    
+    .send-button:hover {
+      background-color: var(--dark-accent);
+      border-color: var(--dark-accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(233, 78, 119, 0.35);
     }
     
     .character-selection {
@@ -221,31 +256,54 @@
     .char-detective {
       background-image: url('/api/placeholder/300/160');
       background-color: #4a6572;
+      position: relative;
+      overflow: hidden;
     }
     
     .char-mentor {
       background-image: url('/api/placeholder/300/160');
       background-color: #617c58;
+      position: relative;
+      overflow: hidden;
     }
     
     .char-therapist {
       background-image: url('/api/placeholder/300/160');
       background-color: #81a4cd;
+      position: relative;
+      overflow: hidden;
     }
     
     .char-coach {
       background-image: url('/api/placeholder/300/160');
       background-color: #b57e50;
+      position: relative;
+      overflow: hidden;
     }
     
     .char-creative {
       background-image: url('/api/placeholder/300/160');
       background-color: #a45c94;
+      position: relative;
+      overflow: hidden;
     }
     
     .char-custom {
       background-image: url('/api/placeholder/300/160');
       background-color: #8e7cc3;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .character-img::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,0) 60%, rgba(233, 78, 119, 0.6) 100%);
+      z-index: 1;
     }
     
     .character-info {
@@ -253,24 +311,49 @@
     }
     
     .memory-container {
-      height: 300px;
+      height: calc(100vh - 400px);
+      min-height: 300px;
       overflow-y: auto;
       padding: 0.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-color) rgba(0,0,0,0.05);
+    }
+    
+    .memory-container::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .memory-container::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+    }
+    
+    .memory-container::-webkit-scrollbar-thumb {
+      background-color: var(--accent-color);
+      border-radius: 4px;
+    }
+    
+    .memory-container::-webkit-scrollbar-thumb:hover {
+      background-color: var(--dark-accent);
     }
     
     .memory-item {
-      padding: 10px 15px;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      background-color: #f8f9fa;
+      padding: 12px 18px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background-color: rgba(248, 249, 250, 0.8);
       border-left: 3px solid var(--primary-color);
       font-size: 0.9rem;
-      transition: background-color 0.2s, transform 0.2s;
+      transition: all 0.3s ease;
+      position: relative;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
     .memory-item:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 4px 10px rgba(233, 78, 119, 0.15);
+      background-color: white;
+      z-index: 2;
     }
     
     .memory-item.compressed {
@@ -312,24 +395,23 @@
     
     .tooltip-text {
       visibility: hidden;
-      width: 300px;
-      background-color: #333;
+      width: 350px;
+      background-color: rgba(33, 33, 33, 0.95);
       color: white;
       text-align: left;
-      border-radius: 8px;
-      padding: 12px;
-      position: absolute;
-      z-index: 100;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -150px;
+      border-radius: 12px;
+      padding: 15px;
+      position: fixed; /* Changed from absolute to fixed */
+      z-index: 9999; /* Higher z-index to ensure it's always on top */
       opacity: 0;
-      transition: opacity 0.2s, visibility 0.2s, transform 0.2s;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-      max-height: 300px;
+      transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      max-height: 80vh; /* Use viewport height instead of fixed pixels */
       overflow-y: auto;
       transform: translateY(10px);
-      pointer-events: none; /* Prevents flickering */
+      pointer-events: auto; /* Enable scrolling */
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     /* We now use JS event listeners instead */
@@ -337,6 +419,25 @@
       visibility: visible;
       opacity: 1;
       transform: translateY(0);
+    }
+    
+    /* Custom scrollbar for tooltip */
+    .tooltip-text::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .tooltip-text::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    
+    .tooltip-text::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+    }
+    
+    .tooltip-text::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
     }
     
     /* Add special styling for the memory content */
@@ -391,8 +492,8 @@
   <nav class="navbar navbar-expand-lg navbar-light py-3">
     <div class="container">
       <a class="navbar-brand d-flex align-items-center" href="#">
-        <i class="fas fa-comments me-2" style="color: var(--primary-color);"></i>
-        Persona <span class="app-subtitle ms-2" data-i18n="app_subtitle">Professional Character Simulation</span>
+        <i class="fas fa-heart me-2" style="color: var(--primary-color);"></i>
+        Intimate Persona <span class="app-subtitle ms-2" data-i18n="app_subtitle">Immersive Character Experience</span>
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
@@ -450,6 +551,7 @@
               <option value="coach" data-i18n="character_life_coach">Life Coach - Personal goals and self-improvement</option>
               <option value="mother" data-i18n="character_divorced_mother">Divorced Mother - Life topics</option>
               <option value="wife" data-i18n="character_married_wife">Alexandra Rutz - Married Wife</option>
+              <option value="librarian" data-i18n="character_librarian">Naomi Chen - Librarian</option>
               <option value="detective" data-i18n="character_inspector">Inspector Blackwood - Analytical problem solver</option>
               <option value="girl" data-i18n="character_teenage_girl">Teenage girl - Adolescent problems</option>
               <option value="matildaMartin" data-i18n="character_matilda">Matilda - A fantasy novel hero</option>
@@ -629,9 +731,12 @@
           
           <!-- Welcome placeholder for empty chat -->
           <div id="welcome-placeholder" class="welcome-message">
-            <h2 data-i18n="welcome_title">Welcome to Your Simulation</h2>
-            <p data-i18n="welcome_text">Your conversation will appear here. Start by introducing yourself or asking a question.</p>
-            <img src="/api/placeholder/300/200" alt="Welcome illustration" class="img-fluid my-4 rounded" style="max-width: 300px;">
+            <h2 data-i18n="welcome_title">Welcome to Your Intimate Experience</h2>
+            <p data-i18n="welcome_text">Your private conversation will appear here. Start by introducing yourself and sharing your desires.</p>
+            <div class="welcome-image-container my-4" style="max-width: 300px; margin: 0 auto; position: relative; overflow: hidden; border-radius: 15px; box-shadow: 0 8px 20px rgba(233, 78, 119, 0.25);">
+              <img src="/api/placeholder/300/200" alt="Welcome illustration" class="img-fluid" style="transform: scale(1.05); transition: transform 0.5s ease;">
+              <div style="position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(233, 78, 119, 0.1), rgba(233, 78, 119, 0.4)); backdrop-filter: blur(3px);"></div>
+            </div>
           </div>
           
           <!-- Chat messages -->
@@ -662,6 +767,9 @@
                 <button class="nav-link" id="long-term-tab" data-bs-toggle="tab" data-bs-target="#long-term-content" type="button" role="tab" data-i18n="long_term_label">Long-Term</button>
               </li>
               <li class="nav-item" role="presentation">
+                <button class="nav-link" id="clothing-tab" data-bs-toggle="tab" data-bs-target="#clothing-content" type="button" role="tab">Clothing</button>
+              </li>
+              <li class="nav-item" role="presentation">
                 <button class="nav-link" id="deep-memory-tab" data-bs-toggle="tab" data-bs-target="#deep-memory-content" type="button" role="tab" data-i18n="deep_memory_panel_label">Deep Memory</button>
               </li>
               <li class="nav-item" role="presentation">
@@ -681,6 +789,35 @@
               <div class="tab-pane fade h-100" id="long-term-content" role="tabpanel">
                 <div class="memory-container h-100">
                   <ul id="long-term-memory" class="list-unstyled"></ul>
+                </div>
+              </div>
+
+              <!-- Clothing Tab -->
+              <div class="tab-pane fade h-100" id="clothing-content" role="tabpanel">
+                <div class="memory-container h-100">
+                  <div class="card mb-3 bg-light">
+                    <div class="card-body">
+                      <h5 class="card-title">Character's Clothing</h5>
+                      <p id="character-clothing" class="card-text">No information available</p>
+                    </div>
+                  </div>
+                  <div class="card mb-3 bg-light">
+                    <div class="card-body">
+                      <h5 class="card-title">User's Clothing</h5>
+                      <p id="user-clothing" class="card-text">No information available</p>
+                    </div>
+                  </div>
+                  <div class="form-floating mb-3">
+                    <textarea class="form-control" id="update-character-clothing" rows="2" style="height: 80px"></textarea>
+                    <label for="update-character-clothing">Update Character's Clothing</label>
+                  </div>
+                  <div class="form-floating mb-3">
+                    <textarea class="form-control" id="update-user-clothing" rows="2" style="height: 80px"></textarea>
+                    <label for="update-user-clothing">Update User's Clothing</label>
+                  </div>
+                  <button id="save-clothing" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i> Save Clothing Information
+                  </button>
                 </div>
               </div>
               
@@ -1325,8 +1462,23 @@
           
           // Fetch current memory state
           try {
+            console.log("Fetching memory state for session:", activeSessionId);
             const response = await fetch(`/api/memory/${activeSessionId}`);
             const memoryState = await response.json();
+            console.log("Received memory state:", memoryState);
+            
+            // Make sure the Clothing tab is properly initialized
+            const clothingTab = document.getElementById('clothing-tab');
+            const clothingContent = document.getElementById('clothing-content');
+            
+            if (clothingTab && clothingContent) {
+              console.log("Clothing tab elements found");
+              
+              // Make sure Bootstrap's tab system is properly set up
+              const tabEl = new bootstrap.Tab(clothingTab);
+            }
+            
+            // Update the display with the memory state
             updateMemoryDisplay(memoryState);
           } catch (error) {
             console.error('Error fetching memory:', error);
@@ -1652,6 +1804,51 @@
         });
       }
       
+      // Handle clothing information save
+      if (document.getElementById('save-clothing')) {
+        document.getElementById('save-clothing').addEventListener('click', async () => {
+          if (!activeSessionId) return;
+          
+          const characterClothing = document.getElementById('update-character-clothing').value.trim();
+          const userClothing = document.getElementById('update-user-clothing').value.trim();
+          
+          try {
+            // Use the dedicated API endpoint for updating clothing
+            const response = await fetch(`/api/clothing/${activeSessionId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                characterClothing,
+                userClothing
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              // Update memory display
+              if (memoryPanel.style.display !== 'none' && data.memoryState) {
+                updateMemoryDisplay(data.memoryState);
+              }
+              
+              // Add system message
+              addSystemMessage('Clothing information updated successfully');
+              
+              // Update save status
+              lastSaveTime = new Date();
+              saveStatusElement.textContent = `Last saved: ${lastSaveTime.toLocaleTimeString()}`;
+            } else {
+              addSystemMessage(`Error updating clothing information: ${data.error}`);
+            }
+          } catch (error) {
+            console.error('Error updating clothing information:', error);
+            addSystemMessage(`Error updating clothing information: ${error.message}`);
+          }
+        });
+      }
+      
       function updateMemoryDisplay(memoryState) {
         if (!memoryState) return;
         
@@ -1669,6 +1866,46 @@
         
         if (updateDeepMemoryInput && memoryState.deepMemory) {
           updateDeepMemoryInput.value = memoryState.deepMemory;
+        }
+        
+        // Update clothing information if available
+        console.log("Memory state for clothing:", memoryState.clothing);
+        
+        const characterClothingElement = document.getElementById('character-clothing');
+        const userClothingElement = document.getElementById('user-clothing');
+        const updateCharacterClothingInput = document.getElementById('update-character-clothing');
+        const updateUserClothingInput = document.getElementById('update-user-clothing');
+        
+        if (memoryState.clothing) {
+          // Check for possible clothing structures
+          let charClothing = "";
+          let userClothing = "";
+          
+          if (memoryState.clothing.clothing) {
+            // Structure: {clothing: {char: "...", user: "..."}}
+            charClothing = memoryState.clothing.clothing.char || "";
+            userClothing = memoryState.clothing.clothing.user || "";
+          } else if (typeof memoryState.clothing === 'object') {
+            // Try to find char/user properties directly
+            charClothing = memoryState.clothing.char || "";
+            userClothing = memoryState.clothing.user || "";
+          }
+          
+          if (characterClothingElement) {
+            characterClothingElement.textContent = charClothing || "No information available";
+          }
+          
+          if (userClothingElement) {
+            userClothingElement.textContent = userClothing || "No information available";
+          }
+          
+          if (updateCharacterClothingInput) {
+            updateCharacterClothingInput.value = charClothing;
+          }
+          
+          if (updateUserClothingInput) {
+            updateUserClothingInput.value = userClothing;
+          }
         }
         
         // Add short-term memory items
@@ -1906,14 +2143,36 @@
         li.appendChild(tooltip);
         
         // Add a manual hover event for better tooltip control
-        li.addEventListener('mouseenter', () => {
+        li.addEventListener('mouseenter', (e) => {
+          // Get mouse position
+          const rect = li.getBoundingClientRect();
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          
+          // Position tooltip
+          tooltip.style.top = (rect.top + scrollTop - 10) + 'px';
+          tooltip.style.left = (rect.left + rect.width + 20) + 'px';
+          
+          // If tooltip would go off right edge, show it on the left side instead
+          if (rect.left + rect.width + 20 + 350 > window.innerWidth) {
+            tooltip.style.left = (rect.left - 370) + 'px';
+          }
+          
+          // Make tooltip visible
           tooltip.style.visibility = 'visible';
           tooltip.style.opacity = '1';
+          tooltip.style.transform = 'translateY(0)';
+          
+          // Prevent tooltip from being too low on the screen
+          const tooltipRect = tooltip.getBoundingClientRect();
+          if (tooltipRect.bottom > window.innerHeight) {
+            tooltip.style.top = (window.innerHeight - tooltipRect.height + scrollTop - 20) + 'px';
+          }
         });
         
         li.addEventListener('mouseleave', () => {
           tooltip.style.visibility = 'hidden';
           tooltip.style.opacity = '0';
+          tooltip.style.transform = 'translateY(10px)';
         });
         
         return li;

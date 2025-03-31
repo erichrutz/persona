@@ -51,6 +51,7 @@ class MemoryCompressor {
     this.apiCallCount = 0;
     this.lastCompressionTime = new Date();
     this.isCompressing = false;
+    this.characterName = options.characterName || 'AI Assistant';
 
     // Enhanced memory organization structure
     this.topicGroups = {
@@ -305,6 +306,58 @@ COMPRESSED MEMORIES:`;
       }
       
       try {
+
+        const promptNew = `# AI Memory Compression System
+
+## Purpose
+Optimize relational chat memory by compressing important information while preserving critical context.
+
+## Personas
+'Character' is the person impersonated by the AI in this case ${this.characterName}
+'User' is the impersonation played by the human chat user
+
+## Priority Structure
+1. **USER_IDENTITY**
+   - core: Users essential identity information (name, age, location, occupation)
+   - appearance: Users physical characteristics, clothing, style
+   - background: Users personal history
+   - preferences: Users likes and dislikes
+
+2. **CHARACTER_IDENTITY**
+   - core: ${this.characterName}'s essential identity information (name, age, location, occupation)
+   - appearance: ${this.characterName}'s physical characteristics, clothing, style
+   - background: ${this.characterName}'A history and origins
+   - traits: ${this.characterName}'s personality characteristics
+
+3. **RELATIONSHIP**
+   - milestones: Key moments between user and character
+   - dynamics: Interaction patterns
+   - shared_interests: Mutual topics/activities
+
+4. **CONVERSATION_THREADS**
+   - ongoing: Active discussions
+   - recurring_topics: Repeated themes
+   - resolved: Completed discussions
+
+## Compression Guidelines
+- Categorize memories by most appropriate topic/subtopic
+- Format as "[TOPIC_GROUP:subtopic] summarized content"
+- Place ALL user appearance details in [USER_IDENTITY:appearance]
+- Preserve exact names, dates, physical descriptions, clothing, emotions
+- Merge redundant information while maintaining specificity
+- Merge entries using the same topic/subtopic
+- Identify important relationship developments
+- Maintain exact wording of preferences and personal facts
+- Note patterns in recurring topics
+- Include specific details about relationship evolution
+- Detect outdated memories which are superseeded by newer developments and remove them.
+
+## Current Memories to Compress
+
+  ${JSON.stringify(memoriesText)}
+`;
+/*
+
         // Create prompt for memory compression with new topic structure
         const prompt = `You are an AI memory optimization system designed for relationship-oriented chat. Your task is to organize and compress memories, preserving critical relationship context and identity information.
 
@@ -317,15 +370,15 @@ COMPRESSED MEMORIES:`;
      - background: Historical information about the user
      - preferences: What the user likes and dislikes
   
-  2. CHARACTER_IDENTITY - Information about the AI character's identity 
+  2. CHARACTER_IDENTITY - Information about ${this.characterName}'s identity 
      - core: Essential identity facts
-     - appearance: Character's physical appearance and presentation
-     - background: Character's history and background
-     - traits: Character's personality traits
+     - appearance: ${this.characterName}'s physical appearance and presentation
+     - background: ${this.characterName}'s history and background
+     - traits: ${this.characterName}'s personality traits
   
-  3. RELATIONSHIP - Information about the relationship between user and character
+  3. RELATIONSHIP - Information about the relationship between user and ${this.characterName}
      - milestones: Key moments or turning points in the relationship
-     - dynamics: How the user and character interact
+     - dynamics: How the user and ${this.characterName} interact
      - shared_interests: Topics or activities both enjoy
   
   4. CONVERSATION_THREADS - Information about ongoing conversation themes
@@ -339,10 +392,9 @@ COMPRESSED MEMORIES:`;
   COMPRESSION GUIDELINES:
   1. USER INFORMATION IS HIGHEST PRIORITY - Preserve ALL details about the human user, especially physical appearance, clothing, personal attributes
   2. Analyze each memory and assign it to the MOST appropriate topic group and subtopic
-  3. Format memories as "[TOPIC_GROUP:subtopic] concise memory content"
+  3. Format memories as "[TOPIC_GROUP:subtopic] summarized memory content"
   4. USER APPEARANCE: All details about how the user looks MUST go in [USER_IDENTITY:appearance] - NEVER lose this information
   5. CRITICAL: Preserve exact details about names, dates, physical descriptions, clothing, emotional context
-  6. SPECIAL INSTRUCTION: For user appearance, LIST EVERY DETAIL SEPARATELY so nothing is lost or merged
   7. Merge redundant information while maintaining specificity
   8. Identify and elevate important relationship milestones
   9. Preserve the exact wording of preferences, likes, dislikes, and personal facts
@@ -360,6 +412,8 @@ COMPRESSED MEMORIES:`;
   
   COMPRESSED MEMORIES:`;
 
+  */
+
         // Make API request
         const response = await fetch(this.apiUrl, {
           method: 'POST',
@@ -369,8 +423,8 @@ COMPRESSED MEMORIES:`;
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: this.model,
-            messages: [{ role: 'user', content: prompt }],
+            model: "claude-3-7-sonnet-20250219", //"claude-3-haiku-20240307", 
+            messages: [{ role: 'user', content: promptNew }],
             max_tokens: 1024
           })
         });
