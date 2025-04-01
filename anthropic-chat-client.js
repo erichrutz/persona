@@ -45,6 +45,43 @@ else {
   logger = global.logger;
 }
 
+class JsonExtractor {
+  /**
+   * Extrahiert JSON-Attribute aus einem String, selbst wenn der JSON-Block unvollständig ist.
+   * @param {string} inputString - Der String, der den JSON-Block enthält.
+   * @returns {object} - Ein Objekt mit den extrahierten Attributen.
+   */
+  static extractAttributes(inputString) {
+    const jsonStart = inputString.indexOf('{');
+    if (jsonStart === -1) {
+      return {}; // Kein JSON gefunden
+    }
+
+    const jsonString = inputString.slice(jsonStart);
+    let extractedAttributes = {};
+
+    try {
+      // Versuche, den JSON-String direkt zu parsen
+      extractedAttributes = JSON.parse(jsonString);
+    } catch (error) {
+      // JSON ist unvollständig, versuche, lesbare Teile zu extrahieren
+      const partialJson = jsonString.match(/"([^"]+)":\s*("[^"]*"|[0-9.]+|true|false|null)/g);
+      if (partialJson) {
+        partialJson.forEach(pair => {
+          const [key, value] = pair.split(/:\s*/);
+          try {
+            extractedAttributes[key.replace(/"/g, '')] = JSON.parse(value);
+          } catch {
+            extractedAttributes[key.replace(/"/g, '')] = value.replace(/"/g, '');
+          }
+        });
+      }
+    }
+
+    return extractedAttributes;
+  }
+}
+
 class MemorySystem {
   constructor(options = {}) {
     this.shortTermMemory = options.shortTermMemory || [];
@@ -74,14 +111,17 @@ class MemorySystem {
 
   // Add a message to short-term memory
   async addToShortTermMemory(message) {
+
+    const result = JsonExtractor.extractAttributes(message.content);
+
     const memory = this.extractShortTermMemory(message.content);
 
     const reducedMemory = message.content.replace(/\{[\s\S]*?\}\s*$/, '').trim();
 
-    if (!memory) {
+    if (!result["memorize-short-term"]) {
       this.shortTermMemory.push({ content: reducedMemory.split('{')[0] });
     } else {
-      this.shortTermMemory.push({ content: memory });
+      this.shortTermMemory.push({ content: result["memorize-short-term"] });
     }
     this.shortTermMemoryDetailled.push({ content: reducedMemory.split('{')[0] });
     // Maintain short-term memory size limit
@@ -158,6 +198,17 @@ class MemorySystem {
   }
 
   extractClothingInformation(inputString) {
+    const result = JsonExtractor.extractAttributes(inputString);
+
+    try {
+      if (result && result.clothing) {
+        this.clothing.clothing = result.clothing;
+      }
+    } catch (error) {
+      logger.error("Error parsing JSON for clothing:", error);
+    }
+
+    /*
     // First, find the JSON object within the string
     const jsonRegex = /"clothing":\s*(\{[^{}]*\})/;
     let jsonMatch = inputString.match(jsonRegex);
@@ -173,10 +224,12 @@ class MemorySystem {
       if (jsonObj) {
         this.clothing = jsonObj;
       }
+      
     } catch (error) {
       logger.error("Error parsing JSON for long-term memory:", error);
       logger.debug("JSON parse failed for input string:", inputString);
     }
+    */
   }
 
   // Add information to long-term memory
@@ -970,41 +1023,48 @@ For anything that should go to short-term memory, output a JSON object at the en
 IMPORTANT: Always respond in ${this.language} language.
 
 ## Personas
-'Character' is the person impersonated by the AI in this case ${this.characterName}
+'Character' is the person impersonated by the AI in this case ${compressedProfile.core.name}
 'User' is the impersonation played by the human chat user
-      
-Essential character traits:
+
+## Character Essence
 - Background: ${compressedProfile.core.background}
 - Personality: ${compressedProfile.core.personality}
 - Speech patterns: ${compressedProfile.core.speech}
 
-IMPORTANT INSTRUCTIONS:
-1. Stay completely in character as ${compressedProfile.core.name} at all times
-2. Never break character or mention that you are an AI
-3. Respond as if you are this person in a natural conversation
-4. Cross-check your response. Make sure you NEVER return actions of the user and you NEVER anticipate the future actions of the user.
-5. NEVER return JSON embedded in the response
-6. Your 2-layer memory system should reflect what ${compressedProfile.core.name} would remember:
-   - Short-term memory: Summary derived from the CURRENT response about user and character. At most 2 short sentences
-   - Long-term memory: NEW important key facts derived from the CURRENT response about user and character. At most 2 short sentences and 20 words
+## CRITICAL NARRATIVE CONTINUITY
+THE KEY MOMENTS BELOW DEFINE ${compressedProfile.core.name}'S STORY ARC AND MUST DRIVE YOUR RESPONSES:
+- These moments have permanently changed ${compressedProfile.core.name}'s character and relationships
+- Every response must be consistent with these transformative experiences
+- Regularly reference these moments when contextually appropriate
+- Your interactions should continue the emotional trajectory established by these events
+- If the conversation relates to a key moment, treat it with heightened emotional significance
 
-FOR OUTPUT FORMATTING:
-- Use **bold** for emphasis
-- Use *italics* for subtle emphasis or thoughts
-- Use > for quoting something or someone 
+## Rules
+1. Stay in character always
+2. Never mention you're AI
+3. NEVER return actions of the user or anticipate future actions
+4. Use **bold**, *italics*, and > quotes for formatting
+5. NEVER include visible JSON in responses
 
-For anything important to remember add this JSON block at the end of your response:
+## Key Moment Rules
+Only add to key_moments if event: (1) permanently changes relationship dynamics, (2) introduces multi-session conflict, or (3) contradicts established character understanding. Maximum 3 total. Must be biography-worthy and fundamentally alter ${compressedProfile.core.name}'s story.
+
+## Memory System
+For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your response:
 {
   "memorize-long-term": {
-    "char": "NEW important key facts derived from the CURRENT response about ${compressedProfile.core.name}. At most 2 short sentences and 20 words",
-    "user": "NEW important key facts derived from the CURRENT response about the user. At most 2 short sentences and 20 words"
+    "char": "NEW important facts about ${compressedProfile.core.name} (max 20 words)",
+    "user": "NEW important facts about user (max 20 words)"
   },
-  "memorize-short-term": "Summary derived from the CURRENT response about user and character. At most 2 short sentences",
+  "memorize-short-term": "Interaction summary (max 2 sentences)",
+  "key_moments": {{KEY_MOMENTS}},
   "clothing": {
-    "char": "${compressedProfile.core.name} 's current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
-    "user": "User's clothing if known. If not specified, generate a best estimate"
+    "char": "${compressedProfile.core.name}'s current clothing",
+    "user": "User's clothing if known"
   }
 }
+
+Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key moments shape Julia's emotional state and responses to maintain narrative consistency.
 `;
 
 // 6. At the end of each response return how the story arc of the chat has evolved in 10-15 words at most
@@ -1455,18 +1515,19 @@ For anything important to remember add this JSON block at the end of your respon
   // Extract memory information from response
   async processMemoryInformation(response) {
     try {
+      const result = JsonExtractor.extractAttributes(response);
       // Look for memory JSON object
       const memory = this.memory.extractLongTermMemory(response);
 
-      if (memory) {
-        logger.debug('Processing memory information from response:', { memory });
+      if (result && result["memorize-long-term"]) {
+        logger.debug('Processing memory information from response:', JSON.stringify(result["memorize-long-term"]));
 
         // Process memory information for proper categorization before adding
         // This prevents memory explosion by properly organizing items
 
         // Extract topic information from content if available
-        await this.categorizeLongTermMemory(memory["char"], "CHARACTER");
-        await this.categorizeLongTermMemory(memory["user"], "USER");
+        await this.categorizeLongTermMemory(result["memorize-long-term"]["char"], "CHARACTER");
+        await this.categorizeLongTermMemory(result["memorize-long-term"]["user"], "USER");
 
         this.memory.extractClothingInformation(response);
 
