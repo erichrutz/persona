@@ -1315,8 +1315,9 @@
           try {
             requestData.customProfile = JSON.parse(customProfileInput.value);
           } catch (error) {
-            alert('Invalid JSON for custom character profile');
-            return;
+            requestData.customProfile = customProfileInput.value;
+            //alert('Invalid JSON for custom character profile');
+            // return;
           }
         }
         

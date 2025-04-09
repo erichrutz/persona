@@ -188,11 +188,26 @@ app.post('/api/session', async (req, res) => {
       // Create new session
       let profile;
       let characterName;
+      let isJSON = true;
       
       if (characterType === 'custom' && customProfile) {
         // Use custom profile
         profile = customProfile;
-        characterName = customProfile.name || 'Custom Character';
+        try {
+          if (customProfile.name) {
+            characterName = customProfile.name || 'Custom Character';
+          } else {
+            const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
+            const match = customProfile.match(regex);
+            characterName = match ? match[1] : null;
+            isJSON = false;
+          } 
+        } catch(error) {
+          const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
+          const match = customProfile.match(regex);
+          characterName = match ? match[1] : null;
+          isJSON = false;
+        }
       } else {
         // Get predefined character profile
         profile = getCharacterProfile(characterType);
@@ -208,7 +223,8 @@ app.post('/api/session', async (req, res) => {
         deepMemory: deepMemory || '',
         model: model || 'claude-3-7-sonnet-20250219',
         language: language || 'english',
-        characterName: profile?.name || 'AI Assistant'
+        characterName: characterName,
+        isJSON: isJSON
       });
       
       // Set initial context if provided

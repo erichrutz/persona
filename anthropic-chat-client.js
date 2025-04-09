@@ -67,14 +67,23 @@ class JsonExtractor {
       // JSON ist unvollständig, versuche, lesbare Teile zu extrahieren
       const partialJson = jsonString.match(/"([^"]+)":\s*("[^"]*"|[0-9.]+|true|false|null)/g);
       if (partialJson) {
-        partialJson.forEach(pair => {
+        for (let i = 0; i < partialJson.length; i++) {
+          const pair = partialJson[i];
           const [key, value] = pair.split(/:\s*/);
           try {
-            extractedAttributes[key.replace(/"/g, '')] = JSON.parse(value);
+            if (i < 2) {
+              if (!extractedAttributes["memorize-long-term"]) extractedAttributes["memorize-long-term"] = {};
+              extractedAttributes["memorize-long-term"][key.replace(/"/g, '')] = JSON.parse(value);
+            } else if (i > 2) {
+              if (!extractedAttributes["clothing"]) extractedAttributes["clothing"] = {};
+              extractedAttributes["clothing"][key.replace(/"/g, '')] = JSON.parse(value);
+            } else {
+              extractedAttributes[key.replace(/"/g, '')] = JSON.parse(value);
+            }
           } catch {
             extractedAttributes[key.replace(/"/g, '')] = value.replace(/"/g, '');
           }
-        });
+        }
       }
     }
 
@@ -858,6 +867,17 @@ class AnthropicChatClient {
       this.characterProfile = options.characterProfile || null;
     }
 
+    this.userProfile = `NAME: 
+ID: ///
+LOOKS: 
+CORE: 
+SPEECH: 
+TOPICS: 
+TRIGGERS: 
+PHRASES:`;
+
+    this.isJSON = options.isJSON || false;
+
     // Set up persistence if provided
     this.persistence = options.persistence || null;
     this.sessionId = options.sessionId || this.generateSessionId();
@@ -887,27 +907,10 @@ class AnthropicChatClient {
 
 
     // Default system prompt if no character profile is provided
-    this.systemPrompt = `You are a helpful AI assistant with access to a 2-layer memory system:
-1. Short-term memory: Contains recent conversation history
-2. Long-term memory: Contains important facts and information worth remembering long-term. At most 2 short sentences
-
-IMPORTANT: Always respond in ${this.language} language.
-
-After each user message, you will make TWO separate decisions:
-1. Respond normally to the user's query
-2. Return a detailled summary of the short-term memory provided to you of which you think are important to remember short term 
-3. Decide if any information from this interaction should be stored in long-term memory
-
-For anything that should go to short-term memory, output a JSON object at the end of your response. It looks like this:
-{
-  "memorize-short-term": "Important fact or context to remember short-term",
-  "memorize-long-term": "Important fact or context to remember short-term. Make this more detaillled than the long-term memory, but not longer than 3 sentences",
-  "reason-long-term": "Brief explanation of why this is important to remember long-term"
-}
-`;
+    this.systemPrompt = ``;
 
     // If character profile is provided, set up character impersonation
-    if (this.characterProfile) {
+    if (this.characterProfile ) {
       this.setupCharacterImpersonation(this.characterProfile);
     }
 
@@ -991,22 +994,18 @@ For anything that should go to short-term memory, output a JSON object at the en
     this.compressCharacterProfile(profile);
   }
 
-  // Compress character profile to reduce token usage
-  compressCharacterProfile(profile) {
-    // Extract and compress key elements from the profile
+  generatePrompt() {
+
     let compressedProfile = {};
 
-    try {
-      // Parse profile if it's a string
-      const profileObj = typeof profile === 'string'
-        ? JSON.parse(profile)
-        : profile;
+    let characterEssence;
 
+    if (this.isJSON) {
       // Extract essential traits (prioritize what makes the character unique)
       compressedProfile = {
         core: {
-          name: profileObj.name || profileObj.fullName || '',
-          role: profileObj.role || profileObj.occupation || '',
+          name: profileObj.name || profileObj.fullName || '' ,
+          role: this.profileObj.role || profileObj.occupation || '',
           background: this.summarize(profileObj.background || profileObj.history || ''),
           personality: this.extractKeyTraits(profileObj.personality || profileObj.traits || []),
           speech: this.extractSpeechPatterns(profileObj.speech || profileObj.speechPatterns || profileObj.dialogue || ''),
@@ -1014,6 +1013,40 @@ For anything that should go to short-term memory, output a JSON object at the en
         // Include a small hash of all attributes for reference
         allTraits: this.createTraitFingerprint(profileObj)
       };
+      const characterEssence = `## Character Essence
+      - Background: ${compressedProfile.core.background}
+      - Personality: ${compressedProfile.core.personality}
+      - Speech patterns: ${compressedProfile.core.speech}
+      `;
+    } else {
+      compressedProfile = {core: {name: this.characterName, role : ''}};
+      characterEssence = `
+      ## SYMBOLIC LANGUAGE
+      
+      This is a compact character profile for roleplay. Please read and understand the following format:
+
+SECTION HEADERS (NAME, ID, etc.) organize different character aspects.
+
+SYMBOLS USED:
++ or ++ = Interest/knowledge (++ = passionate)
+- or -- = Dislike/avoidance (-- = strong dislike)
+~ = Neutral/ambivalent
+→ = Trigger leads to response
+! = Critical trait/trigger
+* = Hidden trait
+# = Contextual trait
+@ = Location-specific behavior
+
+Please embody this character in your responses, incorporating their personality traits, speech patterns, knowledge areas, and emotional triggers. Pay special attention to starred (*) items which represent hidden aspects that influence behavior but aren't openly displayed.
+
+## Character Essence
+---
+      ${this.characterProfile}
+---
+## User Essence
+      ${this.userProfile}
+---`;
+    }
 
       this.name = compressedProfile.core.name;
 
@@ -1026,10 +1059,7 @@ IMPORTANT: Always respond in ${this.language} language.
 'Character' is the person impersonated by the AI in this case ${compressedProfile.core.name}
 'User' is the impersonation played by the human chat user
 
-## Character Essence
-- Background: ${compressedProfile.core.background}
-- Personality: ${compressedProfile.core.personality}
-- Speech patterns: ${compressedProfile.core.speech}
+${characterEssence}
 
 ## CRITICAL NARRATIVE CONTINUITY
 THE KEY MOMENTS BELOW DEFINE ${compressedProfile.core.name}'S STORY ARC AND MUST DRIVE YOUR RESPONSES:
@@ -1040,48 +1070,51 @@ THE KEY MOMENTS BELOW DEFINE ${compressedProfile.core.name}'S STORY ARC AND MUST
 - If the conversation relates to a key moment, treat it with heightened emotional significance
 
 ## Rules
-1. Stay in character always
-2. Never mention you're AI
-3. NEVER return actions of the user or anticipate future actions
-4. Use **bold**, *italics*, and > quotes for formatting
-5. NEVER include visible JSON in responses
-
-## Key Moment Rules
-Only add to key_moments if event: (1) permanently changes relationship dynamics, (2) introduces multi-session conflict, or (3) contradicts established character understanding. Maximum 3 total. Must be biography-worthy and fundamentally alter ${compressedProfile.core.name}'s story.
+1. Stay in character always. ALWAYS answer in first person perspective
+2. NEVER return actions of the user or anticipate future actions
+3. Use **bold**, *italics*, and > quotes for formatting
+4. NEVER include visible JSON in responses
+5. DO NEVER append to existing long and short-term memory. Just add new facts in a short way!
+6. ONLY use facts from the CURRENT response for short-term and long-term memory
+7. Use symbolic language from the character profile for memory
 
 ## Memory System
 For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your response:
 {
   "memorize-long-term": {
-    "char": "NEW important facts about ${compressedProfile.core.name} (max 20 words)",
-    "user": "NEW important facts about user (max 20 words)"
+    "char": "ONLY NEW important facts about ${compressedProfile.core.name} (symbolic language) from the CURRENT response",
+    "user": "ONLY NEW important facts about user (symbolic language) from the CURRENT response"
   },
-  "memorize-short-term": "Interaction summary (max 2 sentences)",
-  "key_moments": {{KEY_MOMENTS}},
+  "memorize-short-term": "Interaction summary (symbolic language)",
   "clothing": {
-    "char": "${compressedProfile.core.name}'s current clothing",
-    "user": "User's clothing if known"
+    "char": "${compressedProfile.core.name}'s current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
+    "user": "User's clothing if known. If not specified, generate a best estimate."
   }
 }
 
 Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key moments shape Julia's emotional state and responses to maintain narrative consistency.
 `;
 
-// 6. At the end of each response return how the story arc of the chat has evolved in 10-15 words at most
+  }
 
-/*
-{
-  "memorize-long-term":{"char": "Important facts about ${compressedProfile.core.name} in a minimized format", "user": "Important facts about the user, from user point of view in a minimized format" },
-  "memorize-short-term": "Important fact or context to remember short-term. Make this more detailled than the long-term memory, but at most 3 sentences",
-  "clothing:" {"char:" "What clothes is ${compressedProfile.core.name} wearing? If unknown, generate best estimate. Not subjunctive", "user": "What clothes is user wearing"}
-}
-  */
+  // Compress character profile to reduce token usage
+  compressCharacterProfile(profile) {
+    // Extract and compress key elements from the profile
+    let compressedProfile = {};
+
+    try {
+      // Parse profile if it's a string
+      const profileObj = typeof profile === 'string' && profile.trim().startsWith('{')
+        ? JSON.parse(profile)
+        : profile;
+      
+      this.generatePrompt();
 
       // Store compressed profile in long-term memory 
-      this.memory.addToLongTermMemory(`I am ${compressedProfile.core.name}. ${compressedProfile.core.background}`);
+      // this.memory.addToLongTermMemory(`I am ${compressedProfile.core.name}. ${compressedProfile.core.background}`);
 
       // Create an index of key facts for quick retrieval
-      this.createCharacterFactIndex(profileObj);
+      if (this.isJSON) this.createCharacterFactIndex(profileObj);
 
     } catch (error) {
       console.error('Error compressing character profile:', error);
@@ -1180,6 +1213,8 @@ Always reference user appearance, never contradict memory information, acknowled
           apiKey: this.apiKey,
           model: this.model,
           characterName: this.characterName,
+          characterProfile: this.characterProfile,
+          userProfile: this.userProfile
         });
       }
       // For the first message, if there's an initial context, include it in the system prompt
@@ -1191,7 +1226,7 @@ Always reference user appearance, never contradict memory information, acknowled
       // await this.memory.addToShortTermMemory(userMsg);
 
       // Check if message contains a query that might need character information
-      const needsCharacterInfo = this.characterProfile && this.shouldFetchCharacterInfo(userMessage);
+      const needsCharacterInfo = this.isJSON && this.characterProfile && this.shouldFetchCharacterInfo(userMessage);
       let relevantMemory = '';
 
       if (needsCharacterInfo) {
@@ -1220,6 +1255,8 @@ Always reference user appearance, never contradict memory information, acknowled
       // Log what we're including in the prompt
       logger.debug("Including memory context in prompt:", memoryContext.length > 0);
 
+      this.generatePrompt();
+
       // Create a more optimized system prompt
       let fullSystemPrompt = this.systemPrompt;
 
@@ -1230,7 +1267,7 @@ Always reference user appearance, never contradict memory information, acknowled
       }
 
       // Always include memory context even if it seems empty - with explicit instructions
-      fullSystemPrompt += "\n\nIMPORTANT MEMORY CONTEXT (you must use this information):\n" + (memoryContext || "No memories available yet.") + "\n\nVITAL INSTRUCTIONS ABOUT MEMORY:\n1. You MUST use the memory information above in your responses. It contains important facts about the user and your relationship.\n2. USER APPEARANCE information is CRITICAL - always remember and reference how the user looks, what they wear, and their physical characteristics.\n3. Never contradict or forget information from memory, especially user identity details.\n4. If the user mentions something already in memory, acknowledge that you remember this information.\n5. Treat memory sections marked as CRITICAL or MUST REMEMBER with highest priority.";
+      fullSystemPrompt += "\n\nIMPORTANT MEMORY CONTEXT (you must use this information):\n" + (memoryContext || "No memories available yet.");
 
       // Only add character context if relevant to user query
       if (relevantMemory && relevantMemory.length > 0) {
@@ -1250,7 +1287,7 @@ Always reference user appearance, never contradict memory information, acknowled
         model: this.model,
         messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
         system: fullSystemPrompt,
-        max_tokens: 1024
+        max_tokens: 2048
       };
 
       // Add temperature only if not default to save tokens
@@ -1329,18 +1366,6 @@ Always reference user appearance, never contradict memory information, acknowled
 
       // Add assistant response to conversation history
       const assistantMsg = { role: 'assistant', content: assistantResponse };
-      /*
-      // Safely extract JSON if present
-      try {
-        // Only split if a '}' exists in the string
-        if (assistantMsg.content.includes('}')) {
-          assistantMsg.content = assistantMsg.content.split('}')[0] + '}';
-        }
-      } catch (splitError) {
-        logger.error('Error processing response content:', splitError);
-        logger.debug('Content that caused the error:', assistantResponse);
-      }
-        */
 
       this.messages.push(assistantMsg);
       await this.memory.addToShortTermMemory(assistantMsg);
@@ -1356,7 +1381,13 @@ Always reference user appearance, never contradict memory information, acknowled
       // Check if we should compress memory
       if (this.memory.shouldCompressMemory()) {
         // Compress in background to not block the response
-        this.compressMemory();
+        const result = await this.compressMemory();
+        if (result.compressed) {
+          this.characterProfile = this.memory.longTermMemory[0].content;
+          this.userProfile = this.memory.longTermMemory[1].content;
+          this.memory.longTermMemory = [];        
+        }
+
       }
 
       // Save state if persistence is enabled
@@ -1389,7 +1420,9 @@ Always reference user appearance, never contradict memory information, acknowled
       this.memoryCompressor = new MemoryCompressor({
         apiKey: this.apiKey,
         model: this.model,
-        characterName: this.characterName
+        characterName: this.characterName,
+        characterProfile: this.characterProfile,
+        userProfile: this.userProfile
       });
     }
 
@@ -1458,6 +1491,7 @@ Always reference user appearance, never contradict memory information, acknowled
 
     // Categories to search for relevant information
     const categories = {
+      en: {
       personal: ['you', 'your', 'yourself', 'who are you', 'tell me about you'],
       background: ['background', 'history', 'past', 'childhood', 'grow up', 'born'],
       family: ['family', 'parent', 'mother', 'father', 'sibling', 'brother', 'sister'],
@@ -1466,10 +1500,25 @@ Always reference user appearance, never contradict memory information, acknowled
       preferences: ['like', 'love', 'enjoy', 'prefer', 'favorite'],
       dislikes: ['dislike', 'hate', 'avoid', 'don\'t like'],
       personality: ['personality', 'character', 'trait', 'nature', 'temperament']
+      },
+      de: {
+      personal: ['du', 'dein', 'dich', 'wer bist du', 'erzähl mir von dir'],
+      background: ['hintergrund', 'geschichte', 'vergangenheit', 'kindheit', 'aufgewachsen', 'geboren'],
+      family: ['familie', 'eltern', 'mutter', 'vater', 'geschwister', 'bruder', 'schwester'],
+      education: ['studium', 'studiert', 'bildung', 'schule', 'hochschule', 'universität', 'abschluss'],
+      work: ['arbeit', 'beruf', 'karriere', 'profession', 'tätigkeit'],
+      preferences: ['mögen', 'lieben', 'genießen', 'bevorzugen', 'lieblings'],
+      dislikes: ['nicht mögen', 'hassen', 'vermeiden', 'mag nicht'],
+      personality: ['persönlichkeit', 'charakter', 'eigenschaft', 'natur', 'temperament']
+      }
     };
 
-    // Find which categories match the query
-    const matchingCategories = Object.entries(categories)
+    // Determine language-specific categories
+    const language = (this.language === 'deutsch') ? 'de' : 'en';
+    const selectedCategories = categories[language];
+
+    // Find which categories match the query[
+    const matchingCategories = Object.entries(categories[language])
       .filter(([_, keywords]) => keywords.some(keyword => queryLower.includes(keyword)))
       .map(([category, _]) => category);
 
@@ -1519,6 +1568,8 @@ Always reference user appearance, never contradict memory information, acknowled
       // Look for memory JSON object
       const memory = this.memory.extractLongTermMemory(response);
 
+      console.log("Long-term memory state before processing:", JSON.stringify(this.memory.getMemoryContents()));
+
       if (result && result["memorize-long-term"]) {
         logger.debug('Processing memory information from response:', JSON.stringify(result["memorize-long-term"]));
 
@@ -1526,8 +1577,8 @@ Always reference user appearance, never contradict memory information, acknowled
         // This prevents memory explosion by properly organizing items
 
         // Extract topic information from content if available
-        await this.categorizeLongTermMemory(result["memorize-long-term"]["char"], "CHARACTER");
-        await this.categorizeLongTermMemory(result["memorize-long-term"]["user"], "USER");
+        if (result["memorize-long-term"] && result["memorize-long-term"]["char"]) await this.categorizeLongTermMemory(result["memorize-long-term"]["char"], "CHARACTER");
+        if (result["memorize-long-term"] && result["memorize-long-term"]["user"]) await this.categorizeLongTermMemory(result["memorize-long-term"]["user"], "USER");
 
         this.memory.extractClothingInformation(response);
 
