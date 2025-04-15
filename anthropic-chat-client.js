@@ -97,7 +97,7 @@ class MemorySystem {
     this.shortTermMemoryDetailled = options.shortTermMemoryDetailled || [];
     this.longTermMemory = options.longTermMemory || [];
     this.deepMemory = options.deepMemory || ''; // New deep memory that's never compressed
-    this.shortTermMemoryLimit = options.shortTermMemoryLimit || 7;
+    this.shortTermMemoryLimit = options.shortTermMemoryLimit || 10;
     this.shortTermMemoryDetailedLimit = options.shortTermMemoryDetailedLimit || 2;
     this.clothing = options.clothing || {clothing: {user: "unknown", char: "unknown"}};
     this.history = options.history || []; // Track significant relationship changes
@@ -958,7 +958,8 @@ PHRASES:`;
         characterProfile: this.characterProfile,
         memoryState: this.memory.getMemoryContents(),
         timestamp: new Date().toISOString(),
-        clothing: this.memory.clothing
+        clothing: this.memory.clothing,
+        history: this.memory.history // Include relationship history changes
       };
 
       return await this.persistence.saveMemory(this.sessionId, state);
@@ -985,6 +986,7 @@ PHRASES:`;
       this.sessionId = loadedState.sessionId;
       this.messages = loadedState.messages || [];
       this.clothing = loadedState.clothing || {user: "", char: ""};
+      this.history = loadedState.history || []; // Load relationship history
 
       // Restore character profile if available
       if (loadedState.characterProfile) {
