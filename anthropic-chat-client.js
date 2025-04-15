@@ -100,6 +100,7 @@ class MemorySystem {
     this.shortTermMemoryLimit = options.shortTermMemoryLimit || 7;
     this.shortTermMemoryDetailedLimit = options.shortTermMemoryDetailedLimit || 2;
     this.clothing = options.clothing || {clothing: {user: "unknown", char: "unknown"}};
+    this.history = options.history || []; // Track significant relationship changes
 
     // Initialize persistence if provided
     this.persistence = options.persistence || null;
@@ -206,15 +207,27 @@ class MemorySystem {
     }
   }
 
-  extractClothingInformation(inputString) {
+  extractClothingAndHistoryInformation(inputString) {
     const result = JsonExtractor.extractAttributes(inputString);
 
     try {
+      // Extract clothing information
       if (result && result.clothing) {
         this.clothing.clothing = result.clothing;
       }
+      
+      // Extract relationship history updates (only when significant)
+      if (result && result.history && result.history.trim()) {
+        // Only add to history if not empty (significant change)
+        const timestamp = new Date().toISOString();
+        this.history.push({
+          change: result.history.trim(),
+          timestamp: timestamp
+        });
+        logger.debug(`Added relationship history change: ${result.history.trim()} at ${timestamp}`);
+      }
     } catch (error) {
-      logger.error("Error parsing JSON for clothing:", error);
+      logger.error("Error parsing JSON for clothing or history:", error);
     }
 
     /*
@@ -772,7 +785,8 @@ class MemorySystem {
       longTerm: this.longTermMemory,
       deepMemory: this.deepMemory,
       compressionMetadata: this.compressionMetadata,
-      clothing: this.clothing?.clothing 
+      clothing: this.clothing?.clothing,
+      history: this.history // Include relationship history changes
     };
   }
 
@@ -789,7 +803,8 @@ class MemorySystem {
         deepMemory: this.deepMemory,
         compressionMetadata: this.compressionMetadata,
         timestamp: new Date().toISOString(),
-        clothing: this.clothing
+        clothing: this.clothing,
+        history: this.history
       };
 
       return await this.persistence.saveMemory(this.sessionId, memoryState);
@@ -816,6 +831,7 @@ class MemorySystem {
       this.shortTermMemory = loadedState.memoryState.shortTermMemory || [];
       this.longTermMemory = loadedState.memoryState.longTermMemory || [];
       this.deepMemory = loadedState.memoryState.deepMemory || '';
+      this.history = loadedState.memoryState.history || []; // Load relationship history
 
       // Load compression metadata if available
       if (loadedState.memoryState.compressionMetadata) {
@@ -897,7 +913,8 @@ PHRASES:`;
       longTermMemory: options.longTermMemory || [],
       deepMemory: options.deepMemory || '',
       compressionEnabled: options.compressionEnabled !== undefined ? options.compressionEnabled : true,
-      characterName: this.characterName
+      characterName: this.characterName,
+      history: options.history || [] // For tracking significant relationship changes
     });
 
     this.model = options.model || "claude-3-7-sonnet-20250219";
@@ -995,35 +1012,28 @@ PHRASES:`;
   }
 
   generatePrompt() {
-
-    let compressedProfile = {};
-
-    let characterEssence;
-
-    if (this.isJSON) {
-      // Extract essential traits (prioritize what makes the character unique)
-      compressedProfile = {
-        core: {
-          name: profileObj.name || profileObj.fullName || '' ,
-          role: this.profileObj.role || profileObj.occupation || '',
-          background: this.summarize(profileObj.background || profileObj.history || ''),
-          personality: this.extractKeyTraits(profileObj.personality || profileObj.traits || []),
-          speech: this.extractSpeechPatterns(profileObj.speech || profileObj.speechPatterns || profileObj.dialogue || ''),
-        },
-        // Include a small hash of all attributes for reference
-        allTraits: this.createTraitFingerprint(profileObj)
-      };
-      const characterEssence = `## Character Essence
-      - Background: ${compressedProfile.core.background}
-      - Personality: ${compressedProfile.core.personality}
-      - Speech patterns: ${compressedProfile.core.speech}
-      `;
-    } else {
-      compressedProfile = {core: {name: this.characterName, role : ''}};
-      characterEssence = `
-      ## SYMBOLIC LANGUAGE
-      
-      This is a compact character profile for roleplay. Please read and understand the following format:
+    // For symbolic profiles, extract name from the profile
+    const nameMatch = this.characterProfile.match(/NAME:\s*([^\n]+)/);
+    const characterName = nameMatch ? nameMatch[1].trim() : this.characterName;
+    
+    // Extract role/occupation if available
+    const idMatch = this.characterProfile.match(/ID:\s*([^\n]+)/);
+    const idParts = idMatch ? idMatch[1].split('/') : [];
+    const role = idParts.length >= 3 ? idParts[2].trim() : '';
+    
+    // Create simplified profile info
+    const compressedProfile = {
+      core: {
+        name: characterName,
+        role: role
+      }
+    };
+    
+    // Create character essence block with symbolic explanation
+    const characterEssence = `
+    ## SYMBOLIC LANGUAGE
+    
+    This is a compact character profile for roleplay. Please read and understand the following format:
 
 SECTION HEADERS (NAME, ID, etc.) organize different character aspects.
 
@@ -1041,14 +1051,13 @@ Please embody this character in your responses, incorporating their personality 
 
 ## Character Essence
 ---
-      ${this.characterProfile}
+    ${this.characterProfile}
 ---
 ## User Essence
-      ${this.userProfile}
+    ${this.userProfile}
 ---`;
-    }
 
-      this.name = compressedProfile.core.name;
+    this.name = compressedProfile.core.name;
 
       // Update system prompt for character impersonation
       this.systemPrompt = `You are roleplaying as ${compressedProfile.core.name}. ${compressedProfile.core.role ? `You are a ${compressedProfile.core.role}.` : ''}
@@ -1089,7 +1098,8 @@ For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your respo
   "clothing": {
     "char": "${compressedProfile.core.name}'s current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
     "user": "User's clothing if known. If not specified, generate a best estimate."
-  }
+  },
+  "history": "ONLY if something significant new about the character or the relationship to the user happens in this interaction, based on previous history, describe it in MAX 8 words with symbolic syntax (e.g. 'offers me a job', 'first sex', 'first kiss', 'tragic loss'). Leave EMPTY if no significant change."
 }
 
 Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key moments shape Julia's emotional state and responses to maintain narrative consistency.
@@ -1097,111 +1107,27 @@ Always reference user appearance, never contradict memory information, acknowled
 
   }
 
-  // Compress character profile to reduce token usage
+  // Process character profile (now in symbolic format)
   compressCharacterProfile(profile) {
-    // Extract and compress key elements from the profile
-    let compressedProfile = {};
-
     try {
-      // Parse profile if it's a string
-      const profileObj = typeof profile === 'string' && profile.trim().startsWith('{')
-        ? JSON.parse(profile)
-        : profile;
-      
+      // Process the symbolic profile
       this.generatePrompt();
-
-      // Store compressed profile in long-term memory 
-      // this.memory.addToLongTermMemory(`I am ${compressedProfile.core.name}. ${compressedProfile.core.background}`);
-
-      // Create an index of key facts for quick retrieval
-      if (this.isJSON) this.createCharacterFactIndex(profileObj);
-
+      
+      // No longer need to create fact index with symbolic profiles
     } catch (error) {
-      console.error('Error compressing character profile:', error);
-      // Fall back to simple character prompt if parsing fails
+      console.error('Error processing character profile:', error);
+      // Fall back to simple character prompt if processing fails
       this.systemPrompt = `You are roleplaying as the character described in the following profile. Stay in character at all times and never mention that you are an AI assistant:\n\n${profile}`;
     }
   }
 
-  // Summarize long text to essential points (reduces tokens)
+  // These methods are no longer needed with symbolic profiles
+  // Keeping minimal versions for backward compatibility
+  
   summarize(text, maxLength = 300) {
     if (!text) return '';
     if (text.length <= maxLength) return text;
-
-    // Simple truncation with ellipsis 
     return text.substring(0, maxLength - 3) + '...';
-  }
-
-  // Extract key personality traits
-  extractKeyTraits(traits, maxTraits = 5) {
-    if (typeof traits === 'string') {
-      // Try to extract traits from a string
-      return this.summarize(traits);
-    }
-
-    if (Array.isArray(traits)) {
-      // Select the most important traits (first few)
-      return traits.slice(0, maxTraits).join(', ');
-    }
-
-    return 'adaptable, authentic';
-  }
-
-  // Extract speech patterns
-  extractSpeechPatterns(speech) {
-    if (!speech) return 'speaks naturally';
-    if (typeof speech === 'string') return this.summarize(speech);
-
-    // If it's an object with specific patterns
-    if (typeof speech === 'object') {
-      const patterns = [];
-      if (speech.phrases) patterns.push(`common phrases: ${speech.phrases.slice(0, 3).join(', ')}`);
-      if (speech.tone) patterns.push(`tone: ${speech.tone}`);
-      if (speech.quirks) patterns.push(`quirks: ${speech.quirks}`);
-
-      return patterns.join('; ');
-    }
-
-    return 'speaks naturally';
-  }
-
-  // Create a compressed "fingerprint" of all traits for reference
-  createTraitFingerprint(profile) {
-    // This creates a compact representation of all attributes
-    // that can be used to query the full profile when needed
-    const allKeys = Object.keys(profile).sort();
-    return allKeys.map(key => `${key.substring(0, 3)}:${typeof profile[key] === 'string' ? profile[key].substring(0, 2) : '??'}`).join('|');
-  }
-
-  // Create an index of character facts for quick retrieval
-  createCharacterFactIndex(profile) {
-    // Parse the profile and categorize facts by topic
-    const factsIndex = {};
-
-    // Extract facts from various profile sections
-    // This builds semantic categories for fact retrieval
-    const addFact = (category, fact) => {
-      if (!factsIndex[category]) factsIndex[category] = [];
-      factsIndex[category].push(fact);
-    };
-
-    // Process common profile sections
-    if (profile.background) addFact('background', profile.background);
-    if (profile.history) addFact('background', profile.history);
-    if (profile.childhood) addFact('background', profile.childhood);
-    if (profile.family) addFact('relationships', profile.family);
-    if (profile.friends) addFact('relationships', profile.friends);
-    if (profile.likes) addFact('preferences', profile.likes);
-    if (profile.dislikes) addFact('preferences', profile.dislikes);
-    if (profile.fears) addFact('psychology', profile.fears);
-    if (profile.goals) addFact('motivation', profile.goals);
-    if (profile.secrets) addFact('secrets', profile.secrets);
-
-    // Add to long-term memory (with categories for retrieval)
-    Object.entries(factsIndex).forEach(([category, facts]) => {
-      const fact = Array.isArray(facts) ? facts.join('. ') : facts;
-      this.memory.addToLongTermMemory(`[${category.toUpperCase()}] ${fact}`);
-    });
   }
 
   // Process user message and get response
@@ -1226,7 +1152,8 @@ Always reference user appearance, never contradict memory information, acknowled
       // await this.memory.addToShortTermMemory(userMsg);
 
       // Check if message contains a query that might need character information
-      const needsCharacterInfo = this.isJSON && this.characterProfile && this.shouldFetchCharacterInfo(userMessage);
+      // For all profiles, check if we should fetch relevant character information
+      const needsCharacterInfo = this.characterProfile && this.shouldFetchCharacterInfo(userMessage);
       let relevantMemory = '';
 
       if (needsCharacterInfo) {
@@ -1261,9 +1188,14 @@ Always reference user appearance, never contradict memory information, acknowled
       let fullSystemPrompt = this.systemPrompt;
 
       if (this.memory.clothing) {
-        fullSystemPrompt += `LAST KNOWN CLOTHING - may change due to scenario; use this a reference:
+        fullSystemPrompt += `\n\nLAST KNOWN CLOTHING - may change due to scenario; use this a reference:
         - ${this.characterName}: "${this.memory.clothing.clothing.char}"
         - user: "${this.memory.clothing.clothing.user}"`;      
+      }
+
+      if (this.memory.history && this.memory.history.length > 0) {
+        fullSystemPrompt += `\n\nRELATIONSHIP HISTORY between user and character in chronological order. USE THIS INFORMATION FOR REFERENCE OF PAST EVENTS: 
+        ${this.memory.history.map(h => h.change)}`;
       }
 
       // Always include memory context even if it seems empty - with explicit instructions
@@ -1448,38 +1380,8 @@ Always reference user appearance, never contradict memory information, acknowled
 
   // Fetch relevant character information based on the query
   async fetchRelevantCharacterInfo(query) {
-    // If we don't have a handler for profiles, create one
-    if (!this.profileHandler) {
-      try {
-        // Try to import the handler if available
-        const { CharacterProfileHandler } = require('./character-profile-handler');
-        this.profileHandler = new CharacterProfileHandler();
-      } catch (error) {
-        // Simple fallback if import fails
-        this.profileHandler = {
-          parseProfile: profile => typeof profile === 'string' ? JSON.parse(profile) : profile,
-          extractMemoryFacts: profile => {
-            const parsed = typeof profile === 'string' ? JSON.parse(profile) : profile;
-            const facts = [];
-            for (const [key, value] of Object.entries(parsed)) {
-              if (typeof value === 'string') {
-                facts.push({ category: key, fact: value });
-              }
-            }
-            return facts;
-          }
-        };
-      }
-    }
-
-    // Make sure we have the parsed profile
-    if (!this.parsedProfile && this.characterProfile) {
-      try {
-        this.parsedProfile = this.profileHandler.parseProfile(this.characterProfile);
-      } catch (error) {
-        console.error('Error parsing character profile:', error);
-        return '';
-      }
+    if (!this.characterProfile) {
+      return '';
     }
 
     // Extract the keywords from the query
@@ -1487,78 +1389,86 @@ Always reference user appearance, never contradict memory information, acknowled
     const queryWords = queryLower
       .replace(/[.,?!;:()]/g, '')
       .split(' ')
-      .filter(word => word.length > 3); // Only consider substantive words
-
-    // Categories to search for relevant information
-    const categories = {
-      en: {
-      personal: ['you', 'your', 'yourself', 'who are you', 'tell me about you'],
-      background: ['background', 'history', 'past', 'childhood', 'grow up', 'born'],
-      family: ['family', 'parent', 'mother', 'father', 'sibling', 'brother', 'sister'],
-      education: ['study', 'studied', 'education', 'school', 'college', 'university', 'degree'],
-      work: ['work', 'job', 'career', 'profession', 'occupation'],
-      preferences: ['like', 'love', 'enjoy', 'prefer', 'favorite'],
-      dislikes: ['dislike', 'hate', 'avoid', 'don\'t like'],
-      personality: ['personality', 'character', 'trait', 'nature', 'temperament']
-      },
-      de: {
-      personal: ['du', 'dein', 'dich', 'wer bist du', 'erzähl mir von dir'],
-      background: ['hintergrund', 'geschichte', 'vergangenheit', 'kindheit', 'aufgewachsen', 'geboren'],
-      family: ['familie', 'eltern', 'mutter', 'vater', 'geschwister', 'bruder', 'schwester'],
-      education: ['studium', 'studiert', 'bildung', 'schule', 'hochschule', 'universität', 'abschluss'],
-      work: ['arbeit', 'beruf', 'karriere', 'profession', 'tätigkeit'],
-      preferences: ['mögen', 'lieben', 'genießen', 'bevorzugen', 'lieblings'],
-      dislikes: ['nicht mögen', 'hassen', 'vermeiden', 'mag nicht'],
-      personality: ['persönlichkeit', 'charakter', 'eigenschaft', 'natur', 'temperament']
-      }
+      .filter(word => word.length > 3);
+    
+    // Define the sections to look for based on query
+    const sectionMap = {
+      "appearance": ["LOOKS"],
+      "history": ["PAST", "BACKGROUND"],
+      "personality": ["CORE"],
+      "speech": ["SPEECH"],
+      "likes": ["TOPICS", "LIKES"],
+      "dislikes": ["DISLIKES"],
+      "relationships": ["CONNECTIONS"],
+      "habits": ["HABITS"],
+      "secrets": ["SECRETS"],
+      "goals": ["WANTS"]
     };
-
-    // Determine language-specific categories
-    const language = (this.language === 'deutsch') ? 'de' : 'en';
-    const selectedCategories = categories[language];
-
-    // Find which categories match the query[
-    const matchingCategories = Object.entries(categories[language])
-      .filter(([_, keywords]) => keywords.some(keyword => queryLower.includes(keyword)))
-      .map(([category, _]) => category);
-
-    // Extract facts from the profile
-    let relevantFacts = [];
-    if (this.parsedProfile) {
-      // If we have matching categories, get facts from those categories
-      if (matchingCategories.length > 0) {
-        // Extract all facts
-        const allFacts = this.profileHandler.extractMemoryFacts(this.parsedProfile);
-
-        // Filter facts by matching categories
-        relevantFacts = allFacts.filter(fact =>
-          matchingCategories.includes(fact.category) ||
-          matchingCategories.some(category => fact.category.includes(category))
-        );
-      }
-
-      // If no category matches, look for keyword matches
-      if (relevantFacts.length === 0) {
-        const allFacts = this.profileHandler.extractMemoryFacts(this.parsedProfile);
-        relevantFacts = allFacts.filter(fact =>
-          queryWords.some(word =>
-            fact.fact.toLowerCase().includes(word)
-          )
-        );
-      }
-
-      // If still no matches, include core identity
-      if (relevantFacts.length === 0) {
-        const coreFacts = this.profileHandler.extractMemoryFacts(this.parsedProfile)
-          .filter(fact => fact.category === 'identity' || fact.category === 'background');
-        relevantFacts = coreFacts.slice(0, 1); // Just the core identity
+    
+    // Map query categories to relevant sections
+    const relevantSections = new Set();
+    
+    // Check for appearance-related queries
+    if (queryLower.includes('look') || queryLower.includes('appearance') || 
+        queryLower.includes('hair') || queryLower.includes('eyes') || 
+        queryLower.includes('wear') || queryLower.includes('tall')) {
+      relevantSections.add("LOOKS");
+    }
+    
+    // Check for background/history
+    if (queryLower.includes('background') || queryLower.includes('history') || 
+        queryLower.includes('childhood') || queryLower.includes('past') ||
+        queryLower.includes('born')) {
+      sectionMap.history.forEach(section => relevantSections.add(section));
+    }
+    
+    // Check for personality
+    if (queryLower.includes('personality') || queryLower.includes('character') ||
+        queryLower.includes('trait') || queryLower.includes('yourself')) {
+      relevantSections.add("CORE");
+    }
+    
+    // Check for likes/interests/preferences
+    if (queryLower.includes('like') || queryLower.includes('enjoy') || 
+        queryLower.includes('love') || queryLower.includes('interest')) {
+      sectionMap.likes.forEach(section => relevantSections.add(section));
+    }
+    
+    // Check for connections/relationships
+    if (queryLower.includes('family') || queryLower.includes('relationship') ||
+        queryLower.includes('friends') || queryLower.includes('married')) {
+      relevantSections.add("CONNECTIONS");
+    }
+    
+    // Default - if nothing matches, include core identity sections
+    if (relevantSections.size === 0) {
+      relevantSections.add("NAME");
+      relevantSections.add("ID");
+      relevantSections.add("CORE");
+    }
+    
+    // Extract the relevant sections from the profile
+    const lines = this.characterProfile.split('\n');
+    const relevantInfo = [];
+    let currentSection = null;
+    
+    for (const line of lines) {
+      // Check if this is a section header
+      const sectionMatch = line.match(/^([A-Z]+):/);
+      
+      if (sectionMatch) {
+        currentSection = sectionMatch[1];
+        // If this section is relevant, add it
+        if (relevantSections.has(currentSection)) {
+          relevantInfo.push(line);
+        }
+      } else if (currentSection && relevantSections.has(currentSection) && line.trim()) {
+        // Continue adding lines from relevant sections
+        relevantInfo.push(line);
       }
     }
-
-    // Format the facts for the context
-    return relevantFacts
-      .map(fact => `[${fact.category.toUpperCase()}] ${fact.fact}`)
-      .join('\n\n');
+    
+    return relevantInfo.join('\n');
   }
 
   // Extract memory information from response
@@ -1580,7 +1490,8 @@ Always reference user appearance, never contradict memory information, acknowled
         if (result["memorize-long-term"] && result["memorize-long-term"]["char"]) await this.categorizeLongTermMemory(result["memorize-long-term"]["char"], "CHARACTER");
         if (result["memorize-long-term"] && result["memorize-long-term"]["user"]) await this.categorizeLongTermMemory(result["memorize-long-term"]["user"], "USER");
 
-        this.memory.extractClothingInformation(response);
+        // Extract clothing and relationship history changes
+        this.memory.extractClothingAndHistoryInformation(response);
 
       } else {
         logger.debug('No memory information found in response');

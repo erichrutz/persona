@@ -12,7 +12,7 @@ const cookieSession = require('cookie-session');
 require('dotenv').config(); // Load environment variables from .env file
 const { AnthropicChatClient, MemorySystem } = require('./anthropic-chat-client');
 const { MemoryPersistence } = require('./memory-persistence');
-const { CharacterProfileHandler } = require('./character-profile-handler');
+// JSON character profiles have been replaced by symbolic text profiles
 const characterProfiles = require('./character-profile-example');
 
 // Enhanced logging setup
@@ -119,33 +119,12 @@ const activeSessions = new Map();
 // Initialize memory persistence
 const memoryPersistence = new MemoryPersistence();
 
-// Character profile handler
-const profileHandler = new CharacterProfileHandler();
+// Character profiles are now handled directly in symbolic format
 
-// Get character profile by type
+// Character profiles are now loaded directly from symbolic text files
 function getCharacterProfile(type) {
-  switch (type) {
-    case 'detective':
-      return characterProfiles.victorianDetective;
-    case 'hacker':
-      return characterProfiles.cyberpunkHacker;
-    case 'bard':
-      return characterProfiles.fantasyBard;
-    case 'mother':
-      return characterProfiles.divorcedMother;
-    case 'girl':
-      return characterProfiles.teenageGirl;
-    case 'matildaMartin':
-      return characterProfiles.matildaMartin;
-    case 'wife':
-      return characterProfiles.marriedWife;
-    case 'librarian':
-      return characterProfiles.librarian;
-    case 'adiposeGirl':
-      return characterProfiles.adiposeGirl;
-    default:
-      return null;
-  }
+  // This function is kept for backward compatibility but no longer returns JSON objects
+  return null;
 }
 
 // Set default API key if available
@@ -193,19 +172,21 @@ app.post('/api/session', async (req, res) => {
       if (characterType === 'custom' && customProfile) {
         // Use custom profile
         profile = customProfile;
-        try {
-          if (customProfile.name) {
-            characterName = customProfile.name || 'Custom Character';
-          } else {
-            const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
-            const match = customProfile.match(regex);
-            characterName = match ? match[1] : null;
-            isJSON = false;
-          } 
-        } catch(error) {
-          const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
-          const match = customProfile.match(regex);
-          characterName = match ? match[1] : null;
+        // Check if it's a symbolic profile by looking for NAME: header
+        const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
+        const match = customProfile.match !== undefined && customProfile.match(regex);
+        
+        if (match) {
+          // It's a symbolic profile
+          characterName = match[1].trim();
+          isJSON = false;
+        } else if (typeof customProfile === 'object' && customProfile.name) {
+          // For backward compatibility - treat as JSON object if it has a name property
+          characterName = customProfile.name || 'Custom Character';
+          isJSON = true;
+        } else {
+          // Default fallback
+          characterName = 'Custom Character';
           isJSON = false;
         }
       } else {
@@ -377,6 +358,121 @@ app.get('/api/memory/:sessionId', async (req, res) => {
     res.json(memoryState);
   } catch (error) {
     logger.error('Error getting memory state:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get relationship history for a session
+app.get('/api/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    // Get chat client for this session
+    let chatClient = activeSessions.get(sessionId);
+    
+    // If not in active sessions, try to load it
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId
+      });
+      
+      const loadResult = await chatClient.loadState(sessionId);
+      
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      // Add to active sessions
+      activeSessions.set(sessionId, chatClient);
+    }
+    
+    // Get relationship history from memory
+    const history = chatClient.memory.history || [];
+    
+    res.json({
+      success: true,
+      history: history,
+      characterName: chatClient.characterName
+    });
+  } catch (error) {
+    logger.error('Error getting relationship history:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete specific history entries
+app.delete('/api/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { entries } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+    
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: 'Entries to delete must be provided as an array' });
+    }
+    
+    // Get chat client for this session
+    let chatClient = activeSessions.get(sessionId);
+    
+    // If not in active sessions, try to load it
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId
+      });
+      
+      const loadResult = await chatClient.loadState(sessionId);
+      
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      // Add to active sessions
+      activeSessions.set(sessionId, chatClient);
+    }
+    
+    // Initialize history array if it doesn't exist
+    if (!chatClient.memory.history) {
+      chatClient.memory.history = [];
+    }
+    
+    // Count original entries
+    const originalCount = chatClient.memory.history.length;
+    
+    // Filter out entries that match the deletion criteria
+    chatClient.memory.history = chatClient.memory.history.filter(entry => {
+      // Check if this entry matches any in the deletion list
+      return !entries.some(toDelete => {
+        if (toDelete.id && entry.id) {
+          return toDelete.id === entry.id;
+        }
+        if (toDelete.timestamp && entry.timestamp) {
+          return toDelete.timestamp === entry.timestamp;
+        }
+        return false;
+      });
+    });
+    
+    // Count entries after deletion
+    const newCount = chatClient.memory.history.length;
+    const deletedCount = originalCount - newCount;
+    
+    // Save the updated state
+    await chatClient.saveState();
+    
+    res.json({
+      success: true,
+      deletedCount,
+      remainingCount: newCount
+    });
+  } catch (error) {
+    logger.error('Error deleting history entries:', error);
     res.status(500).json({ error: error.message });
   }
 });

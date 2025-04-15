@@ -299,13 +299,14 @@ SPEECH: [Communication style and patterns]
 TOPICS: [Interests and knowledge areas]
 TRIGGERS: [Stimuli and resulting reactions]
 CONNECTIONS: [Relationships with other characters]
+USERRELATION: [${this.characterName}'s relationship with the user]
 WANTS: [Desires and goals]
 
 CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
 
-1. PRESERVE ALL DATA: All character information must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
+1. PRESERVE ALL DATA: All character information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
 
-2. USER RELATIONSHIP PRIORITY: In the CONNECTIONS section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
+2. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
 
 3. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
 
