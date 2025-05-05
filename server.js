@@ -703,6 +703,51 @@ app.get('/api/compression/stats/:sessionId', async (req, res) => {
   }
 });
 
+// Get cache statistics
+app.get('/api/cache/stats/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    // Get chat client for this session
+    const chatClient = activeSessions.get(sessionId);
+    
+    if (!chatClient) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    // Get cache stats
+    const stats = chatClient.getCachingStats();
+    
+    res.json(stats);
+  } catch (error) {
+    logger.error('Error fetching cache stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh cache
+app.post('/api/cache/refresh/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    // Get chat client for this session
+    const chatClient = activeSessions.get(sessionId);
+    
+    if (!chatClient) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    // Refresh cache
+    const result = await chatClient.refreshCachedPrompt();
+    
+    // Return result
+    res.json(result);
+  } catch (error) {
+    logger.error('Error refreshing cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

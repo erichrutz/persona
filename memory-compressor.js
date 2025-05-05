@@ -280,14 +280,22 @@ COMPRESSED MEMORIES:`;
       }
       
       try {
-
         const promptSymbolic = `MEMORY CONSOLIDATION INSTRUCTION
 
 ## Instructions
-You are responsible for compressing and consolidating character memory data. You will receive three inputs:
-1. The existing character information (may be empty for first-time processing) of the character
-2. The existing character information (may be empty for first-time processing) of the user
-3. New long-term memory entries to be integrated
+You are responsible for compressing and updating the dynamic parts of a character profile. Focus ONLY on sections that evolve with interactions:
+
+1. ID - Only change if corrections have been made
+2. LOOKS - Update if appearance changes
+3. CORE - Update traits that have evolved
+4. SPEECH - Update patterns that have evolved
+5. TOPICS - Update interests based on new information
+6. TRIGGERS - Update reaction patterns
+7. CONNECTIONS - Update relationships
+8. USERRELATION - Update relationship with the user
+9. WANTS - Update desires based on character development
+
+The NAME section should generally remain unchanged unless a name correction occurred.
 
 Your task is to create a single, coherent character profile for each user and character following this exact format separated by '---':
 
@@ -304,21 +312,15 @@ WANTS: [Desires and goals]
 
 CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
 
-1. PRESERVE ALL DATA: All character information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
+1. PRESERVE ALL DATA: All character information must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
 
-2. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
+2. USER RELATIONSHIP PRIORITY: In the USERRELATION section, always maintain and prioritize information about the relationship with the user based on the most current interactions.
 
-3. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
+3. CONNECTION EVOLUTION: Track how relationships evolve over time, updating to reflect the current state while preserving the history of relationship development.
 
-4. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
+4. TOKEN EFFICIENCY: Use concise phrasing and eliminate unnecessary words while retaining all essential information.
 
-5. TOKEN EFFICIENCY: Use concise phrasing and eliminate unnecessary words while retaining all essential information. Aim for the shortest possible representation that fully preserves meaning.
-
-6. COMBINE RELATED INFORMATION: Where appropriate, merge related attributes using commas or symbolic notation rather than separate phrases.
-
-7. DEDUPLICATION: Remove exact duplicates and merge similar information to eliminate redundancy while preserving all unique details.
-
-8. MAINTAIN SYMBOLS: Use symbolic notations to compress information:
+5. MAINTAIN SYMBOLS: Keep all symbolic notations for token efficiency:
    - + or ++ = Interest/knowledge (++ = passionate)
    - - or -- = Dislike/avoidance (-- = strong dislike)
    - ~ = Neutral/ambivalent
@@ -328,9 +330,9 @@ CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
    - # = Contextual trait
    - @ = Location-specific behavior
 
-9. FORMAT ADHERENCE: Follow the exact section structure shown above, with all sections present but kept as concise as possible.
+6. FORMAT ADHERENCE: Follow the exact section structure shown above, with all sections present but kept as concise as possible.
 
-10. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
+7. FOCUS ON DYNAMICS: Emphasize changes in relationships, emotional states, and newly discovered character traits.
 
 Return ONLY the consolidated character profile without explanations or commentary.
 
@@ -411,36 +413,58 @@ ${JSON.stringify(memoriesText)}
 
     // Process and convert the compressed results back into memory objects
     processSimplifiedCompressedResults(compressedText, compressedMemories) {
-      // Split the text into individual memories (each line or paragraph)
-      const memoriesLines = compressedText
-        .split('\n')
-        .filter(line => line.trim().length > 0);
-
-      const characterProfileSplit = compressedText.split('---');
-
-      compressedMemories.push({
-        content: characterProfileSplit[0].trim(),
-        timestamp: new Date().toISOString(),
-        compressed: true,
-        importance: 1,
-        accessCount: 0,
-        lastAccessed: null,
-        topic: 'CHAR',
-        subtopic: 'PROFILE'
-      });
-
-      compressedMemories.push({
-        content: characterProfileSplit[1] ? characterProfileSplit[1].trim() : '',
-        timestamp: new Date().toISOString(),
-        compressed: true,
-        importance: 1,
-        accessCount: 0,
-        lastAccessed: null,
-        topic: 'USER',
-        subtopic: 'PROFILE'
-      });
-
-      return;
+      try {
+        // Validate that we received properly formatted text
+        if (!compressedText || typeof compressedText !== 'string') {
+          logger.error('Invalid compressed text received:', compressedText);
+          return false;
+        }
+        
+        // Split on the separator for character and user profiles
+        const characterProfileSplit = compressedText.split('---');
+        
+        // Validate we have at least one section
+        if (!characterProfileSplit || characterProfileSplit.length === 0) {
+          logger.error('No valid profile sections found in compressed text');
+          return false;
+        }
+        
+        // Add character profile
+        compressedMemories.push({
+          content: characterProfileSplit[0].trim(),
+          timestamp: new Date().toISOString(),
+          compressed: true,
+          importance: 1,
+          accessCount: 0,
+          lastAccessed: null,
+          topicGroup: 'CHARACTER_IDENTITY',
+          subtopic: 'profile',
+          language: 'en'
+        });
+        
+        // Add user profile if it exists
+        if (characterProfileSplit.length > 1 && characterProfileSplit[1].trim()) {
+          compressedMemories.push({
+            content: characterProfileSplit[1].trim(),
+            timestamp: new Date().toISOString(),
+            compressed: true,
+            importance: 1,
+            accessCount: 0,
+            lastAccessed: null,
+            topicGroup: 'USER_IDENTITY',
+            subtopic: 'profile',
+            language: 'en'
+          });
+        } else {
+          logger.warn('User profile section missing or empty in compressed result');
+        }
+        
+        logger.debug(`Memory compression successful: created ${compressedMemories.length} profile entries`);
+        return true;
+      } catch (error) {
+        logger.error('Error processing compressed results:', error);
+        return false;
+      }
       /*
       memoriesLines.forEach(line => {
         // Extract memory content, ensuring category tag is present

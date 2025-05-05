@@ -4,6 +4,7 @@ const API_URL = 'https://api.anthropic.com/v1/messages';
 const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
 const { MemoryCompressor } = require('./memory-compressor');
+const { PromptCacheManager } = require('./prompt-cache-manager');
 const { flushCompileCache } = require('module');
 
 // Use the same logger from server if available, otherwise create one
@@ -17,6 +18,11 @@ if (typeof global.logger === 'undefined') {
     debug: (message, ...args) => {
       if (DEBUG === 'true') {
         console.log(`[CLIENT-DEBUG] ${message}`, ...args);
+      }
+    },
+    warn: (message, ...args) => {
+      if (DEBUG === 'true') {
+        console.log(`[CLIENT-WARN] ${message}`, ...args);
       }
     },
     error: (message, err) => {
@@ -922,12 +928,23 @@ PHRASES:`;
     this.messages = options.messages || [];
     this.apiUrl = API_URL;
 
+    // Initialize cache state tracking
+    this.cacheState = options.cacheState || null;
+    this.promptCache = null;
+    
+    // Track caching stats for optimization
+    this.cachingStats = {
+      cachedPromptRequests: 0,
+      regularPromptRequests: 0,
+      lastCacheRefresh: new Date().toISOString(),
+      estimatedTokenSavings: 0
+    };
 
     // Default system prompt if no character profile is provided
     this.systemPrompt = ``;
 
     // If character profile is provided, set up character impersonation
-    if (this.characterProfile ) {
+    if (this.characterProfile) {
       this.setupCharacterImpersonation(this.characterProfile);
     }
 
@@ -952,14 +969,20 @@ PHRASES:`;
     }
 
     try {
+      // Get the current cache state if available
+      const currentCacheState = this.promptCache ? this.promptCache.getCacheState() : this.cacheState;
+      
       const state = {
         sessionId: this.sessionId,
         messages: this.messages,
         characterProfile: this.characterProfile,
+        userProfile: this.userProfile,
         memoryState: this.memory.getMemoryContents(),
         timestamp: new Date().toISOString(),
         clothing: this.memory.clothing,
-        history: this.memory.history // Include relationship history changes
+        history: this.memory.history, // Include relationship history changes
+        cacheState: currentCacheState,
+        cachingStats: this.cachingStats
       };
 
       return await this.persistence.saveMemory(this.sessionId, state);
@@ -987,6 +1010,32 @@ PHRASES:`;
       this.messages = loadedState.messages || [];
       this.clothing = loadedState.clothing || {user: "", char: ""};
       this.history = loadedState.history || []; // Load relationship history
+      this.userProfile = loadedState.userProfile || this.userProfile;
+      
+      // Restore caching stats if available
+      if (loadedState.cachingStats) {
+        this.cachingStats = loadedState.cachingStats;
+      }
+      
+      // Restore cache state if available (new cache_control approach)
+      if (loadedState.cacheState) {
+        this.cacheState = loadedState.cacheState;
+        logger.debug('Loaded cache state:', {
+          isCached: this.cacheState.isCached,
+          cacheId: this.cacheState.cacheId
+        });
+      }
+      
+      // Initialize the prompt cache with the state if needed
+      if (this.cacheState && !this.promptCache) {
+        this.promptCache = new PromptCacheManager({
+          apiKey: this.apiKey,
+          apiVersion: '2023-06-01',
+          model: this.model,
+          cacheState: this.cacheState
+        });
+        logger.debug('Initialized prompt cache from saved state');
+      }
 
       // Restore character profile if available
       if (loadedState.characterProfile) {
@@ -1131,6 +1180,154 @@ Always reference user appearance, never contradict memory information, acknowled
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength - 3) + '...';
   }
+  
+  // Helper method to build the dynamic profile from character profile
+  buildDynamicProfile() {
+    if (!this.characterProfile) {
+      return '';
+    }
+
+    // Split the character profile into sections
+    const sections = [];
+    let currentSection = '';
+    let currentContent = [];
+    
+    // Parse the profile
+    const lines = this.characterProfile.split('\n');
+    for (const line of lines) {
+      const sectionMatch = line.match(/^([A-Z]+):/);
+      if (sectionMatch) {
+        // Save previous section if exists
+        if (currentSection && currentContent.length > 0) {
+          sections.push({
+            name: currentSection,
+            content: currentContent.join('\n')
+          });
+        }
+        
+        // Start new section
+        currentSection = sectionMatch[1];
+        currentContent = [line];
+      } else if (currentSection) {
+        currentContent.push(line);
+      }
+    }
+    
+    // Add the final section if it exists
+    if (currentSection && currentContent.length > 0) {
+      sections.push({
+        name: currentSection,
+        content: currentContent.join('\n')
+      });
+    }
+    
+    // Rebuild the dynamic profile with only the evolving sections
+    return sections
+      .filter(section => this.isEvolvingSection(section.name))
+      .map(section => section.content)
+      .join('\n\n');
+  }
+
+  // Helper to determine if a section should be in the dynamic part
+  isEvolvingSection(sectionName) {
+    const evolvingSections = [
+      'NAME', 'ID', 'LOOKS', 'CORE', 'SPEECH', 
+      'TOPICS', 'TRIGGERS', 'CONNECTIONS', 'WANTS'
+    ];
+    return evolvingSections.includes(sectionName);
+  }
+
+  // Build relationship continuity information
+  buildRelationshipContinuity(characterName) {
+    let continuity = `THE KEY MOMENTS BELOW DEFINE ${characterName}'S STORY ARC:`;
+    
+    // Add relationship history from memory
+    if (this.memory.history && this.memory.history.length > 0) {
+      continuity += `\n- ${this.memory.history.map(h => h.change).join('\n- ')}`;
+    } else {
+      continuity += '\n- No significant moments recorded yet';
+    }
+    
+    return continuity;
+  }
+
+  // Get current contextual information (clothing, etc.)
+  getCurrentContextInformation() {
+    let context = '';
+    
+    // Add clothing information if available
+    if (this.memory.clothing && this.memory.clothing.clothing) {
+      context += `CURRENT CLOTHING:\n`;
+      context += `- Character: ${this.memory.clothing.clothing.char || 'unknown'}\n`;
+      context += `- User: ${this.memory.clothing.clothing.user || 'unknown'}\n\n`;
+    }
+    
+    return context;
+  }
+  
+  // Get caching statistics
+  getCachingStats() {
+    // Combine our tracking with prompt cache manager's stats
+    const promptCacheStats = this.promptCache ? this.promptCache.getCacheStats() : {};
+    
+    const totalRequests = this.cachingStats.cachedPromptRequests + this.cachingStats.regularPromptRequests;
+    const cacheHitRate = totalRequests > 0 ? 
+      (this.cachingStats.cachedPromptRequests / totalRequests) * 100 : 0;
+    
+    return {
+      // Our application-level tracking
+      ...this.cachingStats,
+      cacheHitRate: `${cacheHitRate.toFixed(2)}%`,
+      totalRequests,
+      
+      // API-level tracking from prompt cache manager
+      apiStats: promptCacheStats,
+      
+      // Cache status
+      cacheStatus: this.promptCache ? 
+        (this.promptCache.staticTemplateIsCached ? 'active' : 'inactive') : 'not_initialized',
+      cacheId: this.promptCache?.cacheId || null
+    };
+  }
+
+  // Method to force refresh the cached prompt
+  async refreshCachedPrompt() {
+    if (!this.promptCache) {
+      return { success: false, reason: 'Prompt cache not initialized' };
+    }
+    
+    // Reset the cache state
+    const resetResult = await this.promptCache.resetCache();
+    if (resetResult.success) {
+      this.cachingStats.lastCacheRefresh = new Date().toISOString();
+      
+      // Prime the cache with a new message
+      const primeResult = await this.promptCache.primeCache();
+      if (primeResult.success) {
+        // Update our cache state for persistence
+        this.cacheState = this.promptCache.getCacheState();
+        
+        // Update stats
+        if (primeResult.usage) {
+          logger.info(`Cache refreshed successfully. Cached ${primeResult.usage.cache_creation_input_tokens || 0} tokens.`);
+        }
+        
+        return { 
+          success: true, 
+          message: 'Cache refreshed successfully', 
+          cacheId: primeResult.cacheId,
+          usage: primeResult.usage 
+        };
+      } else {
+        return { 
+          success: false, 
+          reason: 'Failed to prime the cache after reset: ' + (primeResult.message || primeResult.error || 'Unknown error') 
+        };
+      }
+    }
+    
+    return resetResult;
+  }
 
   // Process user message and get response
   async sendMessage(userMessage) {
@@ -1145,88 +1342,113 @@ Always reference user appearance, never contradict memory information, acknowled
           userProfile: this.userProfile
         });
       }
+      
+      // Initialize prompt cache if needed
+      if (!this.promptCache) {
+        this.promptCache = new PromptCacheManager({
+          apiKey: this.apiKey,
+          apiVersion: '2023-06-01',
+          model: this.model,
+          cacheState: this.cacheState // Load existing cache state if available
+        });
+      }
+      
       // For the first message, if there's an initial context, include it in the system prompt
       const isFirstMessage = this.messages.length === 0;
 
       // Add user message to conversation history
       const userMsg = { role: 'user', content: userMessage };
       this.messages.push(userMsg);
-      // await this.memory.addToShortTermMemory(userMsg);
-
-      // Check if message contains a query that might need character information
-      // For all profiles, check if we should fetch relevant character information
-      const needsCharacterInfo = this.characterProfile && this.shouldFetchCharacterInfo(userMessage);
-      let relevantMemory = '';
-
-      if (needsCharacterInfo) {
-        // Retrieve relevant character information based on the query
-        relevantMemory = await this.fetchRelevantCharacterInfo(userMessage);
-      }
-
-      // Get context from memory with debugging
-      console.log("Memory state before getting context:", JSON.stringify({
-        shortTermCount: this.memory.shortTermMemory.length,
-        longTermCount: this.memory.longTermMemory.length,
-        longTermSample: this.memory.longTermMemory.slice(0, 3).map(m => ({
-          content: m.content.substring(0, 50) + "...",
-          topicGroup: m.topicGroup,
-          subtopic: m.subtopic,
-          importance: m.importance
-        }))
-      }));
-
-      // Force include ALL memories for debugging
+      
+      // Get memory context
       const memoryContext = this.memory.getAllMemoriesForPrompt();
-
-      // Print full memory context for debugging
-      logger.debug("MEMORY CONTEXT FOR PROMPT:", memoryContext);
-
-      // Log what we're including in the prompt
       logger.debug("Including memory context in prompt:", memoryContext.length > 0);
+      
+      // Extract character name and role
+      const nameMatch = this.characterProfile.match(/NAME:\s*([^\n]+)/);
+      const characterName = nameMatch ? nameMatch[1].trim() : this.characterName;
+      
+      const idMatch = this.characterProfile.match(/ID:\s*([^\n]+)/);
+      const idParts = idMatch ? idMatch[1].split('/') : [];
+      const role = idParts.length >= 3 ? idParts[2].trim() : '';
+      
+      // Generate the dynamic character profile
+      const dynamicProfile = this.buildDynamicProfile();
+      
+      // Build the complete dynamic system prompt
+      let dynamicSystem = `
+## CHARACTER PROFILE
+You are roleplaying as ${characterName}. ${role ? `You are a ${role}.` : ''}
+IMPORTANT: Always respond in ${this.language} language.
 
-      this.generatePrompt();
+${dynamicProfile}
 
-      // Create a more optimized system prompt
-      let fullSystemPrompt = this.systemPrompt;
+## CRITICAL NARRATIVE CONTINUITY
+${this.buildRelationshipContinuity(characterName)}
+`;
 
-      if (this.memory.clothing) {
-        fullSystemPrompt += `\n\nLAST KNOWN CLOTHING - may change due to scenario; use this a reference:
-        - ${this.characterName}: "${this.memory.clothing.clothing.char}"
-        - user: "${this.memory.clothing.clothing.user}"`;      
+      // Add current context information
+      const contextInfo = this.getCurrentContextInformation();
+      if (contextInfo) {
+        dynamicSystem += `\n## CURRENT CONTEXT\n${contextInfo}`;
       }
 
-      if (this.memory.history && this.memory.history.length > 0) {
-        fullSystemPrompt += `\n\nRELATIONSHIP HISTORY between user and character in chronological order. USE THIS INFORMATION FOR REFERENCE OF PAST EVENTS: 
-        ${this.memory.history.map(h => h.change)}`;
-      }
-
-      // Always include memory context even if it seems empty - with explicit instructions
-      fullSystemPrompt += "\n\nIMPORTANT MEMORY CONTEXT (you must use this information):\n" + (memoryContext || "No memories available yet.");
-
-      // Only add character context if relevant to user query
-      if (relevantMemory && relevantMemory.length > 0) {
-        fullSystemPrompt += "\n\nCharacter context:\n" + relevantMemory;
-      }
-
+      // Add memory context
+      dynamicSystem += `\n## MEMORY CONTEXT\n${memoryContext || "No memories available yet."}`;
+      
       // Add initial context only for first message if needed
       if (isFirstMessage && this.initialContext) {
-        fullSystemPrompt += `\n\nScenario: ${this.initialContext}\n\nAcknowledge this scenario in your response.`;
+        dynamicSystem += `\n\n## SCENARIO\n${this.initialContext}\n\nAcknowledge this scenario in your response.`;
+      }
+      
+      // Check if message contains a query that might need character information
+      const needsCharacterInfo = this.characterProfile && this.shouldFetchCharacterInfo(userMessage);
+      if (needsCharacterInfo) {
+        // Retrieve relevant character information based on the query
+        const relevantMemory = await this.fetchRelevantCharacterInfo(userMessage);
+        if (relevantMemory && relevantMemory.length > 0) {
+          dynamicSystem += "\n\n## CHARACTER CONTEXT\n" + relevantMemory;
+        }
       }
 
-      // Log a shorter version of the prompt for debugging
-      logger.debug('System prompt length:', fullSystemPrompt.length);
-
-      // Request options for Anthropic API with token optimization
+      // Log system prompt length for debugging
+      logger.debug('Dynamic system prompt length:', dynamicSystem.length);
+      
+      // Get the static template
+      const staticTemplate = this.promptCache.generateStaticTemplate();
+      
+      // Define request options
       const requestOptions = {
         model: this.model,
         messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
-        system: fullSystemPrompt,
         max_tokens: 2048
       };
-
+      
       // Add temperature only if not default to save tokens
       if (this.temperature !== 1.0) {
         requestOptions.temperature = this.temperature;
+      }
+      
+      // Add cache control parameters if template is cacheable
+      const cacheControlParams = this.promptCache.getCacheControlParams();
+      
+      if (Object.keys(cacheControlParams).length > 0) {
+        // Using cache_control approach
+        logger.debug('Using cache_control approach for prompt caching');
+        
+        // Combine static and dynamic parts for the system prompt
+        requestOptions.system = staticTemplate + dynamicSystem;
+        
+        // Add cache control parameters
+        Object.assign(requestOptions, cacheControlParams);
+        
+        // Track that we're using caching
+        this.cachingStats.cachedPromptRequests++;
+      } else {
+        // Fallback to standard system prompt with no caching
+        logger.debug('Using standard approach without prompt caching');
+        requestOptions.system = staticTemplate + dynamicSystem;
+        this.cachingStats.regularPromptRequests++;
       }
 
       // Prepare request to Anthropic API
@@ -1296,6 +1518,12 @@ Always reference user appearance, never contradict memory information, acknowled
         throw new Error(`Failed to parse API response: ${parseError.message}`);
       }
 
+      // Update cache statistics based on response
+      this.promptCache.updateCacheStats(data);
+      
+      // Update our cache state for persistence
+      this.cacheState = this.promptCache.getCacheState();
+      
       const assistantResponse = data.content[0].text;
 
       // Add assistant response to conversation history
@@ -1321,7 +1549,6 @@ Always reference user appearance, never contradict memory information, acknowled
           this.userProfile = this.memory.longTermMemory[1].content;
           this.memory.longTermMemory = [];        
         }
-
       }
 
       // Save state if persistence is enabled
