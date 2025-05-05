@@ -123,7 +123,7 @@ class MemoryCompressor {
     
     try {
       // Skip if there's not enough to compress
-      if (memorySystem.longTermMemory.length <= 8) {
+      if (memorySystem.longTermMemory.length <= 12) {
         logger.info('Not enough long-term memories to compress');
         this.isCompressing = false;
         return { compressed: false, reason: 'Not enough memories' };
