@@ -47,7 +47,8 @@ class MemoryPersistence {
         memoryState,
         messages: memoryState.messages || [],
         characterProfile: memoryState.characterProfile,
-        clothing: memoryState.clothing
+        clothing: memoryState.clothing,
+        history: memoryState.history
       };
       
       // Update cache first to improve performance
@@ -130,11 +131,23 @@ class MemoryPersistence {
             const filePath = path.join(this.storageDir, file);
             const content = await fs.readFile(filePath, 'utf8');
             const data = JSON.parse(content);
+            let characterName = "";
+
+            const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
+            const match = data.memoryState.characterProfile.match !== undefined && data.memoryState.characterProfile.match(regex);
+            
+            if (match) {
+              // It's a symbolic profile
+              characterName = match[1].trim();
+            } else {
+              // Default fallback
+              characterName = 'Custom Character';
+            }
             
             sessions.push({
               sessionId: data.sessionId,
               timestamp: data.timestamp,
-              characterName: data.memoryState.characterProfile?.name || 'Unknown'
+              characterName: characterName
             });
           } catch (parseError) {
             console.warn(`Could not parse memory file ${file}:`, parseError);

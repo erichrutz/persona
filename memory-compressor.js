@@ -52,6 +52,8 @@ class MemoryCompressor {
     this.lastCompressionTime = new Date();
     this.isCompressing = false;
     this.characterName = options.characterName || 'AI Assistant';
+    this.characterProfile = options.characterProfile || '';
+    this.userProfile = options.userProfile || '';
 
     // Enhanced memory organization structure
     this.topicGroups = {
@@ -121,7 +123,7 @@ class MemoryCompressor {
     
     try {
       // Skip if there's not enough to compress
-      if (memorySystem.longTermMemory.length <= 8) {
+      if (memorySystem.longTermMemory.length <= 12) {
         logger.info('Not enough long-term memories to compress');
         this.isCompressing = false;
         return { compressed: false, reason: 'Not enough memories' };
@@ -129,34 +131,6 @@ class MemoryCompressor {
 
       const compressedText = await this.requestSimplifiedMemoryCompression(memorySystem.longTermMemory);
 
-      /*
-      
-      // Group memories by category if possible
-      const categorizedMemories = this.categorizeLongTermMemory(memorySystem.longTermMemory);
-      const compressedMemories = [];
-      
-      // Process each category separately for better context-aware compression
-      for (const [category, memories] of Object.entries(categorizedMemories)) {
-        // Skip small categories
-        if (memories.length <= 2) {
-          // Keep individual memories for small categories
-          memories.forEach(memory => compressedMemories.push(memory));
-          continue;
-        }
-        
-        // Prepare input for the compression request
-        const memoriesText = memories
-          .map((memory, index) => `${index + 1}. ${memory.content}`)
-          .join('\n\n');
-        
-        // Make the compression request
-        const compressedText = await this.requestMemoryCompression(
-          memoriesText,
-          category,
-          Math.max(1, Math.ceil(memories.length * this.compressionRatio))
-        );
-
-        */
         const compressedMemories = [];
         if (compressedText) {
           // Process the compressed results
@@ -307,112 +281,73 @@ COMPRESSED MEMORIES:`;
       
       try {
 
-        const promptNew = `# AI Memory Compression System
+        const promptSymbolic = `MEMORY CONSOLIDATION INSTRUCTION
 
-## Purpose
-Optimize relational chat memory by compressing important information while preserving critical context.
+## Instructions
+You are responsible for compressing and consolidating character memory data. You will receive three inputs:
+1. The existing character information (may be empty for first-time processing) of the character
+2. The existing character information (may be empty for first-time processing) of the user
+3. New long-term memory entries to be integrated
+
+Your task is to create a single, coherent character profile for each user and character following this exact format separated by '---':
+
+NAME: [Character's full name]
+ID: [Age/Gender/Occupation/Location]
+LOOKS: [Physical appearance details]
+CORE: [Fundamental personality traits]
+SPEECH: [Communication style and patterns]
+TOPICS: [Interests and knowledge areas]
+TRIGGERS: [Stimuli and resulting reactions]
+CONNECTIONS: [Relationships with other characters]
+USERRELATION: [${this.characterName}'s relationship with the user]
+WANTS: [Desires and goals]
+
+CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
+
+1. PRESERVE ALL DATA: All character information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
+
+2. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
+
+3. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
+
+4. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
+
+5. TOKEN EFFICIENCY: Use concise phrasing and eliminate unnecessary words while retaining all essential information. Aim for the shortest possible representation that fully preserves meaning.
+
+6. COMBINE RELATED INFORMATION: Where appropriate, merge related attributes using commas or symbolic notation rather than separate phrases.
+
+7. DEDUPLICATION: Remove exact duplicates and merge similar information to eliminate redundancy while preserving all unique details.
+
+8. MAINTAIN SYMBOLS: Use symbolic notations to compress information:
+   - + or ++ = Interest/knowledge (++ = passionate)
+   - - or -- = Dislike/avoidance (-- = strong dislike)
+   - ~ = Neutral/ambivalent
+   - → = Trigger leads to response
+   - ! = Critical trait/trigger
+   - * = Hidden trait
+   - # = Contextual trait
+   - @ = Location-specific behavior
+
+9. FORMAT ADHERENCE: Follow the exact section structure shown above, with all sections present but kept as concise as possible.
+
+10. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
+
+Return ONLY the consolidated character profile without explanations or commentary.
 
 ## Personas
-'Character' is the person impersonated by the AI in this case ${this.characterName}
-'User' is the impersonation played by the human chat user
+* 'Character' is the person impersonated by the AI in this case ${this.characterName}
+* 'User' is the impersonation played by the human chat user
 
-## Priority Structure
-1. **USER_IDENTITY**
-   - core: Users essential identity information (name, age, location, occupation)
-   - appearance: Users physical characteristics, clothing, style
-   - background: Users personal history
-   - preferences: Users likes and dislikes
+## Previous Character
+### ${this.characterName}
+${this.characterProfile}
+### User
+${this.userProfile}
 
-2. **CHARACTER_IDENTITY**
-   - core: ${this.characterName}'s essential identity information (name, age, location, occupation)
-   - appearance: ${this.characterName}'s physical characteristics, clothing, style
-   - background: ${this.characterName}'A history and origins
-   - traits: ${this.characterName}'s personality characteristics
+## Memory Data
+${JSON.stringify(memoriesText)}
 
-3. **RELATIONSHIP**
-   - milestones: Key moments between user and character
-   - dynamics: Interaction patterns
-   - shared_interests: Mutual topics/activities
-
-4. **CONVERSATION_THREADS**
-   - ongoing: Active discussions
-   - recurring_topics: Repeated themes
-   - resolved: Completed discussions
-
-## Compression Guidelines
-- Categorize memories by most appropriate topic/subtopic
-- Format as "[TOPIC_GROUP:subtopic] summarized content"
-- Place ALL user appearance details in [USER_IDENTITY:appearance]
-- Preserve exact names, dates, physical descriptions, clothing, emotions
-- Merge redundant information while maintaining specificity
-- Merge entries using the same topic/subtopic
-- Identify important relationship developments
-- Maintain exact wording of preferences and personal facts
-- Note patterns in recurring topics
-- Include specific details about relationship evolution
-- Detect outdated memories which are superseeded by newer developments and remove them.
-
-## Current Memories to Compress
-
-  ${JSON.stringify(memoriesText)}
 `;
-/*
-
-        // Create prompt for memory compression with new topic structure
-        const prompt = `You are an AI memory optimization system designed for relationship-oriented chat. Your task is to organize and compress memories, preserving critical relationship context and identity information.
-
-  TOPIC STRUCTURE:
-  The following structure organizes memories into topic groups and subtopics:
-  
-  1. USER_IDENTITY - Information about the human user (HIGHEST PRIORITY, NEVER LOSE THIS INFO)
-     - core: Essential identity information (name, age, location, occupation)
-     - appearance: Physical appearance, clothing, style, and visual characteristics
-     - background: Historical information about the user
-     - preferences: What the user likes and dislikes
-  
-  2. CHARACTER_IDENTITY - Information about ${this.characterName}'s identity 
-     - core: Essential identity facts
-     - appearance: ${this.characterName}'s physical appearance and presentation
-     - background: ${this.characterName}'s history and background
-     - traits: ${this.characterName}'s personality traits
-  
-  3. RELATIONSHIP - Information about the relationship between user and ${this.characterName}
-     - milestones: Key moments or turning points in the relationship
-     - dynamics: How the user and ${this.characterName} interact
-     - shared_interests: Topics or activities both enjoy
-  
-  4. CONVERSATION_THREADS - Information about ongoing conversation themes
-     - ongoing: Currently active topics
-     - recurring_topics: Topics that come up repeatedly 
-     - resolved: Past topics that reached closure
-  
-  MEMORIES TO COMPRESS:
-  ${JSON.stringify(memoriesText)}
-  
-  COMPRESSION GUIDELINES:
-  1. USER INFORMATION IS HIGHEST PRIORITY - Preserve ALL details about the human user, especially physical appearance, clothing, personal attributes
-  2. Analyze each memory and assign it to the MOST appropriate topic group and subtopic
-  3. Format memories as "[TOPIC_GROUP:subtopic] summarized memory content"
-  4. USER APPEARANCE: All details about how the user looks MUST go in [USER_IDENTITY:appearance] - NEVER lose this information
-  5. CRITICAL: Preserve exact details about names, dates, physical descriptions, clothing, emotional context
-  7. Merge redundant information while maintaining specificity
-  8. Identify and elevate important relationship milestones
-  9. Preserve the exact wording of preferences, likes, dislikes, and personal facts
-  10. For recurring topics, note the pattern rather than individual instances
-  11. For relationship development, include specifics about how feelings or trust evolved
-  
-  EXAMPLE COMPRESSED FORMATS:
-  [USER_IDENTITY:core] Name: John Smith (34), lives in Seattle, software engineer
-  [USER_IDENTITY:appearance] Tall with brown hair, blue eyes. Often wears jeans and button-up shirts. Has a small scar on left cheek.
-  [USER_IDENTITY:preferences] Coffee: black, no sugar. Dislikes horror movies, enjoys hiking
-  [CHARACTER_IDENTITY:background] Created as therapy assistant in 2025, specializes in CBT
-  [RELATIONSHIP:milestones] First meeting: March 5 2025, user initially skeptical but now trusts advice
-  [RELATIONSHIP:dynamics] User opens up about personal struggles, appreciates direct feedback
-  [CONVERSATION_THREADS:ongoing] Planning summer vacation to Italy, needs recommendations
-  
-  COMPRESSED MEMORIES:`;
-
-  */
 
         // Make API request
         const response = await fetch(this.apiUrl, {
@@ -424,7 +359,7 @@ Optimize relational chat memory by compressing important information while prese
           },
           body: JSON.stringify({
             model: "claude-3-7-sonnet-20250219", //"claude-3-haiku-20240307", 
-            messages: [{ role: 'user', content: promptNew }],
+            messages: [{ role: 'user', content: promptSymbolic }],
             max_tokens: 1024
           })
         });
@@ -480,7 +415,33 @@ Optimize relational chat memory by compressing important information while prese
       const memoriesLines = compressedText
         .split('\n')
         .filter(line => line.trim().length > 0);
-      
+
+      const characterProfileSplit = compressedText.split('---');
+
+      compressedMemories.push({
+        content: characterProfileSplit[0].trim(),
+        timestamp: new Date().toISOString(),
+        compressed: true,
+        importance: 1,
+        accessCount: 0,
+        lastAccessed: null,
+        topic: 'CHAR',
+        subtopic: 'PROFILE'
+      });
+
+      compressedMemories.push({
+        content: characterProfileSplit[1] ? characterProfileSplit[1].trim() : '',
+        timestamp: new Date().toISOString(),
+        compressed: true,
+        importance: 1,
+        accessCount: 0,
+        lastAccessed: null,
+        topic: 'USER',
+        subtopic: 'PROFILE'
+      });
+
+      return;
+      /*
       memoriesLines.forEach(line => {
         // Extract memory content, ensuring category tag is present
         let content = line.trim();
@@ -545,6 +506,7 @@ Optimize relational chat memory by compressing important information while prese
       
       // Cap at 1.0
       return Math.min(score, 1.0);
+      */
     }
 }
 

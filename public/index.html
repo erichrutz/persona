@@ -465,6 +465,49 @@
       padding: 1.25rem 1rem;
     }
     
+    /* History panel styling */
+    .history-entry {
+      border-left: 3px solid var(--primary-color);
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+    }
+    
+    .history-entry:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 3px 10px rgba(233, 78, 119, 0.12);
+    }
+    
+    #relationship-history .list-group-item {
+      border-left: 3px solid var(--primary-color);
+      transition: all 0.2s ease;
+    }
+    
+    #relationship-history .list-group-item:hover {
+      background-color: rgba(233, 78, 119, 0.05);
+    }
+    
+    #history-tab.text-primary {
+      position: relative;
+    }
+    
+    #history-tab.text-primary::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background-color: var(--primary-color);
+      border-radius: 50%;
+      right: -2px;
+      top: 0;
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.7; }
+      100% { transform: scale(0.95); opacity: 1; }
+    }
+    
     .welcome-message {
       text-align: center;
       padding: 2rem;
@@ -770,6 +813,9 @@
                 <button class="nav-link" id="clothing-tab" data-bs-toggle="tab" data-bs-target="#clothing-content" type="button" role="tab">Clothing</button>
               </li>
               <li class="nav-item" role="presentation">
+                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-content" type="button" role="tab">History</button>
+              </li>
+              <li class="nav-item" role="presentation">
                 <button class="nav-link" id="deep-memory-tab" data-bs-toggle="tab" data-bs-target="#deep-memory-content" type="button" role="tab" data-i18n="deep_memory_panel_label">Deep Memory</button>
               </li>
               <li class="nav-item" role="presentation">
@@ -818,6 +864,37 @@
                   <button id="save-clothing" class="btn btn-primary">
                     <i class="fas fa-save me-1"></i> Save Clothing Information
                   </button>
+                </div>
+              </div>
+              
+              <!-- History Tab -->
+              <div class="tab-pane fade h-100" id="history-content" role="tabpanel">
+                <div class="memory-container h-100">
+                  <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                      <span>Relationship History</span>
+                      <button id="refresh-history" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                      </button>
+                    </div>
+                    <div class="card-body">
+                      <p class="text-muted small mb-3">Significant relationship changes are tracked here, limited to 4 words each.</p>
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="history-edit-mode">
+                            <label class="form-check-label" for="history-edit-mode">Edit Mode</label>
+                          </div>
+                        </div>
+                        <button id="delete-selected-history" class="btn btn-sm btn-danger" style="display: none;">
+                          <i class="fas fa-trash-alt me-1"></i> Delete Selected
+                        </button>
+                      </div>
+                      <ul id="relationship-history" class="list-group">
+                        <li class="list-group-item text-center text-muted">No history entries yet</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -1315,8 +1392,9 @@
           try {
             requestData.customProfile = JSON.parse(customProfileInput.value);
           } catch (error) {
-            alert('Invalid JSON for custom character profile');
-            return;
+            requestData.customProfile = customProfileInput.value;
+            //alert('Invalid JSON for custom character profile');
+            // return;
           }
         }
         
@@ -1428,6 +1506,24 @@
             // Update memory display if visible
             if (memoryPanel.style.display !== 'none') {
               updateMemoryDisplay(data.memoryState);
+            }
+            
+            // Check if any history updates were detected in the response
+            if (data.historyUpdated) {
+              // Fetch updated history data
+              fetchRelationshipHistory();
+              
+              // Add a subtle indicator that relationship history was updated
+              const historyTab = document.getElementById('history-tab');
+              if (historyTab) {
+                // Add a visual indicator that there's new history
+                historyTab.classList.add('text-primary', 'fw-bold');
+                // Remove indicator when tab is clicked
+                historyTab.addEventListener('click', function onceHandler() {
+                  historyTab.classList.remove('text-primary', 'fw-bold');
+                  this.removeEventListener('click', onceHandler);
+                }, { once: true });
+              }
             }
             
             // Update model badge if model info is available
@@ -1849,6 +1945,184 @@
         });
       }
       
+      // Function to fetch and display relationship history
+      async function fetchRelationshipHistory() {
+        if (!activeSessionId) return;
+        
+        try {
+          const response = await fetch(`/api/history/${activeSessionId}`);
+          const data = await response.json();
+          
+          if (response.ok && data.success) {
+            updateHistoryDisplay(data.history, data.characterName);
+          } else {
+            console.error('Error fetching history:', data.error);
+          }
+        } catch (error) {
+          console.error('Error fetching relationship history:', error);
+        }
+      }
+      
+      // Function to update the history display with relationship data
+      function updateHistoryDisplay(historyEntries, characterName) {
+        const historyList = document.getElementById('relationship-history');
+        if (!historyList) return;
+        
+        // Clear existing entries
+        historyList.innerHTML = '';
+        
+        if (!historyEntries || historyEntries.length === 0) {
+          // Show empty state
+          const emptyItem = document.createElement('li');
+          emptyItem.className = 'list-group-item text-center text-muted';
+          emptyItem.textContent = 'No relationship history entries yet';
+          historyList.appendChild(emptyItem);
+          return;
+        }
+        
+        // Sort history by timestamp, newest first
+        const sortedHistory = [...historyEntries].sort((a, b) => {
+          return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+        });
+        
+        // Check if edit mode is enabled
+        const editMode = document.getElementById('history-edit-mode').checked;
+        
+        // Create list items for each history entry
+        sortedHistory.forEach(entry => {
+          const item = document.createElement('li');
+          item.className = 'list-group-item';
+          
+          // Store entry ID or timestamp for deletion reference
+          if (entry.id) {
+            item.dataset.entryId = entry.id;
+          } else if (entry.timestamp) {
+            item.dataset.timestamp = entry.timestamp;
+          }
+          
+          // Format timestamp
+          const timestamp = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown date';
+          
+          // Create HTML content based on edit mode status
+          if (editMode) {
+            item.innerHTML = `
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                  <input class="form-check-input history-entry-checkbox" type="checkbox" value="">
+                  <label class="form-check-label">
+                    <span class="badge bg-primary me-2">${timestamp}</span>
+                    <strong>${entry.change || entry.text}</strong>
+                  </label>
+                </div>
+              </div>
+            `;
+          } else {
+            item.innerHTML = `
+              <div class="d-flex justify-content-between align-items-top">
+                <span class="badge bg-primary">${timestamp}</span>
+              </div>
+              <div class="mt-2">
+                <strong>${entry.change || entry.text}</strong>
+              </div>
+            `;
+          }
+          
+          historyList.appendChild(item);
+        });
+      }
+      
+      // Function to delete selected history entries
+      async function deleteSelectedHistoryEntries() {
+        if (!activeSessionId) return;
+        
+        // Get all checked checkboxes
+        const selectedCheckboxes = document.querySelectorAll('.history-entry-checkbox:checked');
+        if (selectedCheckboxes.length === 0) return;
+        
+        // Confirm deletion
+        if (!confirm(`Delete ${selectedCheckboxes.length} selected history entries?`)) {
+          return;
+        }
+        
+        // Collect entry IDs or timestamps for deletion
+        const entriesToDelete = [];
+        selectedCheckboxes.forEach(checkbox => {
+          const listItem = checkbox.closest('li');
+          const entryId = listItem.dataset.entryId;
+          const timestamp = listItem.dataset.timestamp;
+          
+          if (entryId) {
+            entriesToDelete.push({ id: entryId });
+          } else if (timestamp) {
+            entriesToDelete.push({ timestamp });
+          }
+        });
+        
+        if (entriesToDelete.length === 0) return;
+        
+        try {
+          // Call the API to delete the entries
+          const response = await fetch(`/api/history/${activeSessionId}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              entries: entriesToDelete
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            // Refresh the history display
+            fetchRelationshipHistory();
+            
+            // Add success message
+            addSystemMessage(`Deleted ${entriesToDelete.length} history entries`);
+          } else {
+            console.error('Error deleting history entries:', data.error);
+            addSystemMessage(`Error deleting history entries: ${data.error}`);
+          }
+        } catch (error) {
+          console.error('Error deleting history entries:', error);
+          addSystemMessage(`Error deleting history entries: ${error.message}`);
+        }
+      }
+      
+      // Add event handler for the refresh history button
+      const refreshHistoryButton = document.getElementById('refresh-history');
+      if (refreshHistoryButton) {
+        refreshHistoryButton.addEventListener('click', fetchRelationshipHistory);
+      }
+      
+      // Handle edit mode toggle
+      const historyEditModeToggle = document.getElementById('history-edit-mode');
+      const deleteSelectedHistoryButton = document.getElementById('delete-selected-history');
+      
+      if (historyEditModeToggle) {
+        historyEditModeToggle.addEventListener('change', () => {
+          // Toggle the visibility of the delete button
+          if (deleteSelectedHistoryButton) {
+            deleteSelectedHistoryButton.style.display = historyEditModeToggle.checked ? 'block' : 'none';
+          }
+          
+          // Refresh the history display to show/hide checkboxes
+          fetchRelationshipHistory();
+        });
+      }
+      
+      // Add event handler for the delete button
+      if (deleteSelectedHistoryButton) {
+        deleteSelectedHistoryButton.addEventListener('click', deleteSelectedHistoryEntries);
+      }
+      
+      // Hook into the tab system to load history when the tab is shown
+      const historyTab = document.getElementById('history-tab');
+      if (historyTab) {
+        historyTab.addEventListener('shown.bs.tab', fetchRelationshipHistory);
+      }
+
       function updateMemoryDisplay(memoryState) {
         if (!memoryState) return;
         
@@ -1875,6 +2149,15 @@
         const userClothingElement = document.getElementById('user-clothing');
         const updateCharacterClothingInput = document.getElementById('update-character-clothing');
         const updateUserClothingInput = document.getElementById('update-user-clothing');
+        
+        // Also check for history data and update if available
+        if (memoryState.history && Array.isArray(memoryState.history)) {
+          // Update history display if that tab is visible
+          const historyTab = document.getElementById('history-tab');
+          if (historyTab && historyTab.classList.contains('active')) {
+            updateHistoryDisplay(memoryState.history, characterNameElement.textContent);
+          }
+        }
         
         if (memoryState.clothing) {
           // Check for possible clothing structures
