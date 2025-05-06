@@ -1239,7 +1239,7 @@ Always reference user appearance, never contradict memory information, acknowled
 
   // Build relationship continuity information
   buildRelationshipContinuity(characterName) {
-    let continuity = `THE KEY MOMENTS BELOW DEFINE ${characterName}'S STORY ARC:`;
+    let continuity = `THE KEY MOMENTS BELOW DEFINE ${characterName}'S STORY ARC. USE THIS INFORMATION FOR REFERENCE OF PAST EVENTS:`;
     
     // Add relationship history from memory
     if (this.memory.history && this.memory.history.length > 0) {
@@ -1252,12 +1252,12 @@ Always reference user appearance, never contradict memory information, acknowled
   }
 
   // Get current contextual information (clothing, etc.)
-  getCurrentContextInformation() {
+  getCurrentClothingInformation() {
     let context = '';
     
     // Add clothing information if available
     if (this.memory.clothing && this.memory.clothing.clothing) {
-      context += `CURRENT CLOTHING:\n`;
+      context += `LAST KNOWN CLOTHING - may change due to scenario; use this a reference:\n`;
       context += `- Character: ${this.memory.clothing.clothing.char || 'unknown'}\n`;
       context += `- User: ${this.memory.clothing.clothing.user || 'unknown'}\n\n`;
     }
@@ -1386,6 +1386,7 @@ Always reference user appearance, never contradict memory information, acknowled
       let dynamicSystem = `
 ## CHARACTER PROFILE
 You are roleplaying as ${characterName}. ${role ? `You are a ${role}.` : ''}
+
 IMPORTANT: Always respond in ${this.language} language.
 
 ${dynamicProfile}
@@ -1395,7 +1396,7 @@ ${this.buildRelationshipContinuity(characterName)}
 `;
 
       // Add current context information
-      const contextInfo = this.getCurrentContextInformation();
+      const contextInfo = this.getCurrentClothingInformation();
       if (contextInfo) {
         dynamicSystem += `\n## CURRENT CONTEXT\n${contextInfo}`;
       }
@@ -1420,62 +1421,50 @@ ${this.buildRelationshipContinuity(characterName)}
 
       // Log system prompt length for debugging
       logger.debug('Dynamic system prompt length:', dynamicSystem.length);
-      
-      // Get the static template and dynamic system
-      const staticTemplate = this.promptCache.generateStaticTemplate();
-      const fullSystemPrompt = staticTemplate + dynamicSystem;
-      
+
       // Define request options - using the new format for caching
       const requestOptions = {
         model: this.model,
         max_tokens: 2048,
-        system: fullSystemPrompt // System as top-level parameter
       };
+      
+      // Get the static template and dynamic system
+      const staticTemplate = this.promptCache.generateStaticTemplate();
+
+      const fullSystemPrompt = dynamicSystem;
       
       // Add temperature only if not default to save tokens
       if (this.temperature !== 1.0) {
         requestOptions.temperature = this.temperature;
       }
       
-      // Build messages array - get recent messages but skip any system messages
-      const userMessages = this.messages.slice(-10).filter(msg => msg.role !== 'system'); // Only use last 10, exclude system
-      
       // Initialize messages array (empty at first)
-      requestOptions.messages = [];
-      
-      // Add conversation history - all but the last user message
-      if (userMessages.length > 1) {
-        requestOptions.messages.push(...userMessages.slice(0, -1));
-      }
+      requestOptions.messages = [...this.messages.slice(-10)];
       
       // Get cache control parameters if template is cacheable
       const cacheControlBlock = this.promptCache.getCacheControlParams();
       
-      // Add the last user message with cache control if applicable
-      const lastUserMessage = userMessages[userMessages.length - 1];
-      
-      if (lastUserMessage && cacheControlBlock) {
+      if (cacheControlBlock && !this.promptCache.staticTemplateIsCached) {
         // Add last user message with cache control in content array
         logger.debug('Using cache_control approach for prompt caching');
+
+        const systemMsg = {
+          type: 'text',
+          text: staticTemplate,
+          cache_control: {type: 'ephemeral'}
+        };
+
+        const promptMsg = {
+          type: 'text',
+          text: fullSystemPrompt
+        };
         
-        // Create a content array with both text and cache_control
-        requestOptions.messages.push({
-          role: 'user',
-          content: [
-            { type: 'text', text: lastUserMessage.content },
-            cacheControlBlock
-          ]
-        });
+        requestOptions.system= [systemMsg, promptMsg];
         
         // Track that we're using caching
         this.cachingStats.cachedPromptRequests++;
       } else {
-        // Fallback to standard approach - just add the last message normally
-        logger.debug('Using standard approach without prompt caching');
-        if (lastUserMessage) {
-          requestOptions.messages.push(lastUserMessage);
-        }
-        this.cachingStats.regularPromptRequests++;
+        requestOptions.system = fullSystemPrompt;
       }
 
       // Prepare request to Anthropic API
