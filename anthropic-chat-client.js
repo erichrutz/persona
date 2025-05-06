@@ -1293,7 +1293,13 @@ Always reference user appearance, never contradict memory information, acknowled
   // Method to force refresh the cached prompt
   async refreshCachedPrompt() {
     if (!this.promptCache) {
-      return { success: false, reason: 'Prompt cache not initialized' };
+      // Initialize the prompt cache if it doesn't exist
+      this.promptCache = new PromptCacheManager({
+        apiKey: this.apiKey,
+        apiVersion: '2023-06-01',
+        model: this.model,
+        cacheState: this.cacheState // Load existing cache state if available
+      });
     }
     
     // Reset the cache state
@@ -1301,7 +1307,7 @@ Always reference user appearance, never contradict memory information, acknowled
     if (resetResult.success) {
       this.cachingStats.lastCacheRefresh = new Date().toISOString();
       
-      // Prime the cache with a new message
+      // Prime the cache with a new message using the updated API format
       const primeResult = await this.promptCache.primeCache();
       if (primeResult.success) {
         // Update our cache state for persistence
@@ -1316,7 +1322,8 @@ Always reference user appearance, never contradict memory information, acknowled
           success: true, 
           message: 'Cache refreshed successfully', 
           cacheId: primeResult.cacheId,
-          usage: primeResult.usage 
+          usage: primeResult.usage,
+          apiVersion: this.promptCache.apiVersion
         };
       } else {
         return { 
@@ -1414,14 +1421,15 @@ ${this.buildRelationshipContinuity(characterName)}
       // Log system prompt length for debugging
       logger.debug('Dynamic system prompt length:', dynamicSystem.length);
       
-      // Get the static template
+      // Get the static template and dynamic system
       const staticTemplate = this.promptCache.generateStaticTemplate();
+      const fullSystemPrompt = staticTemplate + dynamicSystem;
       
-      // Define request options
+      // Define request options - using the new format for caching
       const requestOptions = {
         model: this.model,
-        messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
-        max_tokens: 2048
+        max_tokens: 2048,
+        system: fullSystemPrompt // System as top-level parameter
       };
       
       // Add temperature only if not default to save tokens
@@ -1429,25 +1437,44 @@ ${this.buildRelationshipContinuity(characterName)}
         requestOptions.temperature = this.temperature;
       }
       
-      // Add cache control parameters if template is cacheable
-      const cacheControlParams = this.promptCache.getCacheControlParams();
+      // Build messages array - get recent messages but skip any system messages
+      const userMessages = this.messages.slice(-10).filter(msg => msg.role !== 'system'); // Only use last 10, exclude system
       
-      if (Object.keys(cacheControlParams).length > 0) {
-        // Using cache_control approach
+      // Initialize messages array (empty at first)
+      requestOptions.messages = [];
+      
+      // Add conversation history - all but the last user message
+      if (userMessages.length > 1) {
+        requestOptions.messages.push(...userMessages.slice(0, -1));
+      }
+      
+      // Get cache control parameters if template is cacheable
+      const cacheControlBlock = this.promptCache.getCacheControlParams();
+      
+      // Add the last user message with cache control if applicable
+      const lastUserMessage = userMessages[userMessages.length - 1];
+      
+      if (lastUserMessage && cacheControlBlock) {
+        // Add last user message with cache control in content array
         logger.debug('Using cache_control approach for prompt caching');
         
-        // Combine static and dynamic parts for the system prompt
-        requestOptions.system = staticTemplate + dynamicSystem;
-        
-        // Add cache control parameters
-        Object.assign(requestOptions, cacheControlParams);
+        // Create a content array with both text and cache_control
+        requestOptions.messages.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: lastUserMessage.content },
+            cacheControlBlock
+          ]
+        });
         
         // Track that we're using caching
         this.cachingStats.cachedPromptRequests++;
       } else {
-        // Fallback to standard system prompt with no caching
+        // Fallback to standard approach - just add the last message normally
         logger.debug('Using standard approach without prompt caching');
-        requestOptions.system = staticTemplate + dynamicSystem;
+        if (lastUserMessage) {
+          requestOptions.messages.push(lastUserMessage);
+        }
         this.cachingStats.regularPromptRequests++;
       }
 

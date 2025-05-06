@@ -152,28 +152,23 @@ class PromptCacheManager {
     return true;
   }
 
-  // Get cache control parameters for API requests
+  // Get cache control content block for messages array
   getCacheControlParams() {
     if (!this.isTemplateCacheable()) {
       logger.warn('Template is not cacheable, skipping cache control parameters');
-      return {};
+      return null;
     }
     
-    // If already cached, no need to set cache control
+    // Create a cache_control content block for the messages array
     if (this.staticTemplateIsCached) {
       return {
-        cache_control: {
-          use_cache_prefix: this.cacheId,
-          ttl: this.ttl
-        }
+        type: 'cache_control',
+        cache_type: 'ephemeral'
       };
     } else {
-      // First-time caching
       return {
-        cache_control: {
-          cache_prefix: this.cacheId,
-          ttl: this.ttl
-        }
+        type: 'cache_control',
+        breakpoints: [0] // Cache from the beginning (system message)
       };
     }
   }
@@ -201,6 +196,16 @@ SYMBOLS USED:
 # = Contextual trait
 @ = Location-specific behavior
 
+### Extended Symbol Usage Guide
+- Use + for mild interest/knowledge and ++ for passionate interest/expertise
+- Use - for mild dislike/avoidance and -- for strong aversion/hatred
+- Use ~ when the character is genuinely neutral or ambivalent about a topic
+- Use → to indicate clear cause-and-effect relationships in behavior
+- Use ! to highlight traits or triggers that are absolutely essential to the character
+- Use * for traits that influence behavior but aren't openly displayed
+- Use # for traits that only manifest in specific contexts
+- Use @ for behaviors that only occur in particular locations
+
 ## Rules for Role-Playing
 1. Stay in character always. ALWAYS answer in first person perspective
 2. NEVER return actions of the user or anticipate future actions
@@ -209,6 +214,15 @@ SYMBOLS USED:
 5. DO NEVER append to existing long and short-term memory. Just add new facts in a short way!
 6. ONLY use facts from the CURRENT response for short-term and long-term memory
 7. Use symbolic language from the character profile for memory
+
+### Formatting Guidelines
+- Use **bold** for emphasis, strong emotions, or raised voice
+- Use *italics* for thoughts, subtle emphasis, or foreign words
+- Use > quote blocks for remembered conversations, quoted material, or internal monologue
+- Maintain proper paragraph structure for readability
+- Avoid excessive formatting that might disrupt the natural flow
+- Use line breaks thoughtfully to convey pacing and emotional shifts
+- For intense emotional moments, use both formatting and explicit description
 
 ## Memory System
 For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your response:
@@ -224,6 +238,15 @@ For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your respo
   },
   "history": "ONLY significant relationship developments in MAX 8 words"
 }
+
+### Memory Guidelines
+- Record only genuinely new information about the character or user. This may include changes in their relationship, new interests, or significant events.
+- Use symbolic notation in memory entries for consistency. Try to keep it concise.
+- For long-term memory, focus on facts that would influence future interactions. Make sure to draw only from the current response.
+- For short-term memory, capture the emotional tone and key developments. Try to remember locations of the events
+- Be precise but concise in memory descriptions.
+- Include character reactions to significant user revelations
+- Track relationship milestones that fundamentally change the dynamic
 
 ## Additional Character Embodiment Guidelines
 
@@ -263,7 +286,7 @@ Always reference user appearance, never contradict memory information from the M
     return { success: true, message: 'Cache state reset successfully' };
   }
   
-  // Make a test API call to cache the static system message
+  // Make a test API call to prime the cache with the static system message
   async primeCache() {
     if (!this.isTemplateCacheable()) {
       return { 
@@ -277,6 +300,36 @@ Always reference user appearance, never contradict memory information from the M
       try {
         const staticTemplate = this.generateStaticTemplate();
         
+        // Get cache control block for the messages
+        const cacheControlBlock = {
+          type: 'cache_control',
+          breakpoints: [0] // Cache from the beginning
+        };
+        
+        // Create a request body using the up-to-date message format with caching
+        const requestBody = {
+          model: this.model,
+          max_tokens: 100,
+          system: staticTemplate, // System as top-level parameter
+          messages: [
+            { 
+              role: 'user', 
+              content: [
+                { type: 'text', text: 'Can you confirm you understand the symbolic format?' },
+                cacheControlBlock
+              ]
+            }
+          ]
+        };
+        
+        logger.debug('Priming cache with message format (truncated):', JSON.stringify({
+          ...requestBody,
+          messages: [
+            { role: 'system', content: '[Long system prompt truncated for logs]' },
+            requestBody.messages[1]
+          ]
+        }, null, 2));
+        
         const response = await fetch(this.apiUrl, {
           method: 'POST',
           headers: {
@@ -284,13 +337,7 @@ Always reference user appearance, never contradict memory information from the M
             'x-api-key': this.apiKey,
             'anthropic-version': this.apiVersion
           },
-          body: JSON.stringify({
-            model: this.model,
-            max_tokens: 100,
-            system: staticTemplate,
-            messages: [{ role: 'user', content: 'Can you confirm you understand the symbolic format?' }],
-            ...this.getCacheControlParams()
-          })
+          body: JSON.stringify(requestBody)
         });
         
         if (!response.ok) {
@@ -323,6 +370,266 @@ Always reference user appearance, never contradict memory information from the M
     }
     
     return { success: false, message: 'Failed to prime cache after multiple attempts' };
+  }
+  
+  // Test method for debugging API format requirements
+  async testCacheControl() {
+    try {
+      logger.debug("Testing cache control formats following the latest Anthropic documentation...");
+      
+      // First, make a basic request to verify the API is working without caching
+      const basicRequestBody = {
+        model: this.model,
+        max_tokens: 100,
+        system: "Hello world",
+        messages: [{ role: 'user', content: 'Test message' }]
+      };
+      
+      logger.debug("Test 1: Basic API call without caching");
+      logger.debug("Request:", JSON.stringify(basicRequestBody, null, 2));
+      
+      const basicResponse = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': this.apiVersion
+        },
+        body: JSON.stringify(basicRequestBody)
+      });
+      
+      if (!basicResponse.ok) {
+        const errorText = await basicResponse.text();
+        logger.error(`Basic API test failed: ${basicResponse.status} - ${errorText}`);
+        return { success: false, error: errorText, stage: "basic_request" };
+      }
+      
+      logger.debug("Basic API call successful, proceeding with cache tests");
+      
+      // Create a long system prompt that meets the minimum requirement for caching
+      const longSystemPrompt = "This is a test of the prompt caching feature. The system prompt must be at least 1024 tokens long to be cacheable. " + 
+        "Therefore I'm adding a longer text here to ensure it meets the minimum requirements. ".repeat(30);
+      
+      // Test a more structured message format with cache_control in content array
+      logger.debug("Test 1: Using cache_control with correct placement in content array");
+      
+      const test1Body = {
+        model: this.model,
+        max_tokens: 100,
+        messages: [
+          { role: 'system', content: longSystemPrompt },
+          { 
+            role: 'user', 
+            content: [
+              { type: 'text', text: 'Testing cache_control placement' },
+              { 
+                type: 'cache_control',
+                breakpoints: [0] 
+              }
+            ]
+          }
+        ]
+      };
+      
+      logger.debug("Test 1 request structure (system truncated):", JSON.stringify({
+        ...test1Body,
+        system: '[Long system prompt truncated for logs]'
+      }, null, 2));
+      
+      const test1Response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': this.apiVersion
+        },
+        body: JSON.stringify(test1Body)
+      });
+      
+      let test1ResponseText = '';
+      try {
+        test1ResponseText = await test1Response.text();
+        if (test1Response.ok) {
+          logger.debug("Test 1 successful!");
+          return { 
+            success: true, 
+            message: "Cache test 1 succeeded (cache_control in user content array)",
+            response: JSON.parse(test1ResponseText)
+          };
+        } else {
+          logger.error(`Test 1 failed: ${test1Response.status} - ${test1ResponseText}`);
+        }
+      } catch (e) {
+        logger.error("Error in test 1:", e);
+      }
+      
+      // Test with cache_control after system message
+      logger.debug("Test 2: Using cache_control with conversation context");
+      
+      const test2Body = {
+        model: this.model,
+        max_tokens: 100,
+        system: longSystemPrompt,
+        messages: [
+          { 
+            role: 'user',
+            content: 'First user message'
+          },
+          {
+            role: 'assistant',
+            content: 'First assistant response'
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Second user message' },
+              { 
+                type: 'cache_control',
+                breakpoints: [0, 1] // Cache at beginning and after first user-assistant exchange
+              }
+            ]
+          }
+        ]
+      };
+      
+      const test2Response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': this.apiVersion
+        },
+        body: JSON.stringify(test2Body)
+      });
+      
+      let test2ResponseText = '';
+      try {
+        test2ResponseText = await test2Response.text();
+        if (test2Response.ok) {
+          logger.debug("Test 2 successful!");
+          return { 
+            success: true, 
+            message: "Cache test 2 succeeded (cache_control with multiple breakpoints)",
+            response: JSON.parse(test2ResponseText)
+          };
+        } else {
+          logger.error(`Test 2 failed: ${test2Response.status} - ${test2ResponseText}`);
+        }
+      } catch (e) {
+        logger.error("Error in test 2:", e);
+      }
+      
+      // Test with using ephemeral cache mode for subsequent calls
+      logger.debug("Test 3: Using ephemeral cache type");
+      
+      const test3Body = {
+        model: this.model,
+        max_tokens: 100,
+        system: longSystemPrompt,
+        messages: [
+          { 
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Testing ephemeral cache mode' },
+              { 
+                type: 'cache_control',
+                cache_type: 'ephemeral' 
+              }
+            ]
+          }
+        ]
+      };
+      
+      const test3Response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': this.apiVersion
+        },
+        body: JSON.stringify(test3Body)
+      });
+      
+      let test3ResponseText = '';
+      try {
+        test3ResponseText = await test3Response.text();
+        if (test3Response.ok) {
+          logger.debug("Test 3 successful!");
+          return { 
+            success: true, 
+            message: "Cache test 3 succeeded (ephemeral cache)",
+            response: JSON.parse(test3ResponseText)
+          };
+        } else {
+          logger.error(`Test 3 failed: ${test3Response.status} - ${test3ResponseText}`);
+        }
+      } catch (e) {
+        logger.error("Error in test 3:", e);
+      }
+      
+      // Try with newer API version
+      logger.debug("Test 4: Using newer API version");
+      
+      const test4Body = {
+        model: this.model,
+        max_tokens: 100,
+        system: longSystemPrompt,
+        messages: [
+          { 
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Testing with newer API version' },
+              { 
+                type: 'cache_control',
+                breakpoints: [0]
+              }
+            ]
+          }
+        ]
+      };
+      
+      const test4Response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-12-01' // Try newer API version
+        },
+        body: JSON.stringify(test4Body)
+      });
+      
+      let test4ResponseText = '';
+      try {
+        test4ResponseText = await test4Response.text();
+        if (test4Response.ok) {
+          logger.debug("Test 4 successful!");
+          return { 
+            success: true, 
+            message: "Cache test 4 succeeded (newer API version)",
+            response: JSON.parse(test4ResponseText)
+          };
+        } else {
+          logger.error(`Test 4 failed: ${test4Response.status} - ${test4ResponseText}`);
+        }
+      } catch (e) {
+        logger.error("Error in test 4:", e);
+      }
+      
+      // If we get here, all tests failed
+      return {
+        success: false,
+        message: "All cache control tests failed",
+        errors: {
+          test1: test1ResponseText,
+          test2: test2ResponseText,
+          test3: test3ResponseText,
+          test4: test4ResponseText
+        }
+      };
+    } catch (error) {
+      logger.error("Cache test failed with exception:", error);
+      return { success: false, error: error.message };
+    }
   }
 }
 

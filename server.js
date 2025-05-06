@@ -12,6 +12,7 @@ const cookieSession = require('cookie-session');
 require('dotenv').config(); // Load environment variables from .env file
 const { AnthropicChatClient, MemorySystem } = require('./anthropic-chat-client');
 const { MemoryPersistence } = require('./memory-persistence');
+const { PromptCacheManager } = require('./prompt-cache-manager');
 // JSON character profiles have been replaced by symbolic text profiles
 const characterProfiles = require('./character-profile-example');
 
@@ -725,16 +726,65 @@ app.get('/api/cache/stats/:sessionId', async (req, res) => {
   }
 });
 
-// Refresh cache
-app.post('/api/cache/refresh/:sessionId', async (req, res) => {
+// Test cache control format endpoint
+app.post('/api/cache/test/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
+    const { apiVersion } = req.body; // Optional API version to test
     
     // Get chat client for this session
     const chatClient = activeSessions.get(sessionId);
     
     if (!chatClient) {
       return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    // Test cache control format
+    if (!chatClient.promptCache) {
+      chatClient.promptCache = new PromptCacheManager({
+        apiKey: chatClient.apiKey,
+        apiVersion: apiVersion || '2023-06-01',
+        model: chatClient.model
+      });
+    } else if (apiVersion) {
+      // Update API version if provided
+      chatClient.promptCache.apiVersion = apiVersion;
+      logger.info(`Using API version ${apiVersion} for cache control test`);
+    }
+    
+    const result = await chatClient.promptCache.testCacheControl();
+    return res.json(result);
+  } catch (error) {
+    logger.error('Error testing cache control:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh cache
+app.post('/api/cache/refresh/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { apiVersion } = req.body; // Optional API version for refreshing the cache
+    
+    // Get chat client for this session
+    const chatClient = activeSessions.get(sessionId);
+    
+    if (!chatClient) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    // Update prompt cache manager API version if provided
+    if (apiVersion && chatClient.promptCache) {
+      chatClient.promptCache.apiVersion = apiVersion;
+      logger.info(`Using API version ${apiVersion} for cache refresh`);
+    } else if (apiVersion) {
+      // Initialize cache manager with specified API version
+      chatClient.promptCache = new PromptCacheManager({
+        apiKey: chatClient.apiKey,
+        apiVersion: apiVersion,
+        model: chatClient.model,
+        cacheState: chatClient.cacheState
+      });
     }
     
     // Refresh cache
