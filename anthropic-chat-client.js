@@ -133,7 +133,7 @@ class MemorySystem {
     } else {
       this.shortTermMemory.push({ content: result["memorize-short-term"] });
     }
-    this.shortTermMemoryDetailled.push({ content: reducedMemory.split('{')[0] });
+    // this.shortTermMemoryDetailled.push({ content: reducedMemory.split('{')[0] });
     // Maintain short-term memory size limit
     if (this.shortTermMemoryDetailled.length > this.shortTermMemoryDetailedLimit) {
       this.shortTermMemoryDetailled.shift(); // Remove oldest message
@@ -917,7 +917,7 @@ PHRASES:`;
       history: options.history || [] // For tracking significant relationship changes
     });
 
-    this.model = options.model || "claude-3-7-sonnet-20250219";
+    this.model = options.model || "claude-sonnet-4-20250514";
     this.temperature = options.temperature || 1.0;
     this.messages = options.messages || [];
     this.apiUrl = API_URL;

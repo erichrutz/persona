@@ -666,7 +666,8 @@
               <div class="mb-3">
                 <label for="model-select" class="form-label">Model</label>
                 <select class="form-select" id="model-select">
-                  <option value="claude-3-7-sonnet-20250219" selected>Claude 3.7 Sonnet</option>
+                   <option value="claude-sonnet-4-20250514" selected>Claude 4 Sonnet</option>
+                  <option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option>
                   <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
                   <option value="claude-3-opus-20240229">Claude 3 Opus</option>
                   <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
@@ -715,6 +716,7 @@
             <label for="load-model-select" class="form-label" data-i18n="load_model_label">Model (optional)</label>
             <select class="form-select" id="load-model-select">
               <option value="" data-i18n="use_original_model">Use original model</option>
+              <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
               <option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option>
               <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
               <option value="claude-3-opus-20240229">Claude 3 Opus</option>
@@ -754,6 +756,7 @@
               <div class="dropdown ms-2">
                 <span id="model-badge" class="badge bg-secondary small dropdown-toggle" style="font-size: 0.7rem; cursor: pointer;" data-bs-toggle="dropdown" aria-expanded="false"></span>
                 <ul class="dropdown-menu model-dropdown" aria-labelledby="model-badge">
+                   <li><a class="dropdown-item model-option" data-model="claude-sonnet-4-20250514" href="#">Claude Sonnet 4</a></li>
                   <li><a class="dropdown-item model-option" data-model="claude-3-7-sonnet-20250219" href="#">Claude 3.7 Sonnet</a></li>
                   <li><a class="dropdown-item model-option" data-model="claude-3-5-sonnet-20240620" href="#">Claude 3.5 Sonnet</a></li>
                   <li><a class="dropdown-item model-option" data-model="claude-3-opus-20240229" href="#">Claude 3 Opus</a></li>
@@ -1004,6 +1007,8 @@
         // Format the model name for display
         if (model.includes('claude-3-7')) {
           displayName = 'Claude 3.7 Sonnet';
+        } else if (model.includes('claude-sonnet-4')) {
+          displayName = 'Claude Sonnet 4';
         } else if (model.includes('claude-3-5')) {
           displayName = 'Claude 3.5 Sonnet';
         } else if (model.includes('claude-3-opus')) {
@@ -1038,7 +1043,7 @@
       });
       
       // Variable to store the currently selected model
-      let currentModel = 'claude-3-7-sonnet-20250219';
+      let currentModel = 'claude-sonnet-4-20250514';
       
       // Configure marked options for security and features
       marked.setOptions({
@@ -1367,7 +1372,7 @@
         
         // Get selected model
         const modelSelect = document.getElementById('model-select');
-        const selectedModel = modelSelect ? modelSelect.value : 'claude-3-7-sonnet-20250219';
+        const selectedModel = modelSelect ? modelSelect.value : 'claude-sonnet-4-20250514';
         
         // Get deep memory if provided
         const deepMemory = document.getElementById('deep-memory').value.trim();

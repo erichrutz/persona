@@ -202,7 +202,7 @@ app.post('/api/session', async (req, res) => {
         persistence: memoryPersistence,
         compressionEnabled: compressionEnabled !== undefined ? compressionEnabled : true,
         deepMemory: deepMemory || '',
-        model: model || 'claude-3-7-sonnet-20250219',
+        model: model || 'claude-sonnet-4-20250514',
         language: language || 'english',
         characterName: characterName,
         isJSON: isJSON

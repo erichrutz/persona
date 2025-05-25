@@ -45,7 +45,7 @@ class MemoryCompressor {
   constructor(options = {}) {
     this.apiKey = options.apiKey || null;
     this.apiUrl = options.apiUrl || 'https://api.anthropic.com/v1/messages';
-    this.model = options.model || "claude-3-7-sonnet-20250219";
+    this.model = options.model || "claude-sonnet-4-20250514";
     this.compressionFrequency = options.compressionFrequency || 10; // API calls before compression
     this.compressionRatio = options.compressionRatio || 0.6; // Target size after compression
     this.apiCallCount = 0;
@@ -304,13 +304,13 @@ WANTS: [Desires and goals]
 
 CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
 
-1. PRESERVE ALL DATA: All character information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
+1. PRESERVE ALL DATA: All character and user information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
 
 2. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
 
 3. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
 
-4. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
+4. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character or user was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
 
 5. TOKEN EFFICIENCY: Use concise phrasing and eliminate unnecessary words while retaining all essential information. Aim for the shortest possible representation that fully preserves meaning.
 
@@ -332,13 +332,13 @@ CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
 
 10. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
 
-Return ONLY the consolidated character profile without explanations or commentary.
+Return ONLY the consolidated character and user profile without explanations or commentary.
 
 ## Personas
 * 'Character' is the person impersonated by the AI in this case ${this.characterName}
 * 'User' is the impersonation played by the human chat user
 
-## Previous Character
+## Previous Character and User profile
 ### ${this.characterName}
 ${this.characterProfile}
 ### User
@@ -358,7 +358,7 @@ ${JSON.stringify(memoriesText)}
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: "claude-3-7-sonnet-20250219", //"claude-3-haiku-20240307", 
+            model: "claude-sonnet-4-20250514", //"claude-3-haiku-20240307", 
             messages: [{ role: 'user', content: promptSymbolic }],
             max_tokens: 1024
           })
@@ -417,6 +417,8 @@ ${JSON.stringify(memoriesText)}
         .filter(line => line.trim().length > 0);
 
       const characterProfileSplit = compressedText.split('---');
+
+      console.table([characterProfileSplit[0].trim(), characterProfileSplit[1]?.trim()]);
 
       compressedMemories.push({
         content: characterProfileSplit[0].trim(),
