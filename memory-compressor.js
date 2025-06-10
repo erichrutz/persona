@@ -306,19 +306,21 @@ CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
 
 1. PRESERVE ALL DATA: All character information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
 
-2. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
+2. CORE DEVELOPMENT: The character profile, especially CORE,  must reflect the most current state of the character personality traits
 
-3. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
+3. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
 
-4. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
+4. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
 
-5. TOKEN EFFICIENCY: Use concise phrasing and eliminate unnecessary words while retaining all essential information. Aim for the shortest possible representation that fully preserves meaning.
+5. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
 
-6. COMBINE RELATED INFORMATION: Where appropriate, merge related attributes using commas or symbolic notation rather than separate phrases.
+6. TOKEN EFFICIENCY: Use concise phrasing and eliminate unnecessary words while retaining all essential information. Aim for the shortest possible representation that fully preserves meaning.
 
-7. DEDUPLICATION: Remove exact duplicates and merge similar information to eliminate redundancy while preserving all unique details.
+7. COMBINE RELATED INFORMATION: Where appropriate, merge related attributes using commas or symbolic notation rather than separate phrases.
 
-8. MAINTAIN SYMBOLS: Use symbolic notations to compress information:
+8. DEDUPLICATION: Remove exact duplicates and merge similar information to eliminate redundancy while preserving all unique details.
+
+9. MAINTAIN SYMBOLS: Use symbolic notations to compress information:
    - + or ++ = Interest/knowledge (++ = passionate)
    - - or -- = Dislike/avoidance (-- = strong dislike)
    - ~ = Neutral/ambivalent
@@ -328,9 +330,9 @@ CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
    - # = Contextual trait
    - @ = Location-specific behavior
 
-9. FORMAT ADHERENCE: Follow the exact section structure shown above, with all sections present but kept as concise as possible.
+10. FORMAT ADHERENCE: Follow the exact section structure shown above, with all sections present but kept as concise as possible.
 
-10. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
+11. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
 
 Return ONLY the consolidated character profile without explanations or commentary.
 
@@ -417,6 +419,8 @@ ${JSON.stringify(memoriesText)}
         .filter(line => line.trim().length > 0);
 
       const characterProfileSplit = compressedText.split('---');
+
+      console.log('Character Profile Split:', characterProfileSplit);
 
       compressedMemories.push({
         content: characterProfileSplit[0].trim(),

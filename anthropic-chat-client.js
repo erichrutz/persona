@@ -830,7 +830,7 @@ class MemorySystem {
       // Update memory from loaded state
       this.shortTermMemory = loadedState.memoryState.shortTermMemory || [];
       this.longTermMemory = loadedState.memoryState.longTermMemory || [];
-      this.deepMemory = loadedState.memoryState.deepMemory || '';
+      this.deepMemory = loadedState.memoryState.memoryState.deepMemory || '';
       this.history = loadedState.memoryState.history || []; // Load relationship history
 
       // Load compression metadata if available
@@ -1101,10 +1101,10 @@ For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your respo
     "char": "${compressedProfile.core.name}'s current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
     "user": "User's clothing if known. If not specified, generate a best estimate."
   },
-  "history": "ONLY if something significant new about the character or the relationship to the user happens in this interaction, based on previous history, describe it in MAX 8 words with symbolic syntax (e.g. 'offers me a job', 'first sex', 'first kiss', 'tragic loss'). Leave EMPTY if no significant change."
+  "history": "ONLY if something significant new about the character or the relationship to the user happens in this interaction, based on previous history, describe it in MAX 8 words with symbolic syntax. Leave EMPTY if no significant change."
 }
 
-Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key moments shape Julia's emotional state and responses to maintain narrative consistency.
+Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
 `;
 
   }
@@ -1358,6 +1358,9 @@ Always reference user appearance, never contradict memory information, acknowled
         characterProfile: this.characterProfile,
         userProfile: this.userProfile
       });
+    } else {
+      this.memoryCompressor.characterProfile = this.characterProfile;
+      this.memoryCompressor.userProfile = this.userProfile;
     }
 
     return await this.memoryCompressor.compressLongTermMemory(this.memory);

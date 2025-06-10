@@ -51,7 +51,7 @@ const logger = global.logger;
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const USE_HTTPS = process.env.USE_HTTPS === 'true';
 const CERT_PATH = process.env.CERT_PATH || '/etc/letsencrypt/live/yourdomain.com/fullchain.pem';
 const KEY_PATH = process.env.KEY_PATH || '/etc/letsencrypt/live/yourdomain.com/privkey.pem';
@@ -61,9 +61,10 @@ const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 // Set up middleware
 app.use(bodyParser.json());
 app.use(cors({
-  origin: '*',
+  origin: true, // Allow any origin, but enable credentials
+  credentials: true, // Allow credentials (cookies, authorization headers)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(helmet({
   contentSecurityPolicy: {
@@ -72,7 +73,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "*"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: []
@@ -87,7 +88,32 @@ app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }));
 
-// Authentication middleware
+// Health check endpoint (no authentication required)
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Persona server is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Placeholder image endpoint (no authentication required)
+app.get('/api/placeholder/:width/:height', (req, res) => {
+  const { width, height } = req.params;
+  
+  // Create a simple SVG placeholder
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <rect width="100%" height="100%" fill="#e9ecef"/>
+    <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="14" fill="#6c757d" text-anchor="middle" dy=".3em">${width}×${height}</text>
+  </svg>`;
+  
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+  res.send(svg);
+});
+
+// Authentication middleware (applied to all routes except health check)
 app.use(basicAuth({
   users: { [USERNAME]: PASSWORD },
   challenge: true,
@@ -699,6 +725,81 @@ app.get('/api/compression/stats/:sessionId', async (req, res) => {
     res.json(stats);
   } catch (error) {
     logger.error('Error fetching compression stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get available characters from the characters folder
+app.get('/api/characters', (req, res) => {
+  try {
+    const charactersDir = path.join(__dirname, 'characters');
+    
+    if (!fs.existsSync(charactersDir)) {
+      return res.json([]);
+    }
+    
+    const files = fs.readdirSync(charactersDir);
+    const characters = files
+      .filter(file => file.endsWith('.txt') || file.endsWith('.json'))
+      .map(file => {
+        const filePath = path.join(charactersDir, file);
+        const name = path.basename(file, path.extname(file));
+        
+        // Try to extract character name from file content
+        let displayName = name;
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          
+          // For symbolic text files, look for NAME: header
+          const nameMatch = content.match(/NAME:[ \t]+(.*?)(?=[ \t]*[\r\n])/i);
+          if (nameMatch) {
+            displayName = nameMatch[1].trim();
+          } else if (file.endsWith('.json')) {
+            // For JSON files, try to parse and get name
+            const jsonData = JSON.parse(content);
+            if (jsonData.name) {
+              displayName = jsonData.name;
+            }
+          }
+        } catch (error) {
+          // If we can't read the file or parse it, use filename
+          logger.debug(`Could not parse character file ${file}:`, error.message);
+        }
+        
+        return {
+          filename: file,
+          name: displayName,
+          displayName: displayName
+        };
+      })
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    
+    res.json(characters);
+  } catch (error) {
+    logger.error('Error listing characters:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Load character profile from file
+app.get('/api/character/:filename', (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(__dirname, 'characters', filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Character file not found' });
+    }
+    
+    const content = fs.readFileSync(filePath, 'utf8');
+    
+    res.json({
+      filename,
+      content,
+      isJSON: filename.endsWith('.json')
+    });
+  } catch (error) {
+    logger.error('Error loading character:', error);
     res.status(500).json({ error: error.message });
   }
 });

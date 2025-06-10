@@ -12,7 +12,138 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/highlight.min.js"></script>
   <!-- Add localization support -->
-  <script src="/localization.js"></script>
+  <script>
+    // Initialize fallback localization immediately
+    window.localization = {
+      english: { 
+        app_subtitle: "Immersive Character Experience",
+        new_session_btn: "New Session",
+        load_session_btn: "Load Session"
+      },
+      deutsch: { 
+        app_subtitle: "Immersive Charakter Erfahrung",
+        new_session_btn: "Neue Sitzung", 
+        load_session_btn: "Sitzung laden"
+      }
+    };
+
+    // Try to load full localization.js dynamically
+    (function() {
+      const script = document.createElement('script');
+      script.src = window.location.origin + '/localization.js';
+      script.onerror = function() {
+        console.warn('Could not load localization.js from same origin - trying with server config');
+        // Try loading from configured server if different
+        if (window.ServerConfig && window.ServerConfig.serverUrl !== window.location.origin) {
+          const fallbackScript = document.createElement('script');
+          fallbackScript.src = window.ServerConfig.serverUrl + '/localization.js';
+          fallbackScript.onerror = function() {
+            console.warn('Could not load localization.js from configured server - using fallback');
+          };
+          document.head.appendChild(fallbackScript);
+        }
+      };
+      document.head.appendChild(script);
+    })();
+  </script>
+  
+  <!-- Server Configuration -->
+  <script>
+    // Server Configuration - Can be customized for remote deployment
+    window.ServerConfig = {
+      // Default to same origin, can be changed to remote server
+      serverUrl: window.location.origin,
+      
+      // Method to build API URLs
+      buildApiUrl: function(endpoint) {
+        return this.serverUrl + endpoint;
+      },
+      
+      // Load configuration from localStorage if available
+      loadConfig: function() {
+        const saved = localStorage.getItem('serverConfig');
+        if (saved) {
+          try {
+            const config = JSON.parse(saved);
+            this.serverUrl = config.serverUrl || window.location.origin;
+          } catch (e) {
+            console.warn('Failed to load server config from localStorage:', e);
+          }
+        }
+      },
+      
+      // Save configuration to localStorage
+      saveConfig: function() {
+        localStorage.setItem('serverConfig', JSON.stringify({
+          serverUrl: this.serverUrl
+        }));
+      },
+      
+      // Update server URL and save
+      setServerUrl: function(url) {
+        // Remove trailing slash
+        this.serverUrl = url.replace(/\/$/, '');
+        this.saveConfig();
+      },
+      
+      // Enhanced fetch that includes credentials for cross-origin requests
+      fetchWithCredentials: function(url, options = {}) {
+        const isCurrentOrigin = url.startsWith(window.location.origin);
+        const enhancedOptions = {
+          ...options,
+          credentials: isCurrentOrigin ? 'same-origin' : 'include'
+        };
+        
+        // Debug logging
+        if (!isCurrentOrigin) {
+          console.log(`Making cross-origin request to: ${url}`);
+          console.log(`Credentials mode: include`);
+        }
+        
+        return fetch(url, enhancedOptions);
+      },
+      
+      // Update placeholder images based on server configuration
+      updatePlaceholderImages: function() {
+        // Update any inline styles
+        const elementsWithInlineStyles = document.querySelectorAll('[style*="/api/placeholder/"]');
+        elementsWithInlineStyles.forEach(element => {
+          const style = element.getAttribute('style');
+          if (style && style.includes('/api/placeholder/')) {
+            const newStyle = style.replace(
+              /\/api\/placeholder\//g, 
+              `${this.serverUrl}/api/placeholder/`
+            );
+            element.setAttribute('style', newStyle);
+          }
+        });
+        
+        // Also update any CSS classes that might have background images
+        // This is a more robust approach for CSS-defined background images
+        const allElements = document.querySelectorAll('*');
+        allElements.forEach(element => {
+          const computedStyle = window.getComputedStyle(element);
+          const bgImage = computedStyle.backgroundImage;
+          if (bgImage && bgImage.includes('/api/placeholder/')) {
+            // Override with inline style pointing to configured server
+            const newBgImage = bgImage.replace(
+              /\/api\/placeholder\//g, 
+              `${this.serverUrl}/api/placeholder/`
+            );
+            element.style.backgroundImage = newBgImage;
+          }
+        });
+      }
+    };
+    
+    // Load configuration on page load
+    window.ServerConfig.loadConfig();
+    
+    // Update placeholder images when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      window.ServerConfig.updatePlaceholderImages();
+    });
+  </script>
   <style>
     :root {
       --primary-color: #e94e77;
@@ -549,8 +680,13 @@
             </button>
           </li>
           <li class="nav-item">
-            <button id="load-session-btn" class="btn btn-outline-primary">
+            <button id="load-session-btn" class="btn btn-outline-primary me-2">
               <i class="fas fa-folder-open me-1"></i> <span data-i18n="load_session_btn">Load Session</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button id="server-config-btn" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#serverConfigModal">
+              <i class="fas fa-server me-1"></i> Server
             </button>
           </li>
         </ul>
@@ -586,22 +722,12 @@
           
           <!-- Character Selection Dropdown -->
           <div class="mb-4">
-            <label for="character-select" class="form-label fw-bold" data-i18n="select_character_label">Select Character Type</label>
+            <label for="character-select" class="form-label fw-bold" data-i18n="select_character_label">Select Character</label>
             <select class="form-select form-select-lg" id="character-select">
               <option value="" selected disabled data-i18n="select_character_placeholder">Choose a character to simulate...</option>
-              <option value="mentor" data-i18n="character_career_mentor">Career Mentor - Professional development guidance</option>
-              <option value="therapist" data-i18n="character_listener">Supportive Listener - Emotional support and processing</option>
-              <option value="coach" data-i18n="character_life_coach">Life Coach - Personal goals and self-improvement</option>
-              <option value="mother" data-i18n="character_divorced_mother">Divorced Mother - Life topics</option>
-              <option value="wife" data-i18n="character_married_wife">Alexandra Rutz - Married Wife</option>
-              <option value="librarian" data-i18n="character_librarian">Naomi Chen - Librarian</option>
-              <option value="detective" data-i18n="character_inspector">Inspector Blackwood - Analytical problem solver</option>
-              <option value="girl" data-i18n="character_teenage_girl">Teenage girl - Adolescent problems</option>
-              <option value="matildaMartin" data-i18n="character_matilda">Matilda - A fantasy novel hero</option>
-              <option value="adiposeGirl" data-i18n="character_adipose_girl">Adipose girl - Body looks discussions</option>
               <option value="custom" data-i18n="character_custom">Custom Character - Create your own</option>
             </select>
-            <div class="form-text" data-i18n="character_select_help">Select a character type for your conversation simulation.</div>
+            <div class="form-text" data-i18n="character_select_help">Select a character for your conversation simulation.</div>
           </div>
           
           <!-- Character Description Panel -->
@@ -952,18 +1078,27 @@
     let currentLanguage = 'english'; // Default language
     
     function updateUILanguage(language) {
+      // Safety check for localization object
+      if (typeof localization === 'undefined' || !localization) {
+        console.warn('Localization not yet loaded, retrying in 100ms...');
+        setTimeout(() => updateUILanguage(language), 100);
+        return;
+      }
+      
       // Set current language
       currentLanguage = language || 'english';
       document.documentElement.lang = currentLanguage === 'deutsch' ? 'de' : 'en';
       
-      // Update document title
-      document.title = localization[currentLanguage].page_title;
+      // Update document title if translation exists
+      if (localization[currentLanguage] && localization[currentLanguage].page_title) {
+        document.title = localization[currentLanguage].page_title;
+      }
       
       // Update all elements with data-i18n attribute
       const elements = document.querySelectorAll('[data-i18n]');
       elements.forEach(element => {
         const key = element.getAttribute('data-i18n');
-        if (localization[currentLanguage][key]) {
+        if (localization[currentLanguage] && localization[currentLanguage][key]) {
           element.textContent = localization[currentLanguage][key];
         }
       });
@@ -1099,6 +1234,50 @@
       let activeSessionId = null;
       let selectedCharacterType = null;
       let lastSaveTime = null;
+      let availableCharacters = [];
+      let selectedCharacterData = null;
+      
+      // Load available characters from the server
+      async function loadAvailableCharacters() {
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/characters'));
+          availableCharacters = await response.json();
+          
+          // Populate the character dropdown
+          const characterSelect = document.getElementById('character-select');
+          if (characterSelect) {
+            // Clear existing options except placeholder and custom
+            const placeholder = characterSelect.querySelector('option[value=""]');
+            const customOption = characterSelect.querySelector('option[value="custom"]');
+            characterSelect.innerHTML = '';
+            
+            // Re-add placeholder and custom options
+            if (placeholder) characterSelect.appendChild(placeholder);
+            if (customOption) characterSelect.appendChild(customOption);
+            
+            // Add characters from files
+            availableCharacters.forEach(character => {
+              const option = document.createElement('option');
+              option.value = character.filename;
+              option.textContent = character.displayName;
+              characterSelect.appendChild(option);
+            });
+          }
+        } catch (error) {
+          console.error('Error loading characters:', error);
+        }
+      }
+      
+      // Load character profile data
+      async function loadCharacterProfile(filename) {
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/character/${filename}`));
+          return await response.json();
+        } catch (error) {
+          console.error('Error loading character profile:', error);
+          return null;
+        }
+      }
       
       // Handle character dropdown selection
       const characterSelect = document.getElementById('character-select');
@@ -1108,7 +1287,7 @@
       const characterPreview = document.getElementById('character-preview');
       
       if (characterSelect) {
-        characterSelect.addEventListener('change', () => {
+        characterSelect.addEventListener('change', async () => {
           selectedCharacterType = characterSelect.value;
           
           // Show character description panel
@@ -1116,52 +1295,46 @@
             characterDescriptionPanel.style.display = 'block';
           }
           
-          // Set character information based on selection
-          if (characterTitle && characterDescription && characterPreview) {
-            switch(selectedCharacterType) {
-              case 'mentor':
-                characterTitle.textContent = 'Career Mentor';
-                characterDescription.textContent = 'An experienced professional who provides guidance on career development, leadership skills, and workplace challenges.';
-                characterPreview.style.backgroundColor = '#617c58';
-                break;
-              case 'therapist':
-                characterTitle.textContent = 'Supportive Listener';
-                characterDescription.textContent = 'A compassionate listener trained to help you process thoughts, emotions, and navigate life experiences with empathy.';
-                characterPreview.style.backgroundColor = '#81a4cd';
-                break;
-              case 'coach':
-                characterTitle.textContent = 'Life Coach';
-                characterDescription.textContent = 'A motivational guide focused on helping you achieve personal goals, develop positive habits, and pursue self-improvement.';
-                characterPreview.style.backgroundColor = '#b57e50';
-                break;
-              case 'mother':
-                characterTitle.textContent = 'Divorced mother';
-                characterDescription.textContent = 'An imaginative partner for brainstorming ideas, creative writing, artistic exploration, and creative problem-solving.';
-                characterPreview.style.backgroundColor = '#a45c94';
-                break;
-              case 'matildaMartin':
-                characterTitle.textContent = 'Matilda Martin';
-                characterDescription.textContent = 'Character from german fantasy novel.';
-                characterPreview.style.backgroundColor = '#4a6572';
-                break;
-              case 'adiposeGirl':
-                characterTitle.textContent = 'Alina Becker';
-                characterDescription.textContent = 'Chubby girl with no friends';
-                characterPreview.style.backgroundColor = '#4a6572';
-                break;
-              case 'custom':
-                characterTitle.textContent = 'Custom Character';
-                characterDescription.textContent = 'Create your own unique character with custom personality traits, background, and expertise.';
-                characterPreview.style.backgroundColor = '#8e7cc3';
-                break;
+          // Handle custom character
+          if (selectedCharacterType === 'custom') {
+            if (characterTitle && characterDescription && characterPreview) {
+              characterTitle.textContent = 'Custom Character';
+              characterDescription.textContent = 'Create your own unique character with custom personality traits, background, and expertise.';
+              characterPreview.style.backgroundColor = '#8e7cc3';
             }
+            customCharacterContainer.style.display = 'block';
+            selectedCharacterData = null;
+            return;
           }
           
-          // Show custom character container if custom is selected
-          if (selectedCharacterType === 'custom') {
-            customCharacterContainer.style.display = 'block';
-          } else {
-            customCharacterContainer.style.display = 'none';
+          // Hide custom character container for file-based characters
+          customCharacterContainer.style.display = 'none';
+          
+          // Load character profile from file
+          if (selectedCharacterType && selectedCharacterType !== '') {
+            selectedCharacterData = await loadCharacterProfile(selectedCharacterType);
+            
+            if (selectedCharacterData && characterTitle && characterDescription && characterPreview) {
+              // Find the character info from the available characters list
+              const characterInfo = availableCharacters.find(char => char.filename === selectedCharacterType);
+              
+              if (characterInfo) {
+                characterTitle.textContent = characterInfo.displayName;
+                
+                // Try to extract description from character content
+                let description = 'Character profile loaded from file.';
+                if (selectedCharacterData.content) {
+                  // For symbolic text files, look for DESCRIPTION: or PERSONALITY: sections
+                  const descMatch = selectedCharacterData.content.match(/(?:DESCRIPTION|PERSONALITY):[ \t]*(.*?)(?=\n\s*[A-Z]+:|$)/is);
+                  if (descMatch) {
+                    description = descMatch[1].trim().split('\n')[0]; // Take first line
+                  }
+                }
+                
+                characterDescription.textContent = description;
+                characterPreview.style.backgroundColor = '#4a6572'; // Default color for file-based characters
+              }
+            }
           }
         });
       }
@@ -1188,7 +1361,7 @@
         
         // Fetch available sessions
         try {
-          const response = await fetch('/api/sessions');
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/sessions'));
           const sessions = await response.json();
           
           // Clear previous options
@@ -1237,7 +1410,7 @@
           const loadLanguageSelect = document.getElementById('load-language-select');
           const selectedLanguage = loadLanguageSelect ? loadLanguageSelect.value : 'english';
           
-          const response = await fetch('/api/session', {
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/session'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -1315,7 +1488,7 @@
         }
         
         try {
-          const response = await fetch(`/api/session/${sessionId}`, {
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/session/${sessionId}`), {
             method: 'DELETE'
           });
           
@@ -1387,7 +1560,7 @@
           language: selectedLanguage
         };
         
-        // Add custom profile if selected
+        // Add custom profile if selected or character data from file
         if (selectedCharacterType === 'custom') {
           try {
             requestData.customProfile = JSON.parse(customProfileInput.value);
@@ -1396,11 +1569,15 @@
             //alert('Invalid JSON for custom character profile');
             // return;
           }
+        } else if (selectedCharacterData && selectedCharacterData.content) {
+          // Use character data from file
+          requestData.customProfile = selectedCharacterData.content;
+          requestData.characterType = 'custom'; // Treat file-based characters as custom
         }
         
         try {
           // Create session
-          const response = await fetch('/api/session', {
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/session'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -1485,7 +1662,7 @@
           saveStatusElement.textContent = 'Sending message...';
           
           // Send message to server
-          const response = await fetch('/api/message', {
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/message'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -1559,7 +1736,7 @@
           // Fetch current memory state
           try {
             console.log("Fetching memory state for session:", activeSessionId);
-            const response = await fetch(`/api/memory/${activeSessionId}`);
+            const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/memory/${activeSessionId}`));
             const memoryState = await response.json();
             console.log("Received memory state:", memoryState);
             
@@ -1594,7 +1771,7 @@
             compressMemoryButton.disabled = true;
             compressMemoryButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Compressing...';
             
-            const response = await fetch('/api/compression/compress', {
+            const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/compression/compress'), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -1636,7 +1813,7 @@
           if (!activeSessionId) return;
           
           try {
-            const response = await fetch('/api/compression/toggle', {
+            const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/compression/toggle'), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -1671,7 +1848,7 @@
             compressNowButton.disabled = true;
             compressNowButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Compressing...';
             
-            const response = await fetch('/api/compression/compress', {
+            const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl('/api/compression/compress'), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -1745,7 +1922,7 @@
         try {
           // If API is available, fetch stats from server
           if (typeof fetch !== 'undefined' && apiCallCountElement) {
-            fetch(`/api/compression/stats/${activeSessionId}`)
+            window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/compression/stats/${activeSessionId}`))
               .then(response => response.json())
               .then(stats => {
                 if (stats) {
@@ -1871,7 +2048,7 @@
           const deepMemoryContent = document.getElementById('update-deep-memory').value.trim();
           
           try {
-            const response = await fetch(`/api/deep-memory/${activeSessionId}`, {
+            const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/deep-memory/${activeSessionId}`), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -1910,7 +2087,7 @@
           
           try {
             // Use the dedicated API endpoint for updating clothing
-            const response = await fetch(`/api/clothing/${activeSessionId}`, {
+            const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/clothing/${activeSessionId}`), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -1950,7 +2127,7 @@
         if (!activeSessionId) return;
         
         try {
-          const response = await fetch(`/api/history/${activeSessionId}`);
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/history/${activeSessionId}`));
           const data = await response.json();
           
           if (response.ok && data.success) {
@@ -2062,7 +2239,7 @@
         
         try {
           // Call the API to delete the entries
-          const response = await fetch(`/api/history/${activeSessionId}`, {
+          const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/history/${activeSessionId}`), {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json'
@@ -2490,7 +2667,125 @@
           updateUILanguage(currentLanguage);
         });
       }
+
+      // Server Configuration Modal functionality
+      const serverConfigModal = document.getElementById('serverConfigModal');
+      const serverUrlInput = document.getElementById('serverUrl');
+      const currentServerUrlSpan = document.getElementById('currentServerUrl');
+      const testConnectionBtn = document.getElementById('testConnectionBtn');
+      const connectionStatus = document.getElementById('connectionStatus');
+      const saveServerConfigBtn = document.getElementById('saveServerConfig');
+
+      // Update modal when shown
+      serverConfigModal.addEventListener('show.bs.modal', function() {
+        serverUrlInput.value = window.ServerConfig.serverUrl;
+        currentServerUrlSpan.textContent = window.ServerConfig.serverUrl;
+        connectionStatus.innerHTML = '';
+      });
+
+      // Test connection functionality
+      testConnectionBtn.addEventListener('click', async function() {
+        const testUrl = serverUrlInput.value.trim();
+        if (!testUrl) {
+          connectionStatus.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Please enter a server URL</span>';
+          return;
+        }
+
+        testConnectionBtn.disabled = true;
+        connectionStatus.innerHTML = '<span class="text-info"><i class="fas fa-spinner fa-spin"></i> Testing connection...</span>';
+
+        try {
+          // Test connection using health check endpoint (no auth required)
+          const testApiUrl = testUrl.replace(/\/$/, '') + '/api/health';
+          const response = await fetch(testApiUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json'
+            },
+            credentials: 'omit' // Don't send credentials for health check
+          });
+
+          if (response.ok) {
+            const healthData = await response.json();
+            connectionStatus.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Connected to ${healthData.message || 'Persona server'}!</span>`;
+          } else {
+            connectionStatus.innerHTML = `<span class="text-danger"><i class="fas fa-times-circle"></i> Connection failed (${response.status})</span>`;
+          }
+        } catch (error) {
+          connectionStatus.innerHTML = `<span class="text-danger"><i class="fas fa-times-circle"></i> Connection failed: ${error.message}</span>`;
+        } finally {
+          testConnectionBtn.disabled = false;
+        }
+      });
+
+      // Save configuration
+      saveServerConfigBtn.addEventListener('click', function() {
+        const newUrl = serverUrlInput.value.trim();
+        if (!newUrl) {
+          alert('Please enter a valid server URL');
+          return;
+        }
+
+        window.ServerConfig.setServerUrl(newUrl);
+        
+        // Update placeholder images with new server URL
+        window.ServerConfig.updatePlaceholderImages();
+        
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(serverConfigModal);
+        modal.hide();
+        
+        // Show success message
+        alert('Server configuration saved! All API calls will now use the new server.');
+        
+        // Don't reload page anymore - changes are applied dynamically
+      });
+      
+      // Initialize character loading on page load
+      loadAvailableCharacters();
     });
   </script>
+
+  <!-- Server Configuration Modal -->
+  <div class="modal fade" id="serverConfigModal" tabindex="-1" aria-labelledby="serverConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="serverConfigModalLabel">
+            <i class="fas fa-server me-2"></i>Server Configuration
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="serverUrl" class="form-label">Server URL</label>
+            <input type="url" class="form-control" id="serverUrl" 
+                   placeholder="https://your-server.com" 
+                   value="">
+            <div class="form-text">
+              Enter the full URL of your Persona server (e.g., https://your-server.com or http://192.168.1.100:3000)
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="alert alert-info" role="alert">
+              <i class="fas fa-info-circle me-2"></i>
+              <strong>Current server:</strong> <span id="currentServerUrl"></span>
+            </div>
+          </div>
+          <div class="mb-3">
+            <button type="button" class="btn btn-outline-primary" id="testConnectionBtn">
+              <i class="fas fa-wifi me-1"></i> Test Connection
+            </button>
+            <span id="connectionStatus" class="ms-2"></span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="saveServerConfig">Save Configuration</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
