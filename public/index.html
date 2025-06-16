@@ -947,6 +947,9 @@
               <li class="nav-item" role="presentation">
                 <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats-content" type="button" role="tab" data-i18n="stats_label">Stats</button>
               </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="character-profile-tab" data-bs-toggle="tab" data-bs-target="#character-profile-content" type="button" role="tab">Charakterprofil</button>
+              </li>
             </ul>
             
             <div class="tab-content flex-grow-1">
@@ -1040,28 +1043,36 @@
               
               <!-- Compression Stats Tab -->
               <div class="tab-pane fade" id="stats-content" role="tabpanel">
-                <div class="card mb-3">
-                  <div class="card-body">
-                    <h6 class="card-title">Memory Compression</h6>
-                    <div class="form-check form-switch mb-3">
-                      <input class="form-check-input" type="checkbox" id="compression-toggle" checked>
-                      <label class="form-check-label" for="compression-toggle">Enabled</label>
+                <div class="card-body">
+                  <h6 class="card-title">Memory Compression</h6>
+                  <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="compression-toggle" checked>
+                    <label class="form-check-label" for="compression-toggle">Enabled</label>
+                  </div>
+                  
+                  <div class="compression-stats">
+                    <p>API calls since last compression: <span id="api-call-count">0</span>/10</p>
+                    <div class="progress">
+                      <div id="compression-progress-bar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
                     </div>
                     
-                    <div class="compression-stats">
-                      <p>API calls since last compression: <span id="api-call-count">0</span>/10</p>
-                      <div class="progress">
-                        <div id="compression-progress-bar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
-                      </div>
-                      
-                      <p class="mt-3">Last compression: <span id="last-compression-time">Never</span></p>
-                      <p>Compression count: <span id="compression-count">0</span></p>
-                      <p>Last reduction: <span id="last-compression-ratio">N/A</span></p>
-                      
-                      <button id="compress-now-btn" class="btn btn-sm btn-primary mt-2">
-                        <i class="fas fa-sync-alt me-1"></i> Compress Now
-                      </button>
-                    </div>
+                    <p class="mt-3">Last compression: <span id="last-compression-time">Never</span></p>
+                    <p>Compression count: <span id="compression-count">0</span></p>
+                    <p>Last reduction: <span id="last-compression-ratio">N/A</span></p>
+                    
+                    <button id="compress-now-btn" class="btn btn-sm btn-primary mt-2">
+                      <i class="fas fa-sync-alt me-1"></i> Compress Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Character Profile Tab -->
+              <div class="tab-pane fade" id="character-profile-content" role="tabpanel">
+                <div class="card-body">
+                  <h6 class="card-title">Charakterprofil</h6>
+                  <div id="character-profile-display" class="mb-3">
+                    <pre class="bg-light p-3 rounded" style="white-space: pre-wrap; font-size: 0.9rem;"></pre>
                   </div>
                 </div>
               </div>
@@ -1682,7 +1693,7 @@
             
             // Update memory display if visible
             if (memoryPanel.style.display !== 'none') {
-              updateMemoryDisplay(data.memoryState);
+              updateMemoryDisplay(data.memoryState, data.characterProfile);
             }
             
             // Check if any history updates were detected in the response
@@ -1737,8 +1748,8 @@
           try {
             console.log("Fetching memory state for session:", activeSessionId);
             const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/memory/${activeSessionId}`));
-            const memoryState = await response.json();
-            console.log("Received memory state:", memoryState);
+            const data = await response.json();
+            console.log("Received memory state:", data);
             
             // Make sure the Clothing tab is properly initialized
             const clothingTab = document.getElementById('clothing-tab');
@@ -1752,7 +1763,11 @@
             }
             
             // Update the display with the memory state
-            updateMemoryDisplay(memoryState);
+            if (data.success) {
+              updateMemoryDisplay(data.memoryState, data.characterProfile);
+            } else {
+              console.error('Error fetching memory:', data.error);
+            }
           } catch (error) {
             console.error('Error fetching memory:', error);
           }
@@ -2300,7 +2315,7 @@
         historyTab.addEventListener('shown.bs.tab', fetchRelationshipHistory);
       }
 
-      function updateMemoryDisplay(memoryState) {
+      function updateMemoryDisplay(memoryState, characterProfile) {
         if (!memoryState) return;
         
         // Clear current memory display
@@ -2317,6 +2332,16 @@
         
         if (updateDeepMemoryInput && memoryState.deepMemory) {
           updateDeepMemoryInput.value = memoryState.deepMemory;
+        }
+
+        // Update character profile display
+        const characterProfileDisplay = document.querySelector('#character-profile-display pre');
+        if (characterProfileDisplay) {
+          if (characterProfile) {
+            characterProfileDisplay.textContent = characterProfile;
+          } else {
+            characterProfileDisplay.textContent = "Kein Charakterprofil verfügbar";
+          }
         }
         
         // Update clothing information if available

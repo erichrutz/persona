@@ -131,17 +131,18 @@ class MemoryPersistence {
             const filePath = path.join(this.storageDir, file);
             const content = await fs.readFile(filePath, 'utf8');
             const data = JSON.parse(content);
-            let characterName = "";
+            let characterName = "Custom Character"; // Default name
 
-            const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
-            const match = data.memoryState.characterProfile.match !== undefined && data.memoryState.characterProfile.match(regex);
-            
-            if (match) {
-              // It's a symbolic profile
-              characterName = match[1].trim();
-            } else {
-              // Default fallback
-              characterName = 'Custom Character';
+            // Safely check if characterProfile exists and is a string
+            if (data.memoryState && 
+                data.memoryState.characterProfile && 
+                typeof data.memoryState.characterProfile === 'string') {
+              const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
+              const match = data.memoryState.characterProfile.match(regex);
+              
+              if (match) {
+                characterName = match[1].trim();
+              }
             }
             
             sessions.push({

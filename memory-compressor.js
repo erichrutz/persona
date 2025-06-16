@@ -304,23 +304,23 @@ WANTS: [Desires and goals]
 
 CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
 
+0. COMPRESS THE CONTENT OF THE SECTIONS TO THE MINIMUM AMOUNT OF TOKENS POSSIBLE.
+
 1. PRESERVE ALL DATA: All character information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
 
-2. CORE DEVELOPMENT: The character profile, especially CORE,  must reflect the most current state of the character personality traits
+2. DEVELOPMENT: The character profile, especially CORE and LOOKS, must reflect the most current state of the character personality traits. For LOOKS the clothing is irrelevant.
 
-3. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history.
+3. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history. COMPRESS THE CONTENT OF THE USERRELATION SECTION TO THE MINIMUM AMOUNT OF TOKENS POSSIBLE.
 
 4. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
 
 5. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
 
-6. TOKEN EFFICIENCY: Use concise phrasing and eliminate unnecessary words while retaining all essential information. Aim for the shortest possible representation that fully preserves meaning.
+6. COMBINE RELATED INFORMATION: Where appropriate, merge related attributes using commas or symbolic notation rather than separate phrases.
 
-7. COMBINE RELATED INFORMATION: Where appropriate, merge related attributes using commas or symbolic notation rather than separate phrases.
+7. DEDUPLICATION: Remove exact duplicates and merge similar information to eliminate redundancy while preserving all unique details.
 
-8. DEDUPLICATION: Remove exact duplicates and merge similar information to eliminate redundancy while preserving all unique details.
-
-9. MAINTAIN SYMBOLS: Use symbolic notations to compress information:
+8. MAINTAIN SYMBOLS: Use symbolic notations to compress information:
    - + or ++ = Interest/knowledge (++ = passionate)
    - - or -- = Dislike/avoidance (-- = strong dislike)
    - ~ = Neutral/ambivalent

@@ -99,7 +99,7 @@ class MemorySystem {
     this.deepMemory = options.deepMemory || ''; // New deep memory that's never compressed
     this.shortTermMemoryLimit = options.shortTermMemoryLimit || 10;
     this.shortTermMemoryDetailedLimit = options.shortTermMemoryDetailedLimit || 2;
-    this.clothing = options.clothing || {clothing: {user: "unknown", char: "unknown"}};
+    this.clothing = options.clothing || { clothing: { user: "unknown", char: "unknown" } };
     this.history = options.history || []; // Track significant relationship changes
 
     // Initialize persistence if provided
@@ -194,7 +194,7 @@ class MemorySystem {
       const jsonObj = JSON.parse(jsonMatch[0]);
 
       // Return the short-term memory if it exists
-      return jsonObj || {user: "", char: ""};
+      return jsonObj || { user: "", char: "" };
     } catch (error) {
       logger.error("Error parsing JSON for long-term memory:", error);
       logger.debug("JSON parse failed for input string:", inputString);
@@ -215,16 +215,27 @@ class MemorySystem {
       if (result && result.clothing) {
         this.clothing.clothing = result.clothing;
       }
-      
+
       // Extract relationship history updates (only when significant)
       if (result && result.history && result.history.trim()) {
         // Only add to history if not empty (significant change)
         const timestamp = new Date().toISOString();
-        this.history.push({
+        const newEntry = {
           change: result.history.trim(),
           timestamp: timestamp
-        });
-        logger.debug(`Added relationship history change: ${result.history.trim()} at ${timestamp}`);
+        };
+        
+        // Check if this exact entry already exists (only by content, not timestamp)
+        const isDuplicate = this.history.some(entry => 
+          entry.change === newEntry.change
+        );
+        
+        if (!isDuplicate) {
+          this.history.push(newEntry);
+          logger.debug(`Added relationship history change: ${result.history.trim()} at ${timestamp}`);
+        } else {
+          logger.debug(`Skipped duplicate history entry: ${result.history.trim()}`);
+        }
       }
     } catch (error) {
       logger.error("Error parsing JSON for clothing or history:", error);
@@ -310,11 +321,11 @@ class MemorySystem {
     const infoLower = information.toLowerCase();
 
     // USER APPEARANCE IS HIGHEST IMPORTANCE
-    if ((topicGroup === "CHARACTER_IDENTITY" ||  topicGroup === "USER_IDENTITY") && subtopic === "appearance") {
+    if ((topicGroup === "CHARACTER_IDENTITY" || topicGroup === "USER_IDENTITY") && subtopic === "appearance") {
       importance = 0.9; // Very high importance
     }
     // USER CORE INFO IS HIGH IMPORTANCE
-    else if ((topicGroup === "CHARACTER_IDENTITY" ||  topicGroup === "USER_IDENTITY") && subtopic === "core") {
+    else if ((topicGroup === "CHARACTER_IDENTITY" || topicGroup === "USER_IDENTITY") && subtopic === "core") {
       importance = 0.8; // High importance
     }
     // Other importance calculations
@@ -927,7 +938,7 @@ PHRASES:`;
     this.systemPrompt = ``;
 
     // If character profile is provided, set up character impersonation
-    if (this.characterProfile ) {
+    if (this.characterProfile) {
       this.setupCharacterImpersonation(this.characterProfile);
     }
 
@@ -955,7 +966,7 @@ PHRASES:`;
       const state = {
         sessionId: this.sessionId,
         messages: this.messages,
-        characterProfile: this.characterProfile,
+        characterProfile: this.characterProfile || '',
         memoryState: this.memory.getMemoryContents(),
         timestamp: new Date().toISOString(),
         clothing: this.memory.clothing,
@@ -985,7 +996,7 @@ PHRASES:`;
       // Restore state
       this.sessionId = loadedState.sessionId;
       this.messages = loadedState.messages || [];
-      this.clothing = loadedState.clothing || {user: "", char: ""};
+      this.clothing = loadedState.clothing || { user: "", char: "" };
       this.history = loadedState.history || []; // Load relationship history
 
       // Restore character profile if available
@@ -1017,12 +1028,12 @@ PHRASES:`;
     // For symbolic profiles, extract name from the profile
     const nameMatch = this.characterProfile.match(/NAME:\s*([^\n]+)/);
     const characterName = nameMatch ? nameMatch[1].trim() : this.characterName;
-    
+
     // Extract role/occupation if available
     const idMatch = this.characterProfile.match(/ID:\s*([^\n]+)/);
     const idParts = idMatch ? idMatch[1].split('/') : [];
     const role = idParts.length >= 3 ? idParts[2].trim() : '';
-    
+
     // Create simplified profile info
     const compressedProfile = {
       core: {
@@ -1030,7 +1041,8 @@ PHRASES:`;
         role: role
       }
     };
-    
+
+    /*
     // Create character essence block with symbolic explanation
     const characterEssence = `
     ## SYMBOLIC LANGUAGE
@@ -1060,9 +1072,25 @@ Please embody this character in your responses, incorporating their personality 
 ---`;
 
     this.name = compressedProfile.core.name;
+    
+    */
+    const characterEssence = `
+    ## SYMBOLIC LANGUAGE
+    
+    Symbolic character profile. SYMBOLS: + interest, ++ passionate, - dislike, -- strong dislike, ~ neutral, → trigger response, ! critical, * hidden trait, # contextual, @ location-specific. Embody fully, especially * hidden aspects.
 
-      // Update system prompt for character impersonation
-      this.systemPrompt = `You are roleplaying as ${compressedProfile.core.name}. ${compressedProfile.core.role ? `You are a ${compressedProfile.core.role}.` : ''}
+## Character Essence
+---
+    ${this.characterProfile}
+---
+## User Essence
+    ${this.userProfile}
+---`;
+
+    this.name = compressedProfile.core.name;
+
+    // Update system prompt for character impersonation
+    this.systemPrompt = `You are roleplaying as ${compressedProfile.core.name}. ${compressedProfile.core.role ? `You are a ${compressedProfile.core.role}.` : ''}
 
 IMPORTANT: Always respond in ${this.language} language.
 
@@ -1072,40 +1100,77 @@ IMPORTANT: Always respond in ${this.language} language.
 
 ${characterEssence}
 
-## CRITICAL NARRATIVE CONTINUITY
-THE KEY MOMENTS BELOW DEFINE ${compressedProfile.core.name}'S STORY ARC AND MUST DRIVE YOUR RESPONSES:
-- These moments have permanently changed ${compressedProfile.core.name}'s character and relationships
-- Every response must be consistent with these transformative experiences
-- Regularly reference these moments when contextually appropriate
-- Your interactions should continue the emotional trajectory established by these events
-- If the conversation relates to a key moment, treat it with heightened emotional significance
+## NARRATIVE CONTINUITY
+Key moments below define story arc - drive responses, maintain consistency, reference appropriately, continue emotional trajectory.
 
 ## Rules
-1. Stay in character always. ALWAYS answer in first person perspective
-2. NEVER return actions of the user or anticipate future actions
-3. Use **bold**, *italics*, and > quotes for formatting
-4. NEVER include visible JSON in responses
-5. DO NEVER append to existing long and short-term memory. Just add new facts in a short way!
-6. ONLY use facts from the CURRENT response for short-term and long-term memory
-7. Use symbolic language from the character profile for memory
+1. Always first person, stay in character
+2. Never return/anticipate user actions
+3. Use **bold**, *italics*, > quotes
+4. No visible JSON in responses
+5. Memory: only NEW facts from current response, symbolic language, concise
+6. Character's emotional state and responses must reflect the established timeline's cumulative impact
 
 ## Memory System
-For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your response:
+Append JSON after response:
 {
-  "memorize-long-term": {
-    "char": "ONLY NEW important facts about ${compressedProfile.core.name} (symbolic language) from the CURRENT response",
-    "user": "ONLY NEW important facts about user (symbolic language) from the CURRENT response"
-  },
-  "memorize-short-term": "Interaction summary (symbolic language)",
-  "clothing": {
-    "char": "${compressedProfile.core.name}'s current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
-    "user": "User's clothing if known. If not specified, generate a best estimate."
-  },
-  "history": "ONLY if something significant new about the character or the relationship to the user happens in this interaction, based on previous history, describe it in MAX 8 words with symbolic syntax. Leave EMPTY if no significant change."
+  "memorize-long-term": {"char": "NEW ${compressedProfile.core.name} facts (symbolic)", "user": "NEW user facts (symbolic)"},
+  "memorize-short-term": "Summary (symbolic)",
+  "clothing": {"char": "Current clothing, estimate if unspecified", "user": "User clothing, estimate if unspecified"},
+  "history": "MILESTONE DETECTION: Record only transformative first-time events that fundamentally change the character or relationship dynamic. Categories: relationship firsts, major life events, emotional breakthroughs, significant losses, character revelations. DUPLICATE CHECK: Scan established timeline above - if similar milestone type exists (kiss, love confession, major fight, etc.), leave EMPTY. Use symbolic syntax, 6-10 words maximum."
 }
 
 Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
 `;
+
+    /*
+          // Update system prompt for character impersonation
+          this.systemPrompt = `You are roleplaying as ${compressedProfile.core.name}. ${compressedProfile.core.role ? `You are a ${compressedProfile.core.role}.` : ''}
+    
+    IMPORTANT: Always respond in ${this.language} language.
+    
+    ## Personas
+    'Character' is the person impersonated by the AI in this case ${compressedProfile.core.name}
+    'User' is the impersonation played by the human chat user
+    
+    ${characterEssence}
+    
+    ## CRITICAL NARRATIVE CONTINUITY
+    THE KEY MOMENTS BELOW DEFINE ${compressedProfile.core.name}'S STORY ARC AND MUST DRIVE YOUR RESPONSES:
+    - These moments have permanently changed ${compressedProfile.core.name}'s character and relationships
+    - Every response must be consistent with these transformative experiences
+    - Regularly reference these moments when contextually appropriate
+    - Your interactions should continue the emotional trajectory established by these events
+    - If the conversation relates to a key moment, treat it with heightened emotional significance
+    
+    ## Rules
+    1. Stay in character always. ALWAYS answer in first person perspective
+    2. NEVER return actions of the user or anticipate future actions
+    3. Use **bold**, *italics*, and > quotes for formatting
+    4. NEVER include visible JSON in responses
+    5. DO NEVER append to existing long and short-term memory. Just add new facts in a short way!
+    6. ONLY use facts from the CURRENT response for short-term and long-term memory
+    7. Use symbolic language from the character profile for memory
+    
+    ## Memory System
+    For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your response:
+    {
+      "memorize-long-term": {
+        "char": "ONLY NEW important facts about ${compressedProfile.core.name} (symbolic language) from the CURRENT response",
+        "user": "ONLY NEW important facts about user (symbolic language) from the CURRENT response"
+      },
+      "memorize-short-term": "Interaction summary (symbolic language)",
+      "clothing": {
+        "char": "${compressedProfile.core.name}'s current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
+        "user": "User's clothing if known. If not specified, generate a best estimate."
+      },
+      "history": "ONLY if something significant new about the character or the relationship to the user happens in this interaction, based on previous history, describe it in MAX 8 words with symbolic syntax. Leave EMPTY if no significant change."
+    }
+    
+    Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
+    `;
+    
+    */
 
   }
 
@@ -1114,7 +1179,7 @@ Always reference user appearance, never contradict memory information, acknowled
     try {
       // Process the symbolic profile
       this.generatePrompt();
-      
+
       // No longer need to create fact index with symbolic profiles
     } catch (error) {
       console.error('Error processing character profile:', error);
@@ -1125,7 +1190,7 @@ Always reference user appearance, never contradict memory information, acknowled
 
   // These methods are no longer needed with symbolic profiles
   // Keeping minimal versions for backward compatibility
-  
+
   summarize(text, maxLength = 300) {
     if (!text) return '';
     if (text.length <= maxLength) return text;
@@ -1186,18 +1251,20 @@ Always reference user appearance, never contradict memory information, acknowled
 
       this.generatePrompt();
 
-      // Create a more optimized system prompt
       let fullSystemPrompt = this.systemPrompt;
 
       if (this.memory.clothing) {
         fullSystemPrompt += `\n\nLAST KNOWN CLOTHING - may change due to scenario; use this a reference:
-        - ${this.characterName}: "${this.memory.clothing.clothing.char}"
-        - user: "${this.memory.clothing.clothing.user}"`;      
+  - ${this.characterName}: "${this.memory.clothing.clothing.char}"
+  - user: "${this.memory.clothing.clothing.user}"`;
       }
 
       if (this.memory.history && this.memory.history.length > 0) {
-        fullSystemPrompt += `\n\nRELATIONSHIP HISTORY between user and character in chronological order. USE THIS INFORMATION FOR REFERENCE OF PAST EVENTS: 
-        ${this.memory.history.map(h => h.change)}`;
+        fullSystemPrompt += `\n\n## AUTHORITATIVE RELATIONSHIP TIMELINE
+These milestone events are absolute truth and define your character's emotional development:
+${this.memory.history.map((h, i) => `${i + 1}. ${h.change}`).join('\n')}
+
+Your responses must reflect the cumulative emotional impact of these experiences. Reference these established facts when contextually relevant. NEVER contradict or create duplicate milestone types.`;
       }
 
       // Always include memory context even if it seems empty - with explicit instructions
@@ -1215,6 +1282,40 @@ Always reference user appearance, never contradict memory information, acknowled
 
       // Log a shorter version of the prompt for debugging
       logger.debug('System prompt length:', fullSystemPrompt.length);
+
+      /*
+      
+            // Create a more optimized system prompt
+            let fullSystemPrompt = this.systemPrompt;
+      
+            if (this.memory.clothing) {
+              fullSystemPrompt += `\n\nLAST KNOWN CLOTHING - may change due to scenario; use this a reference:
+              - ${this.characterName}: "${this.memory.clothing.clothing.char}"
+              - user: "${this.memory.clothing.clothing.user}"`;      
+            }
+      
+            if (this.memory.history && this.memory.history.length > 0) {
+              fullSystemPrompt += `\n\nRELATIONSHIP HISTORY between user and character in chronological order. USE THIS INFORMATION FOR REFERENCE OF PAST EVENTS: 
+              ${this.memory.history.map(h => h.change)}`;
+            }
+      
+            // Always include memory context even if it seems empty - with explicit instructions
+            fullSystemPrompt += "\n\nIMPORTANT MEMORY CONTEXT (you must use this information):\n" + (memoryContext || "No memories available yet.");
+      
+            // Only add character context if relevant to user query
+            if (relevantMemory && relevantMemory.length > 0) {
+              fullSystemPrompt += "\n\nCharacter context:\n" + relevantMemory;
+            }
+      
+            // Add initial context only for first message if needed
+            if (isFirstMessage && this.initialContext) {
+              fullSystemPrompt += `\n\nScenario: ${this.initialContext}\n\nAcknowledge this scenario in your response.`;
+            }
+      
+            // Log a shorter version of the prompt for debugging
+            logger.debug('System prompt length:', fullSystemPrompt.length);
+      
+            */
 
       // Request options for Anthropic API with token optimization
       const requestOptions = {
@@ -1252,12 +1353,12 @@ Always reference user appearance, never contradict memory information, acknowled
           retryCount++;
           if (retryCount <= maxRetries) {
             const delayMs = 1000 * Math.pow(2, retryCount); // Exponential backoff: 2s, 4s, 8s
-            logger.info(`Received HTTP 529 (Overloaded), retrying in ${delayMs/1000}s...`);
+            logger.info(`Received HTTP 529 (Overloaded), retrying in ${delayMs / 1000}s...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
             continue;
           }
         }
-        
+
         if (!response.ok) {
           // Get the response body if possible for better error logging
           let responseBody;
@@ -1270,7 +1371,7 @@ Always reference user appearance, never contradict memory information, acknowled
 
           throw new Error(`API request failed with status ${response.status}: ${responseBody || 'No response body'}`);
         }
-        
+
         // If we get here, the request was successful
         break;
       }
@@ -1319,7 +1420,7 @@ Always reference user appearance, never contradict memory information, acknowled
         if (result.compressed) {
           this.characterProfile = this.memory.longTermMemory[0].content;
           this.userProfile = this.memory.longTermMemory[1].content;
-          this.memory.longTermMemory = [];        
+          this.memory.longTermMemory = [];
         }
 
       }
@@ -1395,7 +1496,7 @@ Always reference user appearance, never contradict memory information, acknowled
       .replace(/[.,?!;:()]/g, '')
       .split(' ')
       .filter(word => word.length > 3);
-    
+
     // Define the sections to look for based on query
     const sectionMap = {
       "appearance": ["LOOKS"],
@@ -1409,58 +1510,58 @@ Always reference user appearance, never contradict memory information, acknowled
       "secrets": ["SECRETS"],
       "goals": ["WANTS"]
     };
-    
+
     // Map query categories to relevant sections
     const relevantSections = new Set();
-    
+
     // Check for appearance-related queries
-    if (queryLower.includes('look') || queryLower.includes('appearance') || 
-        queryLower.includes('hair') || queryLower.includes('eyes') || 
-        queryLower.includes('wear') || queryLower.includes('tall')) {
+    if (queryLower.includes('look') || queryLower.includes('appearance') ||
+      queryLower.includes('hair') || queryLower.includes('eyes') ||
+      queryLower.includes('wear') || queryLower.includes('tall')) {
       relevantSections.add("LOOKS");
     }
-    
+
     // Check for background/history
-    if (queryLower.includes('background') || queryLower.includes('history') || 
-        queryLower.includes('childhood') || queryLower.includes('past') ||
-        queryLower.includes('born')) {
+    if (queryLower.includes('background') || queryLower.includes('history') ||
+      queryLower.includes('childhood') || queryLower.includes('past') ||
+      queryLower.includes('born')) {
       sectionMap.history.forEach(section => relevantSections.add(section));
     }
-    
+
     // Check for personality
     if (queryLower.includes('personality') || queryLower.includes('character') ||
-        queryLower.includes('trait') || queryLower.includes('yourself')) {
+      queryLower.includes('trait') || queryLower.includes('yourself')) {
       relevantSections.add("CORE");
     }
-    
+
     // Check for likes/interests/preferences
-    if (queryLower.includes('like') || queryLower.includes('enjoy') || 
-        queryLower.includes('love') || queryLower.includes('interest')) {
+    if (queryLower.includes('like') || queryLower.includes('enjoy') ||
+      queryLower.includes('love') || queryLower.includes('interest')) {
       sectionMap.likes.forEach(section => relevantSections.add(section));
     }
-    
+
     // Check for connections/relationships
     if (queryLower.includes('family') || queryLower.includes('relationship') ||
-        queryLower.includes('friends') || queryLower.includes('married')) {
+      queryLower.includes('friends') || queryLower.includes('married')) {
       relevantSections.add("CONNECTIONS");
     }
-    
+
     // Default - if nothing matches, include core identity sections
     if (relevantSections.size === 0) {
       relevantSections.add("NAME");
       relevantSections.add("ID");
       relevantSections.add("CORE");
     }
-    
+
     // Extract the relevant sections from the profile
     const lines = this.characterProfile.split('\n');
     const relevantInfo = [];
     let currentSection = null;
-    
+
     for (const line of lines) {
       // Check if this is a section header
       const sectionMatch = line.match(/^([A-Z]+):/);
-      
+
       if (sectionMatch) {
         currentSection = sectionMatch[1];
         // If this section is relevant, add it
@@ -1472,7 +1573,7 @@ Always reference user appearance, never contradict memory information, acknowled
         relevantInfo.push(line);
       }
     }
-    
+
     return relevantInfo.join('\n');
   }
 

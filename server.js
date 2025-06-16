@@ -344,7 +344,8 @@ app.post('/api/message', async (req, res) => {
     res.json({ 
       response: parsedResponse, 
       memoryState,
-      model: chatClient.model 
+      model: chatClient.model,
+      characterProfile: chatClient.characterProfile
     });
   } catch (error) {
     logger.error('Error sending message:', error);
@@ -381,7 +382,12 @@ app.get('/api/memory/:sessionId', async (req, res) => {
     // Get memory state
     const memoryState = chatClient.getMemoryState();
     
-    res.json(memoryState);
+    res.json({
+      success: true,
+      memoryState: memoryState,
+      characterProfile: chatClient.characterProfile,
+      characterName: chatClient.characterName
+    });
   } catch (error) {
     logger.error('Error getting memory state:', error);
     res.status(500).json({ error: error.message });
