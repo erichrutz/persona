@@ -650,6 +650,61 @@ app.post('/api/clothing/:sessionId', async (req, res) => {
   }
 });
 
+// Update location information
+app.post('/api/location/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { characterLocation } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+    
+    // Get chat client for this session
+    let chatClient = activeSessions.get(sessionId);
+    
+    // If not in active sessions, try to load it
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId
+      });
+      
+      const loadResult = await chatClient.loadState(sessionId);
+      
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      
+      // Add to active sessions
+      activeSessions.set(sessionId, chatClient);
+    }
+    
+    // Update location information (only for character)
+    if (characterLocation !== undefined) {
+      chatClient.memory.location = characterLocation;
+    }
+    
+    // Log the update for debugging
+    logger.debug('Updated location:', chatClient.memory.location);
+    
+    // Save state
+    await chatClient.saveState();
+    
+    // Get updated memory state
+    const memoryState = chatClient.getMemoryState();
+    
+    res.json({
+      success: true,
+      memoryState
+    });
+  } catch (error) {
+    logger.error('Error updating location information:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Manually trigger memory compression
 app.post('/api/compression/compress', async (req, res) => {
   try {

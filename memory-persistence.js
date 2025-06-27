@@ -48,7 +48,8 @@ class MemoryPersistence {
         messages: memoryState.messages || [],
         characterProfile: memoryState.characterProfile,
         clothing: memoryState.clothing,
-        history: memoryState.history
+        history: memoryState.history,
+        location: memoryState.location || 'unknown' // Default to 'unknown' if not provided
       };
       
       // Update cache first to improve performance

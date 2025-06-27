@@ -939,6 +939,9 @@
                 <button class="nav-link" id="clothing-tab" data-bs-toggle="tab" data-bs-target="#clothing-content" type="button" role="tab">Clothing</button>
               </li>
               <li class="nav-item" role="presentation">
+                <button class="nav-link" id="location-tab" data-bs-toggle="tab" data-bs-target="#location-content" type="button" role="tab">Location</button>
+              </li>
+              <li class="nav-item" role="presentation">
                 <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-content" type="button" role="tab">History</button>
               </li>
               <li class="nav-item" role="presentation">
@@ -992,6 +995,25 @@
                   </div>
                   <button id="save-clothing" class="btn btn-primary">
                     <i class="fas fa-save me-1"></i> Save Clothing Information
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Location Tab -->
+              <div class="tab-pane fade h-100" id="location-content" role="tabpanel">
+                <div class="memory-container h-100">
+                  <div class="card mb-3 bg-light">
+                    <div class="card-body">
+                      <h5 class="card-title">Character's Location</h5>
+                      <p id="character-location" class="card-text">No information available</p>
+                    </div>
+                  </div>
+                  <div class="form-floating mb-3">
+                    <textarea class="form-control" id="update-character-location" rows="3" style="height: 100px"></textarea>
+                    <label for="update-character-location">Update Character's Location</label>
+                  </div>
+                  <button id="save-location" class="btn btn-primary">
+                    <i class="fas fa-map-marker-alt me-1"></i> Save Location Information
                   </button>
                 </div>
               </div>
@@ -1762,6 +1784,17 @@
               const tabEl = new bootstrap.Tab(clothingTab);
             }
             
+            // Make sure the Location tab is properly initialized
+            const locationTab = document.getElementById('location-tab');
+            const locationContent = document.getElementById('location-content');
+            
+            if (locationTab && locationContent) {
+              console.log("Location tab elements found");
+              
+              // Make sure Bootstrap's tab system is properly set up
+              const locationTabEl = new bootstrap.Tab(locationTab);
+            }
+            
             // Update the display with the memory state
             if (data.success) {
               updateMemoryDisplay(data.memoryState, data.characterProfile);
@@ -2137,6 +2170,49 @@
         });
       }
       
+      // Handle location information save
+      if (document.getElementById('save-location')) {
+        document.getElementById('save-location').addEventListener('click', async () => {
+          if (!activeSessionId) return;
+          
+          const characterLocation = document.getElementById('update-character-location').value.trim();
+          
+          try {
+            // Use the dedicated API endpoint for updating location
+            const response = await window.ServerConfig.fetchWithCredentials(window.ServerConfig.buildApiUrl(`/api/location/${activeSessionId}`), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                characterLocation
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              // Update memory display
+              if (memoryPanel.style.display !== 'none' && data.memoryState) {
+                updateMemoryDisplay(data.memoryState);
+              }
+              
+              // Add system message
+              addSystemMessage('Location information updated successfully');
+              
+              // Update save status
+              lastSaveTime = new Date();
+              saveStatusElement.textContent = `Last saved: ${lastSaveTime.toLocaleTimeString()}`;
+            } else {
+              addSystemMessage(`Error updating location information: ${data.error}`);
+            }
+          } catch (error) {
+            console.error('Error updating location information:', error);
+            addSystemMessage(`Error updating location information: ${error.message}`);
+          }
+        });
+      }
+      
       // Function to fetch and display relationship history
       async function fetchRelationshipHistory() {
         if (!activeSessionId) return;
@@ -2390,6 +2466,22 @@
           
           if (updateUserClothingInput) {
             updateUserClothingInput.value = userClothing;
+          }
+        }
+        
+        // Update location information if available
+        console.log("Memory state for location:", memoryState.location);
+        
+        const characterLocationElement = document.getElementById('character-location');
+        const updateCharacterLocationInput = document.getElementById('update-character-location');
+        
+        if (memoryState.location) {
+          if (characterLocationElement) {
+            characterLocationElement.textContent = memoryState.location || "No information available";
+          }
+          
+          if (updateCharacterLocationInput) {
+            updateCharacterLocationInput.value = memoryState.location || "";
           }
         }
         

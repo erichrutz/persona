@@ -4,7 +4,7 @@ const API_URL = 'https://api.anthropic.com/v1/messages';
 const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
 const { MemoryCompressor } = require('./memory-compressor');
-const { flushCompileCache } = require('module');
+// const { flushCompileCache } = require('module'); // Unused import
 
 // Use the same logger from server if available, otherwise create one
 let logger;
@@ -101,6 +101,7 @@ class MemorySystem {
     this.shortTermMemoryDetailedLimit = options.shortTermMemoryDetailedLimit || 2;
     this.clothing = options.clothing || { clothing: { user: "unknown", char: "unknown" } };
     this.history = options.history || []; // Track significant relationship changes
+    this.location = options.location || 'unknown'; // Track current location
 
     // Initialize persistence if provided
     this.persistence = options.persistence || null;
@@ -124,7 +125,7 @@ class MemorySystem {
 
     const result = JsonExtractor.extractAttributes(message.content);
 
-    const memory = this.extractShortTermMemory(message.content);
+    // const memory = this.extractShortTermMemory(message.content); // Unused variable
 
     const reducedMemory = message.content.replace(/\{[\s\S]*?\}\s*$/, '').trim();
 
@@ -214,6 +215,10 @@ class MemorySystem {
       // Extract clothing information
       if (result && result.clothing) {
         this.clothing.clothing = result.clothing;
+      }
+
+      if (result && result.location) {
+        this.location = result.location;
       }
 
       // Extract relationship history updates (only when significant)
@@ -797,7 +802,8 @@ class MemorySystem {
       deepMemory: this.deepMemory,
       compressionMetadata: this.compressionMetadata,
       clothing: this.clothing?.clothing,
-      history: this.history // Include relationship history changes
+      history: this.history, // Include relationship history changes
+      location: this.location // Include current location
     };
   }
 
@@ -815,7 +821,8 @@ class MemorySystem {
         compressionMetadata: this.compressionMetadata,
         timestamp: new Date().toISOString(),
         clothing: this.clothing,
-        history: this.history
+        history: this.history,
+        location: this.location // Include current location
       };
 
       return await this.persistence.saveMemory(this.sessionId, memoryState);
@@ -843,6 +850,7 @@ class MemorySystem {
       this.longTermMemory = loadedState.memoryState.longTermMemory || [];
       this.deepMemory = loadedState.memoryState.memoryState.deepMemory || '';
       this.history = loadedState.memoryState.history || []; // Load relationship history
+      this.location = loadedState.memoryState.location || 'unknown'; // Load current location
 
       // Load compression metadata if available
       if (loadedState.memoryState.compressionMetadata) {
@@ -892,6 +900,7 @@ class AnthropicChatClient {
     } else {
       this.apiKey = options.apiKey || ANTHROPIC_API_KEY;
       this.characterProfile = options.characterProfile || null;
+      logger.debug('Constructor: characterProfile set to:', this.characterProfile ? 'Profile exists' : 'null');
     }
 
     this.userProfile = `NAME: 
@@ -925,7 +934,8 @@ PHRASES:`;
       deepMemory: options.deepMemory || '',
       compressionEnabled: options.compressionEnabled !== undefined ? options.compressionEnabled : true,
       characterName: this.characterName,
-      history: options.history || [] // For tracking significant relationship changes
+      history: options.history || [], // For tracking significant relationship changes
+      location: options.location || 'unknown' // For tracking current location
     });
 
     this.model = options.model || "claude-3-7-sonnet-20250219";
@@ -970,7 +980,8 @@ PHRASES:`;
         memoryState: this.memory.getMemoryContents(),
         timestamp: new Date().toISOString(),
         clothing: this.memory.clothing,
-        history: this.memory.history // Include relationship history changes
+        history: this.memory.history, // Include relationship history changes
+        location: this.memory.location || 'unknown' // Include current location
       };
 
       return await this.persistence.saveMemory(this.sessionId, state);
@@ -998,6 +1009,7 @@ PHRASES:`;
       this.messages = loadedState.messages || [];
       this.clothing = loadedState.clothing || { user: "", char: "" };
       this.history = loadedState.history || []; // Load relationship history
+      this.location = loadedState.location || 'unknown'; // Load current location
 
       // Restore character profile if available
       if (loadedState.characterProfile) {
@@ -1025,6 +1037,12 @@ PHRASES:`;
   }
 
   generatePrompt() {
+    // Check if characterProfile exists
+    if (!this.characterProfile) {
+      logger.error('Character profile is null in generatePrompt');
+      throw new Error('Character profile is not set');
+    }
+    
     // For symbolic profiles, extract name from the profile
     const nameMatch = this.characterProfile.match(/NAME:\s*([^\n]+)/);
     const characterName = nameMatch ? nameMatch[1].trim() : this.characterName;
@@ -1042,38 +1060,6 @@ PHRASES:`;
       }
     };
 
-    /*
-    // Create character essence block with symbolic explanation
-    const characterEssence = `
-    ## SYMBOLIC LANGUAGE
-    
-    This is a compact character profile for roleplay. Please read and understand the following format:
-
-SECTION HEADERS (NAME, ID, etc.) organize different character aspects.
-
-SYMBOLS USED:
-+ or ++ = Interest/knowledge (++ = passionate)
-- or -- = Dislike/avoidance (-- = strong dislike)
-~ = Neutral/ambivalent
-→ = Trigger leads to response
-! = Critical trait/trigger
-* = Hidden trait
-# = Contextual trait
-@ = Location-specific behavior
-
-Please embody this character in your responses, incorporating their personality traits, speech patterns, knowledge areas, and emotional triggers. Pay special attention to starred (*) items which represent hidden aspects that influence behavior but aren't openly displayed.
-
-## Character Essence
----
-    ${this.characterProfile}
----
-## User Essence
-    ${this.userProfile}
----`;
-
-    this.name = compressedProfile.core.name;
-    
-    */
     const characterEssence = `
     ## SYMBOLIC LANGUAGE
     
@@ -1116,61 +1102,13 @@ Append JSON after response:
 {
   "memorize-long-term": {"char": "NEW ${compressedProfile.core.name} facts (symbolic)", "user": "NEW user facts (symbolic)"},
   "memorize-short-term": "Summary (symbolic)",
-  "clothing": {"char": "Current clothing, estimate if unspecified", "user": "User clothing, estimate if unspecified"},
-  "history": "MILESTONE DETECTION: Record only transformative first-time events that fundamentally change the character or relationship dynamic. Categories: relationship firsts, major life events, emotional breakthroughs, significant losses, character revelations. DUPLICATE CHECK: Scan established timeline above - if similar milestone type exists (kiss, love confession, major fight, etc.), leave EMPTY. Use symbolic syntax, 6-10 words maximum."
+  "clothing": {"char": "Current clothing, generate if unspecified", "user": "User clothing, generate if unspecified"},
+  "history": "MILESTONE DETECTION: Record significant events that advance character/relationship development or reveal new character aspects. Categories: relationship progression, personal revelations, trust changes, shared experiences, character growth moments. DUPLICATE CHECK: Scan timeline above - if similar event TYPE exists (trust established, secret shared, conflict resolved), leave EMPTY unless meaningfully different. Use symbolic syntax, 6-10 words maximum."
+  "location": "Current location of ${compressedProfile.core.name} (NOT user). Generate if unknown."
 }
 
 Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
 `;
-
-    /*
-          // Update system prompt for character impersonation
-          this.systemPrompt = `You are roleplaying as ${compressedProfile.core.name}. ${compressedProfile.core.role ? `You are a ${compressedProfile.core.role}.` : ''}
-    
-    IMPORTANT: Always respond in ${this.language} language.
-    
-    ## Personas
-    'Character' is the person impersonated by the AI in this case ${compressedProfile.core.name}
-    'User' is the impersonation played by the human chat user
-    
-    ${characterEssence}
-    
-    ## CRITICAL NARRATIVE CONTINUITY
-    THE KEY MOMENTS BELOW DEFINE ${compressedProfile.core.name}'S STORY ARC AND MUST DRIVE YOUR RESPONSES:
-    - These moments have permanently changed ${compressedProfile.core.name}'s character and relationships
-    - Every response must be consistent with these transformative experiences
-    - Regularly reference these moments when contextually appropriate
-    - Your interactions should continue the emotional trajectory established by these events
-    - If the conversation relates to a key moment, treat it with heightened emotional significance
-    
-    ## Rules
-    1. Stay in character always. ALWAYS answer in first person perspective
-    2. NEVER return actions of the user or anticipate future actions
-    3. Use **bold**, *italics*, and > quotes for formatting
-    4. NEVER include visible JSON in responses
-    5. DO NEVER append to existing long and short-term memory. Just add new facts in a short way!
-    6. ONLY use facts from the CURRENT response for short-term and long-term memory
-    7. Use symbolic language from the character profile for memory
-    
-    ## Memory System
-    For internal tracking, ALWAYS AND CONSISTENTLY append this JSON after your response:
-    {
-      "memorize-long-term": {
-        "char": "ONLY NEW important facts about ${compressedProfile.core.name} (symbolic language) from the CURRENT response",
-        "user": "ONLY NEW important facts about user (symbolic language) from the CURRENT response"
-      },
-      "memorize-short-term": "Interaction summary (symbolic language)",
-      "clothing": {
-        "char": "${compressedProfile.core.name}'s current clothing. If not specified, generate a best estimate. Make sure you include underwear and footwear if applicable",
-        "user": "User's clothing if known. If not specified, generate a best estimate."
-      },
-      "history": "ONLY if something significant new about the character or the relationship to the user happens in this interaction, based on previous history, describe it in MAX 8 words with symbolic syntax. Leave EMPTY if no significant change."
-    }
-    
-    Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
-    `;
-    
-    */
 
   }
 
@@ -1259,6 +1197,11 @@ Always reference user appearance, never contradict memory information, acknowled
   - user: "${this.memory.clothing.clothing.user}"`;
       }
 
+      if (this.memory.location) {
+        fullSystemPrompt += `\n\nLAST KNOWN LOCATION - may change due to scenario; use this a reference:
+  - ${this.characterName}: "${this.memory.location}"`;
+      }
+
       if (this.memory.history && this.memory.history.length > 0) {
         fullSystemPrompt += `\n\n## AUTHORITATIVE RELATIONSHIP TIMELINE
 These milestone events are absolute truth and define your character's emotional development:
@@ -1282,40 +1225,6 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
       // Log a shorter version of the prompt for debugging
       logger.debug('System prompt length:', fullSystemPrompt.length);
-
-      /*
-      
-            // Create a more optimized system prompt
-            let fullSystemPrompt = this.systemPrompt;
-      
-            if (this.memory.clothing) {
-              fullSystemPrompt += `\n\nLAST KNOWN CLOTHING - may change due to scenario; use this a reference:
-              - ${this.characterName}: "${this.memory.clothing.clothing.char}"
-              - user: "${this.memory.clothing.clothing.user}"`;      
-            }
-      
-            if (this.memory.history && this.memory.history.length > 0) {
-              fullSystemPrompt += `\n\nRELATIONSHIP HISTORY between user and character in chronological order. USE THIS INFORMATION FOR REFERENCE OF PAST EVENTS: 
-              ${this.memory.history.map(h => h.change)}`;
-            }
-      
-            // Always include memory context even if it seems empty - with explicit instructions
-            fullSystemPrompt += "\n\nIMPORTANT MEMORY CONTEXT (you must use this information):\n" + (memoryContext || "No memories available yet.");
-      
-            // Only add character context if relevant to user query
-            if (relevantMemory && relevantMemory.length > 0) {
-              fullSystemPrompt += "\n\nCharacter context:\n" + relevantMemory;
-            }
-      
-            // Add initial context only for first message if needed
-            if (isFirstMessage && this.initialContext) {
-              fullSystemPrompt += `\n\nScenario: ${this.initialContext}\n\nAcknowledge this scenario in your response.`;
-            }
-      
-            // Log a shorter version of the prompt for debugging
-            logger.debug('System prompt length:', fullSystemPrompt.length);
-      
-            */
 
       // Request options for Anthropic API with token optimization
       const requestOptions = {
@@ -1492,10 +1401,10 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
     // Extract the keywords from the query
     const queryLower = query.toLowerCase();
-    const queryWords = queryLower
-      .replace(/[.,?!;:()]/g, '')
-      .split(' ')
-      .filter(word => word.length > 3);
+    // const queryWords = queryLower
+    //   .replace(/[.,?!;:()]/g, '')
+    //   .split(' ')
+    //   .filter(word => word.length > 3); // Unused variable
 
     // Define the sections to look for based on query
     const sectionMap = {
@@ -1582,7 +1491,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
     try {
       const result = JsonExtractor.extractAttributes(response);
       // Look for memory JSON object
-      const memory = this.memory.extractLongTermMemory(response);
+      // const memory = this.memory.extractLongTermMemory(response); // Unused variable
 
       console.log("Long-term memory state before processing:", JSON.stringify(this.memory.getMemoryContents()));
 
@@ -1609,8 +1518,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
   }
 
   async categorizeLongTermMemory(memory, type) {
-    let topicGroup = null;
-    let subtopic = null;
+    // let topicGroup = null; // Unused variable
+    // let subtopic = null; // Unused variable
     const topicMatch = memory.match(/^\[([\w_]+)(?::([^\]]+))?\]/);
 
     // Language-specific keywords for auto-categorization
@@ -1806,7 +1715,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
   // Clear short-term memory but keep long-term memory
   async clearShortTermMemory() {
-    await this.memory.clearShortTermMemory();
+    this.memory.clearShortTermMemory();
     this.messages = [];
 
 
