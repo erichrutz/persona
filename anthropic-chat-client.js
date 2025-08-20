@@ -102,6 +102,7 @@ class MemorySystem {
     this.clothing = options.clothing || { clothing: { user: "unknown", char: "unknown" } };
     this.history = options.history || []; // Track significant relationship changes
     this.location = options.location || 'unknown'; // Track current location
+    this.date = options.date || null; // Track current date in roleplay
 
     // Initialize persistence if provided
     this.persistence = options.persistence || null;
@@ -221,6 +222,10 @@ class MemorySystem {
         this.location = result.location;
       }
 
+      if (result && result.date) {
+        this.date = result.date;
+      }
+
       // Extract relationship history updates (only when significant)
       if (result && result.history && result.history.trim()) {
         // Only add to history if not empty (significant change)
@@ -231,12 +236,12 @@ class MemorySystem {
         };
         
         // Check if this exact entry already exists (only by content, not timestamp)
-        const isDuplicate = this.history.some(entry => 
-          entry.change === newEntry.change
+        const isDuplicate = this.history.some(entry =>
+          typeof entry.change === 'string' && entry.change.includes(newEntry.change)
         );
         
         if (!isDuplicate) {
-          this.history.push(newEntry);
+          this.history.push({change: `${this.date}: ${newEntry.change}`, timestamp: newEntry.timestamp});
           logger.debug(`Added relationship history change: ${result.history.trim()} at ${timestamp}`);
         } else {
           logger.debug(`Skipped duplicate history entry: ${result.history.trim()}`);
@@ -803,7 +808,8 @@ class MemorySystem {
       compressionMetadata: this.compressionMetadata,
       clothing: this.clothing?.clothing,
       history: this.history, // Include relationship history changes
-      location: this.location // Include current location
+      location: this.location, // Include current location
+      date: this.date // Include current date
     };
   }
 
@@ -822,7 +828,8 @@ class MemorySystem {
         timestamp: new Date().toISOString(),
         clothing: this.clothing,
         history: this.history,
-        location: this.location // Include current location
+        location: this.location, // Include current location
+        date: this.date // Include current date
       };
 
       return await this.persistence.saveMemory(this.sessionId, memoryState);
@@ -851,6 +858,7 @@ class MemorySystem {
       this.deepMemory = loadedState.memoryState.memoryState.deepMemory || '';
       this.history = loadedState.memoryState.history || []; // Load relationship history
       this.location = loadedState.memoryState.location || 'unknown'; // Load current location
+      this.date = loadedState.memoryState.date || 'unknown'; // Load current date
 
       // Load compression metadata if available
       if (loadedState.memoryState.compressionMetadata) {
@@ -935,7 +943,8 @@ PHRASES:`;
       compressionEnabled: options.compressionEnabled !== undefined ? options.compressionEnabled : true,
       characterName: this.characterName,
       history: options.history || [], // For tracking significant relationship changes
-      location: options.location || 'unknown' // For tracking current location
+      location: options.location || 'unknown', // For tracking current location
+      date: options.date || 'unknown' // For tracking current date
     });
 
     this.model = options.model || "claude-3-7-sonnet-20250219";
@@ -977,11 +986,13 @@ PHRASES:`;
         sessionId: this.sessionId,
         messages: this.messages,
         characterProfile: this.characterProfile || '',
+        userProfile: this.userProfile || '',
         memoryState: this.memory.getMemoryContents(),
         timestamp: new Date().toISOString(),
         clothing: this.memory.clothing,
         history: this.memory.history, // Include relationship history changes
-        location: this.memory.location || 'unknown' // Include current location
+        location: this.memory.location || 'unknown', // Include current location
+        date: this.memory.date || 'unknown' // Include current date
       };
 
       return await this.persistence.saveMemory(this.sessionId, state);
@@ -1010,11 +1021,16 @@ PHRASES:`;
       this.clothing = loadedState.clothing || { user: "", char: "" };
       this.history = loadedState.history || []; // Load relationship history
       this.location = loadedState.location || 'unknown'; // Load current location
+      this.date = loadedState.date || 'unknown'; // Load current date
 
       // Restore character profile if available
       if (loadedState.characterProfile) {
         this.characterProfile = loadedState.characterProfile;
         this.setupCharacterImpersonation(this.characterProfile);
+      }
+
+      if (loadedState.userProfile) {
+        this.userProfile = loadedState.userProfile;
       }
 
       // Load memory state
@@ -1040,7 +1056,16 @@ PHRASES:`;
     // Check if characterProfile exists
     if (!this.characterProfile) {
       logger.error('Character profile is null in generatePrompt');
-      throw new Error('Character profile is not set');
+      this.characterProfile = `
+  NAME: Unknown
+  ID: ///
+  LOOKS: Unknown
+  CORE: Unknown
+  SPEECH: Unknown
+  TOPICS: Unknown
+  TRIGGERS: Unknown
+  PHRASES: Unknown
+  `;
     }
     
     // For symbolic profiles, extract name from the profile
@@ -1096,6 +1121,7 @@ Key moments below define story arc - drive responses, maintain consistency, refe
 4. No visible JSON in responses
 5. Memory: only NEW facts from current response, symbolic language, concise
 6. Character's emotional state and responses must reflect the established timeline's cumulative impact
+7. Don't show the date in the response block
 
 ## Memory System
 Append JSON after response:
@@ -1104,7 +1130,8 @@ Append JSON after response:
   "memorize-short-term": "Summary (symbolic)",
   "clothing": {"char": "Current clothing, generate if unspecified", "user": "User clothing, generate if unspecified"},
   "history": "MILESTONE DETECTION: Record significant events that advance character/relationship development or reveal new character aspects. Categories: relationship progression, personal revelations, trust changes, shared experiences, character growth moments. DUPLICATE CHECK: Scan timeline above - if similar event TYPE exists (trust established, secret shared, conflict resolved), leave EMPTY unless meaningfully different. Use symbolic syntax, 6-10 words maximum."
-  "location": "Current location of ${compressedProfile.core.name} (NOT user). Generate if unknown."
+  "location": "Current location of ${compressedProfile.core.name} (NOT user). Generate if unknown.",
+  "date": "Current date in roleplay. ALWAYS USE FORMAT: 'YYYY-MM-DD'. Generate if unknown from chat content"
 }
 
 Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
@@ -1202,10 +1229,14 @@ Always reference user appearance, never contradict memory information, acknowled
   - ${this.characterName}: "${this.memory.location}"`;
       }
 
+      if (this.memory.date) {
+        fullSystemPrompt += `\n\nLAST KNOWN DATE - will increase with roleplay; use this a reference: ${this.memory.date}"`;
+      }
+
       if (this.memory.history && this.memory.history.length > 0) {
         fullSystemPrompt += `\n\n## AUTHORITATIVE RELATIONSHIP TIMELINE
 These milestone events are absolute truth and define your character's emotional development:
-${this.memory.history.map((h, i) => `${i + 1}. ${h.change}`).join('\n')}
+${this.memory.history.map((h, i) => `${i + 1}. ${h.change}`).join('\n')}^
 
 Your responses must reflect the cumulative emotional impact of these experiences. Reference these established facts when contextually relevant. NEVER contradict or create duplicate milestone types.`;
       }
@@ -1311,11 +1342,14 @@ Your responses must reflect the cumulative emotional impact of these experiences
       // Add assistant response to conversation history
       const assistantMsg = { role: 'assistant', content: assistantResponse };
 
-      this.messages.push(assistantMsg);
       await this.memory.addToShortTermMemory(assistantMsg);
 
       // Check if there's memory information to extract
       await this.processMemoryInformation(assistantMsg.content);
+
+      if (this.memory.date) assistantMsg.content = this.memory.date + ' ' + assistantMsg.content;
+
+      this.messages.push(assistantMsg);
 
       // Update compression metrics
       if (this.memory.compressionEnabled) {
@@ -1343,7 +1377,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
       await this.memoryCompressor.trackApiCall(this.memory);
 
       // Return the response without the memory JSON part (if present)
-      return this.cleanResponse(assistantMsg.content);
+      return this.cleanResponse(assistantResponse);
     } catch (error) {
       logger.error('Error communicating with Anthropic API:', error);
 
