@@ -1728,9 +1728,9 @@
           const data = await response.json();
           
           if (response.ok) {
-            // Add assistant response to UI
-            addAssistantMessage(data.response);
-            
+            // Add assistant response to UI with date badge
+            addAssistantMessage(data.response, data.date);
+
             // Update memory display if visible
             if (memoryPanel.style.display !== 'none') {
               updateMemoryDisplay(data.memoryState, data.characterProfile);
@@ -2060,28 +2060,36 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
       
-      function addAssistantMessage(message) {
+      function addAssistantMessage(message, date = null) {
         const messageContainer = document.createElement('div');
         messageContainer.className = 'message-container';
-        
+
         // Create avatar
         const avatar = document.createElement('div');
         avatar.className = 'message-avatar';
         avatar.style.backgroundColor = characterAvatar.style.backgroundColor;
         messageContainer.appendChild(avatar);
-        
+
         // Create message bubble
         const messageBubble = document.createElement('div');
         messageBubble.className = 'message-bubble';
-        
+
+        // Add date badge if provided and not 'unknown'
+        if (date && date !== 'unknown' && date !== 'null') {
+          const dateBadge = document.createElement('div');
+          dateBadge.className = 'message-date-badge';
+          dateBadge.textContent = date;
+          messageBubble.appendChild(dateBadge);
+        }
+
         const messageElement = document.createElement('div');
         messageElement.className = 'message assistant-message';
-        
+
         // Parse markdown content
         try {
           // Render the markdown content
           messageElement.innerHTML = marked.parse(message);
-          
+
           // Find all code blocks and apply syntax highlighting
           messageElement.querySelectorAll('pre code').forEach((block) => {
             hljs.highlightElement(block);
@@ -2091,7 +2099,7 @@
           console.error('Error parsing markdown:', error);
           messageElement.textContent = message;
         }
-        
+
         messageBubble.appendChild(messageElement);
         messageContainer.appendChild(messageBubble);
         messagesContainer.appendChild(messageContainer);

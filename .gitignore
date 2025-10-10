@@ -2,5 +2,6 @@ node_modules
 .env
 memory-storage
 characters
+characters-save
 .ex
 
