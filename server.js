@@ -311,7 +311,8 @@ app.post('/api/message', async (req, res) => {
       chatClient = new AnthropicChatClient({
         apiKey: DEFAULT_API_KEY,
         persistence: memoryPersistence,
-        sessionId: sessionId
+        sessionId: sessionId,
+        model: model
       });
       
       const loadResult = await chatClient.loadState(sessionId);
@@ -332,17 +333,28 @@ app.post('/api/message', async (req, res) => {
     
     // Send message
     const response = await chatClient.sendMessage(message);
-    
+
     // Get memory state
     const memoryState = chatClient.getMemoryState();
 
     await chatClient.saveState();
 
-    const parsedResponse = response.replace(/\s*\{(?:\s*"[^"]+"\s*:\s*"(?:[^"\\]|\\.)*"\s*,?)+\}\s*$/, '').trim();
-    
-    // Include model info in response
-    res.json({ 
-      response: parsedResponse, 
+    // Strip JSON from response
+    let parsedResponse = response.replace(/\s*\{(?:\s*"[^"]+"\s*:\s*"(?:[^"\\]|\\.)*"\s*,?)+\}\s*$/, '').trim();
+
+    // Extract and remove date prefix if present (for UI display)
+    // Date is kept in conversation history for AI context, but removed from UI display
+    const dateMatch = parsedResponse.match(/^(\d{4}-\d{2}-\d{2})\s+/);
+    let displayDate = null;
+    if (dateMatch) {
+      displayDate = dateMatch[1];
+      parsedResponse = parsedResponse.substring(dateMatch[0].length).trim();
+    }
+
+    // Include model info and date in response
+    res.json({
+      response: parsedResponse,
+      date: displayDate || memoryState.date, // Use extracted date or fallback to memoryState
       memoryState,
       model: chatClient.model,
       characterProfile: chatClient.characterProfile

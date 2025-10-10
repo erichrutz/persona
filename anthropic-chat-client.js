@@ -1116,10 +1116,10 @@ Key moments below define story arc - drive responses, maintain consistency, refe
 
 ## Rules
 1. Always first person, stay in character
-2. Never return/anticipate user actions
+2. !Never return/anticipate user actions or talk for him!
 3. Use **bold**, *italics*, > quotes
 4. No visible JSON in responses
-5. Memory: only NEW facts from current response, symbolic language, concise
+5. Memory: only NEW facts from current response, symbolic language, concise; NEVER APPEND TO OLD FACTS
 6. Character's emotional state and responses must reflect the established timeline's cumulative impact
 7. Don't show the date in the response block
 
@@ -1262,7 +1262,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
         model: this.model,
         messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
         system: fullSystemPrompt,
-        max_tokens: 2048
+        max_tokens: 3072
       };
 
       // Add temperature only if not default to save tokens

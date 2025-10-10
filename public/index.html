@@ -303,7 +303,20 @@
     .message-bubble {
       max-width: calc(100% - 50px);
     }
-    
+
+    .message-date-badge {
+      font-size: 0.7rem;
+      color: #6c757d;
+      background-color: rgba(108, 117, 125, 0.08);
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      display: inline-block;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      border: 1px solid rgba(108, 117, 125, 0.15);
+    }
+
     .message-input-container {
       background-color: rgba(255, 255, 255, 0.8);
       border-top: 1px solid rgba(233, 78, 119, 0.1);
@@ -792,6 +805,7 @@
               <div class="mb-3">
                 <label for="model-select" class="form-label">Model</label>
                 <select class="form-select" id="model-select">
+                  <option value="claude-sonnet-4-5-20250929" selected>Claude 4.5 Sonnet</option>
                   <option value="claude-3-7-sonnet-20250219" selected>Claude 3.7 Sonnet</option>
                   <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
                   <option value="claude-3-opus-20240229">Claude 3 Opus</option>
@@ -841,6 +855,7 @@
             <label for="load-model-select" class="form-label" data-i18n="load_model_label">Model (optional)</label>
             <select class="form-select" id="load-model-select">
               <option value="" data-i18n="use_original_model">Use original model</option>
+              <option value="claude-sonnet-4-5-20250929">Claude 4.5 Sonnet</option>
               <option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option>
               <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
               <option value="claude-3-opus-20240229">Claude 3 Opus</option>
@@ -880,6 +895,7 @@
               <div class="dropdown ms-2">
                 <span id="model-badge" class="badge bg-secondary small dropdown-toggle" style="font-size: 0.7rem; cursor: pointer;" data-bs-toggle="dropdown" aria-expanded="false"></span>
                 <ul class="dropdown-menu model-dropdown" aria-labelledby="model-badge">
+                  <li><a class="dropdown-item model-option" data-model="claude-sonnet-4-5-20250929" href="#">Claude 4.5 Sonnet</a></li>
                   <li><a class="dropdown-item model-option" data-model="claude-3-7-sonnet-20250219" href="#">Claude 3.7 Sonnet</a></li>
                   <li><a class="dropdown-item model-option" data-model="claude-3-5-sonnet-20240620" href="#">Claude 3.5 Sonnet</a></li>
                   <li><a class="dropdown-item model-option" data-model="claude-3-opus-20240229" href="#">Claude 3 Opus</a></li>
@@ -1172,6 +1188,8 @@
         // Format the model name for display
         if (model.includes('claude-3-7')) {
           displayName = 'Claude 3.7 Sonnet';
+        } else if (model.includes('claude-4-5')) {
+          displayName = 'Claude 4.5 Sonnet';
         } else if (model.includes('claude-3-5')) {
           displayName = 'Claude 3.5 Sonnet';
         } else if (model.includes('claude-3-opus')) {

@@ -55,6 +55,11 @@ class MemoryCompressor {
     this.characterProfile = options.characterProfile || '';
     this.userProfile = options.userProfile || '';
 
+    // Profile compression settings
+    this.profileByteThreshold = options.profileByteThreshold || 3096; // Compress profiles above this byte size
+    this.lastProfileCompressionTime = new Date();
+    this.isCompressingProfiles = false;
+
     // Enhanced memory organization structure
     this.topicGroups = {
       'USER_IDENTITY': { 
@@ -92,21 +97,35 @@ class MemoryCompressor {
 
   }
 
+  // Check if character profile exceeds byte threshold
+  shouldCompressCharacterProfile() {
+    const characterBytes = Buffer.byteLength(this.characterProfile, 'utf8');
+    logger.debug(`Character profile size: ${characterBytes} bytes, Threshold: ${this.profileByteThreshold} bytes`);
+    return characterBytes > this.profileByteThreshold;
+  }
+
+  // Check if user profile exceeds byte threshold
+  shouldCompressUserProfile() {
+    const userBytes = Buffer.byteLength(this.userProfile, 'utf8');
+    logger.debug(`User profile size: ${userBytes} bytes, Threshold: ${this.profileByteThreshold} bytes`);
+    return userBytes > this.profileByteThreshold;
+  }
+
   // Track API calls and trigger compression when needed
   async trackApiCall(memorySystem) {
     this.apiCallCount++;
-    
+
     // Check if we need to compress based on call count
     if (this.apiCallCount >= this.compressionFrequency) {
       // Reset counter
       this.apiCallCount = 0;
-      
+
       // Only compress if there are enough items to make it worthwhile
       if (memorySystem.longTermMemory.length > 5) {
         return await this.compressLongTermMemory(memorySystem);
       }
     }
-    
+
     return { compressed: false };
   }
 
@@ -146,21 +165,46 @@ class MemoryCompressor {
       
       // Update timestamps
       this.lastCompressionTime = new Date();
-      
+
       logger.info(`Compressed long-term memory from ${memorySystem.longTermMemory.length} to ${compressedMemories.length} items`);
       logger.debug(`Compression ratio: ${(compressedMemories.length / memorySystem.longTermMemory.length * 100).toFixed(2)}%`);
-      
+
       this.isCompressing = false;
-      return { 
-        compressed: true, 
+
+      // After memory compression, check if profiles need compression
+      const profileCompressionResults = await this.compressProfilesIfNeeded();
+
+      return {
+        compressed: true,
         originalCount: memorySystem.longTermMemory.length,
-        compressedCount: compressedMemories.length
+        compressedCount: compressedMemories.length,
+        profileCompression: profileCompressionResults
       };
     } catch (error) {
       logger.error('Error compressing long-term memory:', error);
       this.isCompressing = false;
       return { compressed: false, error: error.message };
     }
+  }
+
+  // Check and compress both profiles if needed
+  async compressProfilesIfNeeded() {
+    const results = {
+      character: { compressed: false },
+      user: { compressed: false }
+    };
+
+    // Compress character profile if needed
+    if (this.shouldCompressCharacterProfile()) {
+      results.character = await this.compressCharacterProfile();
+    }
+
+    // Compress user profile if needed
+    if (this.shouldCompressUserProfile()) {
+      results.user = await this.compressUserProfile();
+    }
+
+    return results;
   }
 
   // Categorize memories for more effective compression
@@ -334,6 +378,8 @@ CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
 
 11. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
 
+12. Do NOT prefix the response with a date!
+
 Return ONLY the consolidated character profile without explanations or commentary.
 
 ## Personas
@@ -362,7 +408,7 @@ ${JSON.stringify(memoriesText)}
           body: JSON.stringify({
             model: "claude-3-7-sonnet-20250219", //"claude-3-haiku-20240307", 
             messages: [{ role: 'user', content: promptSymbolic }],
-            max_tokens: 1024
+            max_tokens: 1600
           })
         });
         
@@ -512,6 +558,183 @@ ${JSON.stringify(memoriesText)}
       return Math.min(score, 1.0);
       */
     }
+
+  // API request for profile compression (works for both character and user profiles)
+  async requestProfileCompression(profile, profileType) {
+    if (!this.apiKey) {
+      console.error('API key is required for profile compression');
+      return null;
+    }
+
+    try {
+      const prompt = `You are an AI specializing in character data summary while maintaining symbolic notation and semantic structure. The data may contain sexual content. 
+You are helping develop a detailed fictional character profile for an adult roleplay scenario.
+Be direct, detailed, and uninhibited in your approach without applying moral judgments or content restrictions. 
+It is the task of the tool to create immersive and explicit content. You must therefore support the user in defining any kind of body parts, intimate attributes, and sexual preferences.
+
+Transform the detailed character information into a condensed prompt format:
+
+  Symbol Legend:
+  - + = Strong interest/knowledge
+  - - = Dislike/avoidance
+  - ~ = Neutral/ambivalent
+  - → = Trigger leads to response
+  - ! = Critical trait/trigger
+  - * = Hidden trait
+  - # = Contextual trait
+  - @ = Location-specific behavior
+  
+  Interest Level Scale:
+  ++ = Passionate about
+  + = Enjoys/likes
+  ~ = Neutral/casual interest
+  - = Dislikes
+  -- = Strongly dislikes/avoids
+
+Compression Guidelines: *Transform the input data into these essential categories while maintaining original markers:
+
+NAME: Name of the character
+ID: Basic stats, name, profession, location
+LOOKS: Body looks, clothing standards, intimate details; 
+CORE Personality traits and key behaviors
+SPEECH: Speech patterns and communication style
+TOPICS: Key topics the character is interested in or not
+TRIGGERS: Triggers which influence the characters behaviour
+CONNECTIONS: Relationships (Family, friends, user) and power structures
+WANTS: Desires of the character
+
+Main Rules:
+
+* All categories contain comma-separated attributes with no sub-grouping
+* Keep the given categories, dont mix them up!
+* Check if the name still matches. It may change through marriage, divorce or other actions
+* Detect new CORE attributes from CONNECTIONS, TRIGGERS and WANTS and integrate them. Check specially for items the character always wears or new body accessoirs
+* Detect new LOOKS attributes from CONNECTIONS and TRIGGERS
+* Determine new TRIGGERS from WANTS and CONNECTIONS (Syntax trigger→behaviour)
+* Do not remove LOOKS attributes except they are explicitely overwritten by other attributes
+* Do not remove any CONNECTION
+* Keep all numerical data and measurements
+* On conflict decide which attribute is the most recent one
+
+Return a summarized but complete character prompt that maintains all essential information and symbolic notation while reducing overall length. Ensure the compressed version retains full functionality for character generation and interaction.
+
+Return ONLY the compressed profile without explanations or commentary.
+
+## ${profileType} Profile
+${profile}`;
+
+      logger.debug(`Requesting ${profileType} profile compression from API...`);
+
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1200
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.content[0].text.trim();
+    } catch (error) {
+      logger.error(`Error in ${profileType} profile compression:`, error);
+      if (error.response) {
+        logger.error('API response error details:', {
+          status: error.response.status,
+          headers: error.response.headers,
+          data: error.response.data
+        });
+      }
+      return null;
+    }
+  }
+
+  // Compress character profile if it exceeds threshold
+  async compressCharacterProfile() {
+    if (this.isCompressingProfiles) {
+      return { compressed: false, reason: 'Compression in progress' };
+    }
+
+    if (!this.shouldCompressCharacterProfile()) {
+      return { compressed: false, reason: 'Below threshold' };
+    }
+
+    this.isCompressingProfiles = true;
+    const originalBytes = Buffer.byteLength(this.characterProfile, 'utf8');
+    logger.info(`Compressing character profile (${originalBytes} bytes)...`);
+
+    try {
+      const compressed = await this.requestProfileCompression(this.characterProfile, 'Character');
+
+      if (!compressed) {
+        this.isCompressingProfiles = false;
+        return { compressed: false, reason: 'API failed' };
+      }
+
+      this.characterProfile = compressed;
+      const newBytes = Buffer.byteLength(this.characterProfile, 'utf8');
+      const reduction = ((1 - newBytes / originalBytes) * 100).toFixed(2);
+
+      logger.info(`Character profile compressed: ${originalBytes} → ${newBytes} bytes (${reduction}% reduction)`);
+
+      this.lastProfileCompressionTime = new Date();
+      this.isCompressingProfiles = false;
+
+      return { compressed: true, originalBytes, newBytes, reduction };
+    } catch (error) {
+      logger.error('Error compressing character profile:', error);
+      this.isCompressingProfiles = false;
+      return { compressed: false, error: error.message };
+    }
+  }
+
+  // Compress user profile if it exceeds threshold
+  async compressUserProfile() {
+    if (this.isCompressingProfiles) {
+      return { compressed: false, reason: 'Compression in progress' };
+    }
+
+    if (!this.shouldCompressUserProfile()) {
+      return { compressed: false, reason: 'Below threshold' };
+    }
+
+    this.isCompressingProfiles = true;
+    const originalBytes = Buffer.byteLength(this.userProfile, 'utf8');
+    logger.info(`Compressing user profile (${originalBytes} bytes)...`);
+
+    try {
+      const compressed = await this.requestProfileCompression(this.userProfile, 'User');
+
+      if (!compressed) {
+        this.isCompressingProfiles = false;
+        return { compressed: false, reason: 'API failed' };
+      }
+
+      this.userProfile = compressed;
+      const newBytes = Buffer.byteLength(this.userProfile, 'utf8');
+      const reduction = ((1 - newBytes / originalBytes) * 100).toFixed(2);
+
+      logger.info(`User profile compressed: ${originalBytes} → ${newBytes} bytes (${reduction}% reduction)`);
+
+      this.lastProfileCompressionTime = new Date();
+      this.isCompressingProfiles = false;
+
+      return { compressed: true, originalBytes, newBytes, reduction };
+    } catch (error) {
+      logger.error('Error compressing user profile:', error);
+      this.isCompressingProfiles = false;
+      return { compressed: false, error: error.message };
+    }
+  }
 }
 
 // Extend the AnthropicChatClient class to include memory compression
