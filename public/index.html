@@ -310,11 +310,29 @@
       background-color: rgba(108, 117, 125, 0.08);
       padding: 3px 10px;
       border-radius: 12px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+      margin-right: 6px;
       display: inline-block;
       font-weight: 500;
       letter-spacing: 0.3px;
       border: 1px solid rgba(108, 117, 125, 0.15);
+    }
+
+    .message-location-badge {
+      font-size: 0.7rem;
+      color: #20c997;
+      background-color: rgba(32, 201, 151, 0.08);
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 6px;
+      display: inline-block;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      border: 1px solid rgba(32, 201, 151, 0.15);
+    }
+
+    .message-metadata-container {
+      margin-bottom: 8px;
     }
 
     .message-input-container {
@@ -1728,8 +1746,8 @@
           const data = await response.json();
           
           if (response.ok) {
-            // Add assistant response to UI with date badge
-            addAssistantMessage(data.response, data.date);
+            // Add assistant response to UI with date and location badges
+            addAssistantMessage(data.response, data.date, data.location);
 
             // Update memory display if visible
             if (memoryPanel.style.display !== 'none') {
@@ -2060,7 +2078,7 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
       
-      function addAssistantMessage(message, date = null) {
+      function addAssistantMessage(message, date = null, location = null) {
         const messageContainer = document.createElement('div');
         messageContainer.className = 'message-container';
 
@@ -2074,12 +2092,31 @@
         const messageBubble = document.createElement('div');
         messageBubble.className = 'message-bubble';
 
-        // Add date badge if provided and not 'unknown'
-        if (date && date !== 'unknown' && date !== 'null') {
-          const dateBadge = document.createElement('div');
-          dateBadge.className = 'message-date-badge';
-          dateBadge.textContent = date;
-          messageBubble.appendChild(dateBadge);
+        // Create metadata container for date and location badges
+        const hasDate = date && date !== 'unknown' && date !== 'null';
+        const hasLocation = location && location !== 'unknown' && location !== 'null';
+
+        if (hasDate || hasLocation) {
+          const metadataContainer = document.createElement('div');
+          metadataContainer.className = 'message-metadata-container';
+
+          // Add date badge if provided
+          if (hasDate) {
+            const dateBadge = document.createElement('span');
+            dateBadge.className = 'message-date-badge';
+            dateBadge.textContent = date;
+            metadataContainer.appendChild(dateBadge);
+          }
+
+          // Add location badge if provided
+          if (hasLocation) {
+            const locationBadge = document.createElement('span');
+            locationBadge.className = 'message-location-badge';
+            locationBadge.innerHTML = `📍 ${location}`;
+            metadataContainer.appendChild(locationBadge);
+          }
+
+          messageBubble.appendChild(metadataContainer);
         }
 
         const messageElement = document.createElement('div');
