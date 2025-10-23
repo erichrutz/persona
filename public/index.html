@@ -2958,39 +2958,39 @@
     // ========================================
     // Character Creator Functionality
     // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+      // Character creator state
+      let creatorMessages = [];
+      let creatorProfile = '';
+      let creatorCompleteness = 0;
+      let creatorTotalTokens = 0;
+      let creatorRoundtrips = 0;
 
-    // Character creator state
-    let creatorMessages = [];
-    let creatorProfile = '';
-    let creatorCompleteness = 0;
-    let creatorTotalTokens = 0;
-    let creatorRoundtrips = 0;
+      // DOM Elements
+      const creatorInput = document.getElementById('creator-input');
+      const creatorSendBtn = document.getElementById('creator-send-btn');
+      const creatorNewBtn = document.getElementById('creator-new-btn');
+      const creatorSaveBtn = document.getElementById('creator-save-btn');
+      const creatorMessagesContainer = document.getElementById('creator-messages');
+      const creatorProfilePreview = document.getElementById('creator-profile-preview');
+      const creatorFilename = document.getElementById('creator-filename');
+      const creatorCompletenessBar = document.getElementById('creator-completeness-bar');
+      const creatorCompletenessText = document.getElementById('creator-completeness-text');
+      const creatorTokens = document.getElementById('creator-tokens');
+      const creatorRoundtripsElem = document.getElementById('creator-roundtrips');
+      const creatorValidationErrors = document.getElementById('creator-validation-errors');
 
-    // DOM Elements
-    const creatorInput = document.getElementById('creator-input');
-    const creatorSendBtn = document.getElementById('creator-send-btn');
-    const creatorNewBtn = document.getElementById('creator-new-btn');
-    const creatorSaveBtn = document.getElementById('creator-save-btn');
-    const creatorMessagesContainer = document.getElementById('creator-messages');
-    const creatorProfilePreview = document.getElementById('creator-profile-preview');
-    const creatorFilename = document.getElementById('creator-filename');
-    const creatorCompletenessBar = document.getElementById('creator-completeness-bar');
-    const creatorCompletenessText = document.getElementById('creator-completeness-text');
-    const creatorTokens = document.getElementById('creator-tokens');
-    const creatorRoundtripsElem = document.getElementById('creator-roundtrips');
-    const creatorValidationErrors = document.getElementById('creator-validation-errors');
+      // Event Listeners
+      creatorSendBtn.addEventListener('click', sendCreatorMessage);
+      creatorInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendCreatorMessage();
+        }
+      });
 
-    // Event Listeners
-    creatorSendBtn.addEventListener('click', sendCreatorMessage);
-    creatorInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendCreatorMessage();
-      }
-    });
-
-    creatorNewBtn.addEventListener('click', resetCreatorSession);
-    creatorSaveBtn.addEventListener('click', saveCreatorCharacter);
+      creatorNewBtn.addEventListener('click', resetCreatorSession);
+      creatorSaveBtn.addEventListener('click', saveCreatorCharacter);
 
     // Reset character creator session
     function resetCreatorSession() {
@@ -3240,10 +3240,11 @@
       return div.innerHTML;
     }
 
-    // Initialize creator when modal is shown
-    document.getElementById('characterCreatorModal').addEventListener('shown.bs.modal', function() {
-      creatorInput.focus();
-    });
+      // Initialize creator when modal is shown
+      document.getElementById('characterCreatorModal').addEventListener('shown.bs.modal', function() {
+        creatorInput.focus();
+      });
+    }); // End DOMContentLoaded
   </script>
 
   <!-- Character Creator Modal -->
