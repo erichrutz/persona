@@ -3249,16 +3249,16 @@
 
   <!-- Character Creator Modal -->
   <div class="modal fade" id="characterCreatorModal" tabindex="-1" aria-labelledby="characterCreatorModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-      <div class="modal-content" style="background-color: var(--card-bg-color); color: var(--text-color);">
-        <div class="modal-header" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1);">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content" style="background-color: var(--card-bg-color); color: var(--text-color); max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1); flex-shrink: 0;">
           <h5 class="modal-title" id="characterCreatorModalLabel">
             <i class="fas fa-wand-magic-sparkles me-2"></i>Character Creator
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body" style="padding: 0;">
-          <div class="row g-0" style="height: 75vh;">
+        <div class="modal-body" style="padding: 0; overflow: hidden; flex: 1; min-height: 0;">
+          <div class="row g-0 h-100">
             <!-- Left Panel: Chat Interface -->
             <div class="col-md-6" style="border-right: 1px solid rgba(74, 144, 226, 0.1); display: flex; flex-direction: column;">
               <div class="p-3" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1);">
