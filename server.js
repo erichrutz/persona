@@ -351,11 +351,12 @@ app.post('/api/message', async (req, res) => {
       parsedResponse = parsedResponse.substring(dateMatch[0].length).trim();
     }
 
-    // Include model info, date, and location in response
+    // Include model info, date, location, and clothing in response
     res.json({
       response: parsedResponse,
       date: displayDate || memoryState.date, // Use extracted date or fallback to memoryState
       location: memoryState.location, // Include location for display
+      clothing: memoryState.clothing?.char || memoryState.clothing?.clothing?.char, // Include character clothing for display
       memoryState,
       model: chatClient.model,
       characterProfile: chatClient.characterProfile

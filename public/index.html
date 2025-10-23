@@ -325,10 +325,25 @@
       padding: 3px 10px;
       border-radius: 12px;
       margin-bottom: 6px;
+      margin-right: 6px;
       display: inline-block;
       font-weight: 500;
       letter-spacing: 0.3px;
       border: 1px solid rgba(32, 201, 151, 0.15);
+    }
+
+    .message-clothing-badge {
+      font-size: 0.7rem;
+      color: #e94e77;
+      background-color: rgba(233, 78, 119, 0.08);
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 6px;
+      margin-right: 6px;
+      display: inline-block;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      border: 1px solid rgba(233, 78, 119, 0.15);
     }
 
     .message-metadata-container {
@@ -1746,8 +1761,8 @@
           const data = await response.json();
           
           if (response.ok) {
-            // Add assistant response to UI with date and location badges
-            addAssistantMessage(data.response, data.date, data.location);
+            // Add assistant response to UI with date, location, and clothing badges
+            addAssistantMessage(data.response, data.date, data.location, data.clothing);
 
             // Update memory display if visible
             if (memoryPanel.style.display !== 'none') {
@@ -2078,7 +2093,7 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
       
-      function addAssistantMessage(message, date = null, location = null) {
+      function addAssistantMessage(message, date = null, location = null, clothing = null) {
         const messageContainer = document.createElement('div');
         messageContainer.className = 'message-container';
 
@@ -2092,11 +2107,12 @@
         const messageBubble = document.createElement('div');
         messageBubble.className = 'message-bubble';
 
-        // Create metadata container for date and location badges
+        // Create metadata container for date, location, and clothing badges
         const hasDate = date && date !== 'unknown' && date !== 'null';
         const hasLocation = location && location !== 'unknown' && location !== 'null';
+        const hasClothing = clothing && clothing !== 'unknown' && clothing !== 'null' && clothing.trim() !== '';
 
-        if (hasDate || hasLocation) {
+        if (hasDate || hasLocation || hasClothing) {
           const metadataContainer = document.createElement('div');
           metadataContainer.className = 'message-metadata-container';
 
@@ -2114,6 +2130,14 @@
             locationBadge.className = 'message-location-badge';
             locationBadge.innerHTML = `📍 ${location}`;
             metadataContainer.appendChild(locationBadge);
+          }
+
+          // Add clothing badge if provided
+          if (hasClothing) {
+            const clothingBadge = document.createElement('span');
+            clothingBadge.className = 'message-clothing-badge';
+            clothingBadge.innerHTML = `👗 ${clothing}`;
+            metadataContainer.appendChild(clothingBadge);
           }
 
           messageBubble.appendChild(metadataContainer);
