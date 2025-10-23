@@ -879,6 +879,186 @@ app.get('/api/character/:filename', (req, res) => {
   }
 });
 
+// Character Creator API - Generate character profile
+app.post('/api/character/generate', async (req, res) => {
+  try {
+    const { description, conversationHistory, currentProfile, model } = req.body;
+
+    if (!description) {
+      return res.status(400).json({ error: 'Description is required' });
+    }
+
+    // Load system prompt from file
+    let systemPrompt = fs.readFileSync(
+      path.join(__dirname, 'prompts', 'character-creator-system.txt'),
+      'utf8'
+    );
+
+    // Replace placeholder with current profile
+    const profileText = currentProfile || 'No profile yet - starting from scratch.';
+    systemPrompt = systemPrompt.replace('{CURRENT_PROFILE}', profileText);
+
+    // Build messages array
+    const messages = conversationHistory || [];
+    messages.push({ role: 'user', content: description });
+
+    // Call Claude API directly (no memory system for character creation)
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': DEFAULT_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: model || 'claude-3-haiku-20240307',
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: messages.slice(-6) // Keep last 6 messages for context
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const fullResponse = data.content[0].text;
+
+    // Extract profile between **** markers
+    const profileMatch = fullResponse.match(/\*{4}([\s\S]*?)\*{4}/);
+
+    let characterProfile = null;
+    let conversationResponse = fullResponse;
+    let completeness = 0;
+
+    if (profileMatch) {
+      characterProfile = profileMatch[1].trim();
+      // Remove profile block from conversation response
+      conversationResponse = fullResponse.replace(profileMatch[0], '').trim();
+    }
+
+    // Extract completeness percentage
+    const completenessMatch = fullResponse.match(/\[COMPLETENESS:\s*(\d+)%\]/i);
+    if (completenessMatch) {
+      completeness = parseInt(completenessMatch[1]);
+      // Remove completeness marker from conversation response
+      conversationResponse = conversationResponse.replace(completenessMatch[0], '').trim();
+    }
+
+    // Validate profile structure if profile was extracted
+    let validation = { valid: true, errors: [] };
+    if (characterProfile) {
+      validation = validateCharacterProfile(characterProfile);
+    }
+
+    logger.info(`Character generation: ${completeness}% complete, ${data.usage.output_tokens} tokens`);
+
+    res.json({
+      conversationResponse,
+      characterProfile,
+      completeness,
+      validation,
+      usage: {
+        input_tokens: data.usage.input_tokens,
+        output_tokens: data.usage.output_tokens
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error generating character:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Character Creator API - Save character to /characters folder
+app.post('/api/character/save', async (req, res) => {
+  try {
+    const { filename, content } = req.body;
+
+    if (!filename || !content) {
+      return res.status(400).json({ error: 'Filename and content are required' });
+    }
+
+    // Sanitize filename
+    const safeFilename = filename.replace(/[^a-z0-9_\-\.]/gi, '_');
+    const fullFilename = safeFilename.endsWith('.txt') ? safeFilename : `${safeFilename}.txt`;
+
+    // Validate profile before saving
+    const validation = validateCharacterProfile(content);
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: 'Invalid character profile',
+        validationErrors: validation.errors
+      });
+    }
+
+    const filePath = path.join(__dirname, 'characters', fullFilename);
+
+    // Check if file already exists
+    if (fs.existsSync(filePath)) {
+      return res.status(409).json({
+        error: 'Character file already exists',
+        filename: fullFilename
+      });
+    }
+
+    // Write file
+    fs.writeFileSync(filePath, content, 'utf8');
+
+    logger.info(`Character saved: ${fullFilename}`);
+
+    res.json({
+      success: true,
+      filename: fullFilename,
+      path: filePath
+    });
+
+  } catch (error) {
+    logger.error('Error saving character:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper function to validate character profile structure
+function validateCharacterProfile(profile) {
+  const errors = [];
+
+  if (!profile) {
+    errors.push('No profile content provided');
+    return { valid: false, errors };
+  }
+
+  const requiredSections = ['NAME:', 'ID:', 'LOOKS:', 'CORE:', 'SPEECH:', 'TOPICS:', 'TRIGGERS:', 'CONNECTIONS:', 'USERRELATION:', 'WANTS:'];
+
+  requiredSections.forEach(section => {
+    if (!profile.includes(section)) {
+      errors.push(`Missing required section: ${section}`);
+    }
+  });
+
+  // Validate NAME is extractable
+  const nameMatch = profile.match(/NAME:[ \t]+(.*?)(?=[ \t]*[\r\n])/i);
+  if (!nameMatch || !nameMatch[1].trim()) {
+    errors.push('NAME section not properly formatted or empty');
+  }
+
+  // Validate ID format (Age/Gender/Occupation/Location)
+  const idMatch = profile.match(/ID:[ \t]+(.*?)(?=[ \t]*[\r\n])/i);
+  if (idMatch) {
+    const idParts = idMatch[1].split('/');
+    if (idParts.length < 3) {
+      errors.push('ID section should follow format: Age/Gender/Occupation/Location');
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
 // Serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

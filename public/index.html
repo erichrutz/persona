@@ -732,6 +732,11 @@
             </button>
           </li>
           <li class="nav-item">
+            <button id="character-creator-btn" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#characterCreatorModal">
+              <i class="fas fa-wand-magic-sparkles me-1"></i> Character Creator
+            </button>
+          </li>
+          <li class="nav-item">
             <button id="server-config-btn" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#serverConfigModal">
               <i class="fas fa-server me-1"></i> Server
             </button>
@@ -2949,7 +2954,390 @@
       // Initialize character loading on page load
       loadAvailableCharacters();
     });
+
+    // ========================================
+    // Character Creator Functionality
+    // ========================================
+
+    // Character creator state
+    let creatorMessages = [];
+    let creatorProfile = '';
+    let creatorCompleteness = 0;
+    let creatorTotalTokens = 0;
+    let creatorRoundtrips = 0;
+
+    // DOM Elements
+    const creatorInput = document.getElementById('creator-input');
+    const creatorSendBtn = document.getElementById('creator-send-btn');
+    const creatorNewBtn = document.getElementById('creator-new-btn');
+    const creatorSaveBtn = document.getElementById('creator-save-btn');
+    const creatorMessagesContainer = document.getElementById('creator-messages');
+    const creatorProfilePreview = document.getElementById('creator-profile-preview');
+    const creatorFilename = document.getElementById('creator-filename');
+    const creatorCompletenessBar = document.getElementById('creator-completeness-bar');
+    const creatorCompletenessText = document.getElementById('creator-completeness-text');
+    const creatorTokens = document.getElementById('creator-tokens');
+    const creatorRoundtripsElem = document.getElementById('creator-roundtrips');
+    const creatorValidationErrors = document.getElementById('creator-validation-errors');
+
+    // Event Listeners
+    creatorSendBtn.addEventListener('click', sendCreatorMessage);
+    creatorInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendCreatorMessage();
+      }
+    });
+
+    creatorNewBtn.addEventListener('click', resetCreatorSession);
+    creatorSaveBtn.addEventListener('click', saveCreatorCharacter);
+
+    // Reset character creator session
+    function resetCreatorSession() {
+      if (creatorProfile && !confirm('Are you sure? This will discard the current character.')) {
+        return;
+      }
+
+      creatorMessages = [];
+      creatorProfile = '';
+      creatorCompleteness = 0;
+      creatorTotalTokens = 0;
+      creatorRoundtrips = 0;
+
+      creatorMessagesContainer.innerHTML = `
+        <div class="text-center text-muted mt-4">
+          <i class="fas fa-wand-magic-sparkles fa-3x mb-3" style="opacity: 0.3;"></i>
+          <p>Start creating your character by describing them.</p>
+          <p class="small">Example: "A shy 28-year-old librarian who loves mystery novels"</p>
+        </div>
+      `;
+
+      creatorProfilePreview.value = '';
+      creatorFilename.value = '';
+      creatorValidationErrors.style.display = 'none';
+
+      updateCreatorCompleteness(0);
+      updateCreatorMetrics();
+    }
+
+    // Send message to character creator
+    async function sendCreatorMessage() {
+      const message = creatorInput.value.trim();
+      if (!message) return;
+
+      // Add user message to UI
+      addCreatorMessage(message, true);
+      creatorMessages.push({ role: 'user', content: message });
+      creatorInput.value = '';
+
+      // Disable send button during API call
+      creatorSendBtn.disabled = true;
+      creatorSendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+      try {
+        const response = await fetch(window.ServerConfig.buildApiUrl('/api/character/generate'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            description: message,
+            conversationHistory: creatorMessages.slice(0, -1), // Don't include last message (just sent)
+            currentProfile: creatorProfile || null,
+            model: 'claude-3-haiku-20240307'
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to generate character');
+        }
+
+        const data = await response.json();
+
+        // Add AI response to UI
+        if (data.conversationResponse) {
+          addCreatorMessage(data.conversationResponse, false);
+          creatorMessages.push({ role: 'assistant', content: data.conversationResponse });
+        }
+
+        // Update profile preview
+        if (data.characterProfile) {
+          creatorProfile = data.characterProfile;
+          creatorProfilePreview.value = creatorProfile;
+
+          // Auto-suggest filename from NAME field
+          const nameMatch = creatorProfile.match(/NAME:[ \t]+(.*?)(?=[ \t]*[\r\n])/i);
+          if (nameMatch && !creatorFilename.value) {
+            const suggestedName = nameMatch[1].trim().toLowerCase().replace(/\s+/g, '_');
+            creatorFilename.value = `${suggestedName}.txt`;
+          }
+        }
+
+        // Update completeness
+        if (data.completeness !== undefined) {
+          updateCreatorCompleteness(data.completeness);
+        }
+
+        // Update metrics
+        creatorRoundtrips++;
+        creatorTotalTokens += (data.usage.input_tokens + data.usage.output_tokens);
+        updateCreatorMetrics();
+
+        // Show validation errors if any
+        if (data.validation && !data.validation.valid) {
+          creatorValidationErrors.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+            data.validation.errors.join('<br>');
+          creatorValidationErrors.style.display = 'block';
+        } else {
+          creatorValidationErrors.style.display = 'none';
+        }
+
+      } catch (error) {
+        console.error('Error generating character:', error);
+        addCreatorMessage(`Error: ${error.message}`, false, true);
+      } finally {
+        creatorSendBtn.disabled = false;
+        creatorSendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+      }
+    }
+
+    // Add message to creator chat
+    function addCreatorMessage(text, isUser, isError = false) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message-bubble mb-3 p-3 rounded ${isUser ? 'ms-auto' : 'me-auto'}`;
+      messageDiv.style.maxWidth = '85%';
+      messageDiv.style.wordWrap = 'break-word';
+
+      if (isUser) {
+        messageDiv.style.backgroundColor = 'var(--light-accent)';
+        messageDiv.style.color = 'var(--text-color)';
+        messageDiv.innerHTML = `<strong><i class="fas fa-user me-2"></i>You:</strong><br>${escapeHtml(text)}`;
+      } else if (isError) {
+        messageDiv.style.backgroundColor = '#ffebee';
+        messageDiv.style.color = '#c62828';
+        messageDiv.innerHTML = `<strong><i class="fas fa-exclamation-circle me-2"></i>Error:</strong><br>${escapeHtml(text)}`;
+      } else {
+        messageDiv.style.backgroundColor = 'rgba(74, 144, 226, 0.1)';
+        messageDiv.style.color = 'var(--text-color)';
+        messageDiv.innerHTML = `<strong><i class="fas fa-wand-magic-sparkles me-2"></i>AI:</strong><br>${escapeHtml(text)}`;
+      }
+
+      // Remove placeholder if exists
+      const placeholder = creatorMessagesContainer.querySelector('.text-center');
+      if (placeholder) {
+        placeholder.remove();
+      }
+
+      creatorMessagesContainer.appendChild(messageDiv);
+      creatorMessagesContainer.scrollTop = creatorMessagesContainer.scrollHeight;
+    }
+
+    // Update completeness bar
+    function updateCreatorCompleteness(completeness) {
+      creatorCompleteness = completeness;
+      creatorCompletenessBar.style.width = `${completeness}%`;
+      creatorCompletenessBar.setAttribute('aria-valuenow', completeness);
+      creatorCompletenessText.textContent = `${completeness}%`;
+
+      // Color coding based on completeness
+      let color;
+      if (completeness < 30) {
+        color = '#ff4d4d'; // Red
+      } else if (completeness < 70) {
+        color = '#ffcc00'; // Yellow
+      } else {
+        color = '#4caf50'; // Green
+      }
+      creatorCompletenessBar.style.backgroundColor = color;
+    }
+
+    // Update metrics display
+    function updateCreatorMetrics() {
+      creatorTokens.textContent = creatorTotalTokens.toLocaleString();
+      creatorRoundtripsElem.textContent = creatorRoundtrips;
+    }
+
+    // Save character to /characters folder
+    async function saveCreatorCharacter() {
+      // Get profile from textarea (allows manual edits)
+      const profileContent = creatorProfilePreview.value.trim();
+      const filename = creatorFilename.value.trim();
+
+      if (!profileContent) {
+        alert('No character profile to save. Please create a character first.');
+        return;
+      }
+
+      if (!filename) {
+        alert('Please enter a filename.');
+        return;
+      }
+
+      creatorSaveBtn.disabled = true;
+      creatorSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+      try {
+        const response = await fetch(window.ServerConfig.buildApiUrl('/api/character/save'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            filename: filename,
+            content: profileContent
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (response.status === 409) {
+            if (confirm(`Character "${data.filename}" already exists. Do you want to choose a different name?`)) {
+              creatorFilename.focus();
+              creatorFilename.select();
+            }
+            throw new Error(data.error);
+          } else if (data.validationErrors) {
+            creatorValidationErrors.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' +
+              data.validationErrors.join('<br>');
+            creatorValidationErrors.style.display = 'block';
+            throw new Error('Profile validation failed');
+          } else {
+            throw new Error(data.error || 'Failed to save character');
+          }
+        }
+
+        // Success!
+        creatorValidationErrors.style.display = 'none';
+        addCreatorMessage(`Character saved successfully as "${data.filename}"! You can now use it in sessions.`, false);
+
+        // Reload character list in main UI
+        if (typeof loadAvailableCharacters === 'function') {
+          loadAvailableCharacters();
+        }
+
+        // Optional: Reset session after save
+        setTimeout(() => {
+          if (confirm('Character saved! Do you want to create another character?')) {
+            resetCreatorSession();
+          }
+        }, 500);
+
+      } catch (error) {
+        console.error('Error saving character:', error);
+        if (!error.message.includes('validation')) {
+          alert(`Error saving character: ${error.message}`);
+        }
+      } finally {
+        creatorSaveBtn.disabled = false;
+        creatorSaveBtn.innerHTML = '<i class="fas fa-save"></i> Save to Characters';
+      }
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Initialize creator when modal is shown
+    document.getElementById('characterCreatorModal').addEventListener('shown.bs.modal', function() {
+      creatorInput.focus();
+    });
   </script>
+
+  <!-- Character Creator Modal -->
+  <div class="modal fade" id="characterCreatorModal" tabindex="-1" aria-labelledby="characterCreatorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content" style="background-color: var(--card-bg-color); color: var(--text-color);">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1);">
+          <h5 class="modal-title" id="characterCreatorModalLabel">
+            <i class="fas fa-wand-magic-sparkles me-2"></i>Character Creator
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="padding: 0;">
+          <div class="row g-0" style="height: 75vh;">
+            <!-- Left Panel: Chat Interface -->
+            <div class="col-md-6" style="border-right: 1px solid rgba(74, 144, 226, 0.1); display: flex; flex-direction: column;">
+              <div class="p-3" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1);">
+                <!-- Completeness Progress Bar -->
+                <div class="mb-2">
+                  <small class="text-muted">Completeness: <span id="creator-completeness-text">0%</span></small>
+                </div>
+                <div class="progress" style="height: 12px; background-color: rgba(74, 144, 226, 0.1);">
+                  <div id="creator-completeness-bar" class="progress-bar"
+                       role="progressbar"
+                       style="width: 0%; background-color: #ff4d4d; transition: width 0.5s ease-in-out, background-color 0.3s;"
+                       aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+              </div>
+
+              <!-- Chat Messages -->
+              <div id="creator-messages" class="flex-grow-1 overflow-auto p-3" style="background-color: rgba(0,0,0,0.02);">
+                <div class="text-center text-muted mt-4">
+                  <i class="fas fa-wand-magic-sparkles fa-3x mb-3" style="opacity: 0.3;"></i>
+                  <p>Start creating your character by describing them.</p>
+                  <p class="small">Example: "A shy 28-year-old librarian who loves mystery novels"</p>
+                </div>
+              </div>
+
+              <!-- Input Area -->
+              <div class="p-3" style="border-top: 1px solid rgba(74, 144, 226, 0.1);">
+                <div class="input-group mb-2">
+                  <input type="text" id="creator-input" class="form-control"
+                         placeholder="Describe your character or ask for refinements..."
+                         style="background-color: white; border: 1px solid rgba(74, 144, 226, 0.2);">
+                  <button id="creator-send-btn" class="btn btn-primary">
+                    <i class="fas fa-paper-plane"></i> Send
+                  </button>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                  <small class="text-muted">
+                    Tokens: <span id="creator-tokens">0</span> |
+                    Calls: <span id="creator-roundtrips">0</span>
+                  </small>
+                  <button id="creator-new-btn" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-plus"></i> New Character
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Panel: Profile Preview & Edit -->
+            <div class="col-md-6" style="display: flex; flex-direction: column;">
+              <div class="p-3" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1);">
+                <h6 class="mb-0">Character Profile</h6>
+              </div>
+
+              <!-- Profile Editor -->
+              <div class="flex-grow-1 p-3 overflow-auto">
+                <textarea id="creator-profile-preview" class="form-control font-monospace h-100"
+                          placeholder="Profile will appear here... You can edit it directly."
+                          style="background-color: rgba(0,0,0,0.02); border: 1px solid rgba(74, 144, 226, 0.1); color: var(--text-color); font-size: 0.9rem; resize: none;"></textarea>
+              </div>
+
+              <!-- Save Controls -->
+              <div class="p-3" style="border-top: 1px solid rgba(74, 144, 226, 0.1);">
+                <div class="input-group mb-2">
+                  <span class="input-group-text" style="background-color: rgba(74, 144, 226, 0.1); border: 1px solid rgba(74, 144, 226, 0.2);">
+                    <i class="fas fa-file"></i>
+                  </span>
+                  <input type="text" id="creator-filename" class="form-control"
+                         placeholder="filename.txt"
+                         style="background-color: white; border: 1px solid rgba(74, 144, 226, 0.2);">
+                  <button id="creator-save-btn" class="btn btn-success">
+                    <i class="fas fa-save"></i> Save to Characters
+                  </button>
+                </div>
+                <div id="creator-validation-errors" class="text-danger small" style="display: none;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Server Configuration Modal -->
   <div class="modal fade" id="serverConfigModal" tabindex="-1" aria-labelledby="serverConfigModalLabel" aria-hidden="true">
