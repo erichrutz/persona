@@ -3275,7 +3275,7 @@
               </div>
 
               <!-- Chat Messages -->
-              <div id="creator-messages" class="flex-grow-1 overflow-auto p-3" style="background-color: rgba(0,0,0,0.02); min-height: 0;">
+              <div id="creator-messages" class="flex-grow-1 p-3" style="background-color: rgba(0,0,0,0.02); min-height: 0; overflow-y: auto; overflow-x: hidden;">
                 <div class="text-center text-muted mt-4">
                   <i class="fas fa-wand-magic-sparkles fa-3x mb-3" style="opacity: 0.3;"></i>
                   <p>Start creating your character by describing them.</p>
@@ -3312,10 +3312,11 @@
               </div>
 
               <!-- Profile Editor -->
-              <div class="flex-grow-1 p-3" style="min-height: 0; overflow: hidden;">
-                <textarea id="creator-profile-preview" class="form-control font-monospace h-100"
+              <div class="flex-grow-1 p-3 overflow-auto" style="min-height: 0;">
+                <textarea id="creator-profile-preview" class="form-control font-monospace"
                           placeholder="Profile will appear here... You can edit it directly."
-                          style="background-color: rgba(0,0,0,0.02); border: 1px solid rgba(74, 144, 226, 0.1); color: var(--text-color); font-size: 0.9rem; resize: none;"></textarea>
+                          rows="20"
+                          style="background-color: rgba(0,0,0,0.02); border: 1px solid rgba(74, 144, 226, 0.1); color: var(--text-color); font-size: 0.85rem; min-height: 400px;"></textarea>
               </div>
 
               <!-- Save Controls -->
