@@ -114,11 +114,12 @@ app.get('/api/placeholder/:width/:height', (req, res) => {
 });
 
 // Authentication middleware (applied to all routes except health check)
-app.use(basicAuth({
-  users: { [USERNAME]: PASSWORD },
-  challenge: true,
-  realm: 'Persona Character Simulation'
-}));
+// DISABLED for internal network use
+// app.use(basicAuth({
+//   users: { [USERNAME]: PASSWORD },
+//   challenge: true,
+//   realm: 'Persona Character Simulation'
+// }));
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));

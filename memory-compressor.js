@@ -316,13 +316,94 @@ COMPRESSED MEMORIES:`;
     }
   }
 
+  // Extract all content within curly brackets from a profile
+  extractCurlyBracketAttributes(profile) {
+    const curlyBracketRegex = /\{([^}]+)\}/g;
+    const attributes = new Map();
+    let match;
+
+    while ((match = curlyBracketRegex.exec(profile)) !== null) {
+      const content = match[1].trim();
+      const fullMatch = match[0]; // Includes the curly brackets
+      // Use the content as key to avoid duplicates
+      if (content && !attributes.has(content)) {
+        attributes.set(content, fullMatch);
+      }
+    }
+
+    return attributes;
+  }
+
+  // Detect the separator used in a section (comma, semicolon, pipe, or slash)
+  detectSeparator(sectionContent) {
+    // Count occurrences of different separators
+    const separatorCounts = {
+      ',': (sectionContent.match(/,/g) || []).length,
+      ';': (sectionContent.match(/;/g) || []).length,
+      '|': (sectionContent.match(/\|/g) || []).length,
+      '/': (sectionContent.match(/\//g) || []).length
+    };
+
+    // Return the most common separator, defaulting to comma
+    const maxSeparator = Object.entries(separatorCounts)
+      .reduce((max, [sep, count]) => count > max.count ? { sep, count } : max, { sep: ',', count: 0 });
+
+    return maxSeparator.sep;
+  }
+
+  // Restore curly bracket attributes that were lost during compression
+  restoreCurlyBracketAttributes(compressedProfile, originalProfile) {
+    const originalAttributes = this.extractCurlyBracketAttributes(originalProfile);
+    const compressedAttributes = this.extractCurlyBracketAttributes(compressedProfile);
+
+    // Find attributes that were in original but missing in compressed
+    const missingAttributes = [];
+    originalAttributes.forEach((fullMatch, content) => {
+      if (!compressedAttributes.has(content)) {
+        missingAttributes.push(fullMatch);
+      }
+    });
+
+    // If there are missing attributes, append them to the appropriate section
+    if (missingAttributes.length > 0) {
+      logger.debug(`Restoring ${missingAttributes.length} immutable attributes from curly brackets`);
+
+      // Try to find the best section to append to (prefer CORE or LOOKS)
+      const sections = ['CORE', 'LOOKS', 'TOPICS', 'TRIGGERS', 'CONNECTIONS'];
+      for (const section of sections) {
+        // Capture the entire section line (may span multiple lines)
+        const sectionRegex = new RegExp(`(${section}:\\s*[^\\n]+(?:\\n(?!\\w+:)[^\\n]+)*)`, 'i');
+        const match = compressedProfile.match(sectionRegex);
+        if (match) {
+          const sectionContent = match[1];
+
+          // Detect the separator used in this section
+          const separator = this.detectSeparator(sectionContent);
+
+          // Append missing attributes using the detected separator
+          const restoredAttributes = missingAttributes.join(`${separator} `);
+
+          return compressedProfile.replace(
+            sectionRegex,
+            `$1${separator} ${restoredAttributes}`
+          );
+        }
+      }
+
+      // If no suitable section found, append to the end with comma as default
+      return compressedProfile + '\n' + missingAttributes.join(', ');
+    }
+
+    return compressedProfile;
+  }
+
   // Make API request to compress memories
   async requestSimplifiedMemoryCompression(memoriesText) {
       if (!this.apiKey) {
         console.error('API key is required for memory compression');
         return null;
       }
-      
+
       try {
 
         const promptSymbolic = `MEMORY CONSOLIDATION INSTRUCTION
@@ -374,6 +455,13 @@ CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
    - # = Contextual trait
    - @ = Location-specific behavior
 
+9. CRITICAL - IMMUTABLE ATTRIBUTES:
+   * ALL content within curly brackets {like this} MUST be preserved EXACTLY as written
+   * Attributes in curly brackets are IMMUTABLE and CANNOT be modified, compressed, or removed
+   * If an attribute appears as {attribute}, it must appear as {attribute} in the compressed output
+   * Do NOT change the content inside curly brackets, even if it seems redundant
+   * Do NOT remove curly brackets or their contents during compression
+
 10. FORMAT ADHERENCE: Follow the exact section structure shown above, with all sections present but kept as concise as possible.
 
 11. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
@@ -415,9 +503,24 @@ ${JSON.stringify(memoriesText)}
         if (!response.ok) {
           throw new Error(`API request failed with status ${response.status}`);
         }
-        
+
         const data = await response.json();
-        return data.content[0].text.trim();
+        const compressed = data.content[0].text.trim();
+
+        // Restore immutable curly bracket attributes for both character and user profiles
+        const parts = compressed.split('---');
+        let restoredCharacter = parts[0] || '';
+        let restoredUser = parts[1] || '';
+
+        if (this.characterProfile) {
+          restoredCharacter = this.restoreCurlyBracketAttributes(restoredCharacter, this.characterProfile);
+        }
+        if (this.userProfile) {
+          restoredUser = this.restoreCurlyBracketAttributes(restoredUser, this.userProfile);
+        }
+
+        // Rejoin with separator
+        return restoredCharacter + (restoredUser ? '---' + restoredUser : '');
       } catch (error) {
         logger.error('Error in simplified memory compression request:', error);
         // Log detailed API error information
@@ -616,6 +719,13 @@ Main Rules:
 * Keep all numerical data and measurements
 * On conflict decide which attribute is the most recent one
 
+CRITICAL - IMMUTABLE ATTRIBUTES:
+* ALL content within curly brackets {like this} MUST be preserved EXACTLY as written
+* Attributes in curly brackets are IMMUTABLE and CANNOT be modified, compressed, or removed
+* If an attribute appears as {attribute}, it must appear as {attribute} in the compressed output
+* Do NOT change the content inside curly brackets, even if it seems redundant
+* Do NOT remove curly brackets or their contents during compression
+
 Return a summarized but complete character prompt that maintains all essential information and symbolic notation while reducing overall length. Ensure the compressed version retains full functionality for character generation and interaction.
 
 Return ONLY the compressed profile without explanations or commentary.
@@ -644,7 +754,12 @@ ${profile}`;
       }
 
       const data = await response.json();
-      return data.content[0].text.trim();
+      const compressed = data.content[0].text.trim();
+
+      // Restore any immutable curly bracket attributes that were lost
+      const restored = this.restoreCurlyBracketAttributes(compressed, profile);
+
+      return restored;
     } catch (error) {
       logger.error(`Error in ${profileType} profile compression:`, error);
       if (error.response) {
