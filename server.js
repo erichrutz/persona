@@ -184,11 +184,19 @@ app.post('/api/session', async (req, res) => {
       
       // Add to active sessions map
       activeSessions.set(chatClient.sessionId, chatClient);
-      
+
+      // Get last 3 messages from the loaded session and clean them
+      const lastMessages = chatClient.messages ? chatClient.messages.slice(-3).map(msg => ({
+        role: msg.role,
+        content: chatClient.cleanResponse(msg.content) // Remove JSON appendix
+      })) : [];
+
       return res.json({
         sessionId: chatClient.sessionId,
         characterName: loadResult.loadedState.characterProfile?.name || 'AI Assistant',
-        memoryState: chatClient.getMemoryState()
+        memoryState: chatClient.getMemoryState(),
+        messages: lastMessages,
+        characterType: loadResult.loadedState.characterType || 'custom'
       });
     } else {
       // Create new session

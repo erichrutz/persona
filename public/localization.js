@@ -103,7 +103,15 @@ const localization = {
     "connected": "Connected!",
     "memory_compressed": "Memory compressed:",
     "compression_skipped": "Compression skipped:",
-    "last_saved": "Last saved:"
+    "last_saved": "Last saved:",
+
+    // Character Browser
+    "character_browser_btn": "Character Browser",
+    "character_browser_title": "Character Browser",
+    "character_search_placeholder": "Search characters by name, appearance, personality, topics...",
+    "select_character_btn": "Select Character",
+    "previous_chats_btn": "Previous Chats",
+    "previous_chats_title": "Previous Chats"
   },
   
   "deutsch": {
@@ -207,7 +215,15 @@ const localization = {
     "connected": "Verbunden!",
     "memory_compressed": "Gedächtnis komprimiert:",
     "compression_skipped": "Kompression übersprungen:",
-    "last_saved": "Zuletzt gespeichert:"
+    "last_saved": "Zuletzt gespeichert:",
+
+    // Character Browser
+    "character_browser_btn": "Charakterübersicht",
+    "character_browser_title": "Charakterübersicht",
+    "character_search_placeholder": "Suche nach Name, Aussehen, Persönlichkeit, Themen...",
+    "select_character_btn": "Charakter auswählen",
+    "previous_chats_btn": "Frühere Chats",
+    "previous_chats_title": "Frühere Chats"
   }
 };
 

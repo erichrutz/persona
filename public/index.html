@@ -700,6 +700,34 @@
       margin-bottom: 1rem;
     }
     
+    /* Character Profile Formatting */
+    .profile-section {
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid rgba(74, 144, 226, 0.2);
+    }
+
+    .profile-section:last-child {
+      border-bottom: none;
+    }
+
+    .profile-section-header {
+      font-weight: 700;
+      font-size: 1.1em;
+      color: var(--primary-color);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+    }
+
+    .profile-section-content {
+      color: var(--text-color);
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
     /* For better mobile experience */
     @media (max-width: 768px) {
       .message {
@@ -773,6 +801,11 @@
             </button>
           </li>
           <li class="nav-item">
+            <button id="character-browser-btn" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#characterBrowserModal">
+              <i class="fas fa-users me-1"></i> <span data-i18n="character_browser_btn">Character Browser</span>
+            </button>
+          </li>
+          <li class="nav-item">
             <button id="character-creator-btn" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#characterCreatorModal">
               <i class="fas fa-wand-magic-sparkles me-1"></i> Character Creator
             </button>
@@ -816,11 +849,16 @@
           <!-- Character Selection Dropdown -->
           <div class="mb-4">
             <label for="character-select" class="form-label fw-bold" data-i18n="select_character_label">Select Character</label>
-            <select class="form-select form-select-lg" id="character-select">
-              <option value="" selected disabled data-i18n="select_character_placeholder">Choose a character to simulate...</option>
-              <option value="custom" data-i18n="character_custom">Custom Character - Create your own</option>
-            </select>
-            <div class="form-text" data-i18n="character_select_help">Select a character for your conversation simulation.</div>
+            <div class="d-flex gap-2 align-items-start">
+              <select class="form-select form-select-lg flex-grow-1" id="character-select">
+                <option value="" selected disabled data-i18n="select_character_placeholder">Choose a character to simulate...</option>
+                <option value="custom" data-i18n="character_custom">Custom Character - Create your own</option>
+              </select>
+              <button type="button" class="btn btn-outline-primary btn-lg" data-bs-toggle="modal" data-bs-target="#characterBrowserModal" title="Browse all characters">
+                <i class="fas fa-users"></i>
+              </button>
+            </div>
+            <div class="form-text" data-i18n="character_select_help">Select a character for your conversation simulation or browse all available characters.</div>
           </div>
           
           <!-- Character Description Panel -->
@@ -1516,7 +1554,237 @@
           return null;
         }
       }
-      
+
+      // Character Browser functionality
+      let allCharactersData = []; // Cache for full character data
+
+      async function loadCharacterBrowser() {
+        const grid = document.getElementById('character-browser-grid');
+        const countElement = document.getElementById('character-browser-count');
+
+        try {
+          // Load all characters with their full profiles
+          const charactersWithProfiles = await Promise.all(
+            availableCharacters.map(async (char) => {
+              const profile = await loadCharacterProfile(char.filename);
+              return {
+                ...char,
+                content: profile ? profile.content : '',
+                fullData: profile
+              };
+            })
+          );
+
+          allCharactersData = charactersWithProfiles;
+          displayCharacters(allCharactersData);
+
+        } catch (error) {
+          console.error('Error loading character browser:', error);
+          grid.innerHTML = '<div class="col-12 text-center py-5"><p class="text-danger">Error loading characters</p></div>';
+        }
+      }
+
+      function displayCharacters(characters) {
+        const grid = document.getElementById('character-browser-grid');
+        const countElement = document.getElementById('character-browser-count');
+
+        if (characters.length === 0) {
+          grid.innerHTML = '<div class="col-12 text-center py-5"><p class="text-muted">No characters found</p></div>';
+          countElement.textContent = '0 characters found';
+          return;
+        }
+
+        countElement.textContent = `${characters.length} character${characters.length !== 1 ? 's' : ''} found`;
+
+        grid.innerHTML = characters.map(char => {
+          // Extract key info from profile
+          let name = char.displayName;
+          let id = '';
+          let looks = '';
+          let core = '';
+
+          if (char.content) {
+            const nameMatch = char.content.match(/NAME:[ \t]+(.*?)(?=[\r\n])/i);
+            const idMatch = char.content.match(/ID:[ \t]+(.*?)(?=[\r\n])/i);
+            const looksMatch = char.content.match(/LOOKS:[ \t]+(.*?)(?=[\r\n])/i);
+            const coreMatch = char.content.match(/CORE:[ \t]+(.*?)(?=[\r\n])/i);
+
+            if (nameMatch) name = nameMatch[1].trim();
+            if (idMatch) id = idMatch[1].trim();
+            if (looksMatch) looks = looksMatch[1].trim().substring(0, 80) + '...';
+            if (coreMatch) core = coreMatch[1].trim().substring(0, 80) + '...';
+          }
+
+          return `
+            <div class="col-md-6 col-lg-4">
+              <div class="card h-100 character-browser-card" style="cursor: pointer;" data-filename="${char.filename}">
+                <div class="card-body">
+                  <h5 class="card-title">${name}</h5>
+                  ${id ? `<p class="card-text text-muted small mb-2"><i class="fas fa-id-card me-1"></i>${id}</p>` : ''}
+                  ${looks ? `<p class="card-text small mb-1"><strong>Looks:</strong> ${looks}</p>` : ''}
+                  ${core ? `<p class="card-text small mb-1"><strong>Core:</strong> ${core}</p>` : ''}
+                  <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary view-details-btn" data-filename="${char.filename}">
+                      <i class="fas fa-eye me-1"></i> View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Add click handlers
+        document.querySelectorAll('.view-details-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const filename = btn.getAttribute('data-filename');
+            openCharacterDetail(filename);
+          });
+        });
+
+        document.querySelectorAll('.character-browser-card').forEach(card => {
+          card.addEventListener('click', (e) => {
+            const filename = card.getAttribute('data-filename');
+            openCharacterDetail(filename);
+          });
+        });
+      }
+
+      function formatCharacterProfile(content) {
+        if (!content) return '<p class="text-muted">No profile data available</p>';
+
+        // Parse the symbolic format and create formatted sections
+        const sections = [];
+        const lines = content.split('\n');
+        let currentSection = null;
+        let currentContent = [];
+
+        // Common section headers in the symbolic format
+        const sectionHeaders = ['NAME', 'ID', 'LOOKS', 'CORE', 'SPEECH', 'TOPICS', 'TRIGGERS',
+                                'FRIENDS', 'RELATIONSHIPS', 'CONNECTIONS', 'USERRELATION', 'WANTS',
+                                'FEARS', 'SECRETS', 'BACKGROUND', 'PERSONALITY'];
+
+        for (let line of lines) {
+          // Check if line starts with a section header
+          const headerMatch = line.match(/^([A-Z]+):[ \t]*(.*)/);
+
+          if (headerMatch && sectionHeaders.includes(headerMatch[1])) {
+            // Save previous section if exists
+            if (currentSection) {
+              sections.push({
+                header: currentSection,
+                content: currentContent.join('\n')
+              });
+            }
+
+            // Start new section
+            currentSection = headerMatch[1];
+            currentContent = [headerMatch[2]]; // First line content
+          } else if (currentSection) {
+            // Add to current section
+            currentContent.push(line);
+          }
+        }
+
+        // Add last section
+        if (currentSection) {
+          sections.push({
+            header: currentSection,
+            content: currentContent.join('\n')
+          });
+        }
+
+        // Generate HTML
+        return sections.map(section => `
+          <div class="profile-section">
+            <span class="profile-section-header">${section.header}</span>
+            <div class="profile-section-content">${section.content.trim()}</div>
+          </div>
+        `).join('');
+      }
+
+      function openCharacterDetail(filename) {
+        const char = allCharactersData.find(c => c.filename === filename);
+        if (!char) return;
+
+        const detailModal = new bootstrap.Modal(document.getElementById('characterDetailModal'));
+        const nameElement = document.getElementById('character-detail-name');
+        const contentElement = document.getElementById('character-detail-content');
+        const selectBtn = document.getElementById('character-detail-select-btn');
+
+        // Extract name from content
+        let name = char.displayName;
+        if (char.content) {
+          const nameMatch = char.content.match(/NAME:[ \t]+(.*?)(?=[\r\n])/i);
+          if (nameMatch) name = nameMatch[1].trim();
+        }
+
+        nameElement.textContent = name;
+        contentElement.innerHTML = formatCharacterProfile(char.content);
+
+        // Set up select button
+        selectBtn.onclick = () => {
+          selectCharacterFromBrowser(filename);
+          detailModal.hide();
+          const browserModal = bootstrap.Modal.getInstance(document.getElementById('characterBrowserModal'));
+          if (browserModal) browserModal.hide();
+        };
+
+        detailModal.show();
+      }
+
+      function selectCharacterFromBrowser(filename) {
+        // Set the character in the dropdown
+        const characterSelect = document.getElementById('character-select');
+        if (characterSelect) {
+          characterSelect.value = filename;
+          characterSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Show the setup container if it's hidden
+        setupContainer.style.display = 'block';
+        sessionLoader.style.display = 'none';
+        chatContainer.style.display = 'none';
+        sessionInfoCard.style.display = 'none';
+      }
+
+      // Character browser search
+      const browserSearchInput = document.getElementById('character-browser-search');
+      if (browserSearchInput) {
+        browserSearchInput.addEventListener('input', (e) => {
+          const searchTerm = e.target.value.toLowerCase();
+
+          if (!searchTerm) {
+            displayCharacters(allCharactersData);
+            return;
+          }
+
+          const filtered = allCharactersData.filter(char => {
+            // Search in all fields
+            const searchableText = (
+              char.displayName + ' ' +
+              char.filename + ' ' +
+              (char.content || '')
+            ).toLowerCase();
+
+            return searchableText.includes(searchTerm);
+          });
+
+          displayCharacters(filtered);
+        });
+      }
+
+      // Load character browser when modal is opened
+      const characterBrowserModal = document.getElementById('characterBrowserModal');
+      if (characterBrowserModal) {
+        characterBrowserModal.addEventListener('shown.bs.modal', () => {
+          if (allCharactersData.length === 0) {
+            loadCharacterBrowser();
+          }
+        });
+      }
+
       // Handle character dropdown selection
       const characterSelect = document.getElementById('character-select');
       const characterDescriptionPanel = document.getElementById('character-description-panel');
@@ -1686,7 +1954,18 @@
             // Clear messages and add welcome back message
             messagesContainer.innerHTML = '';
             addSystemMessage(`Session loaded! Continue your conversation with ${data.characterName}.`);
-            
+
+            // Display last 3 messages if available
+            if (data.messages && data.messages.length > 0) {
+              data.messages.forEach(msg => {
+                if (msg.role === 'user') {
+                  addUserMessage(msg.content);
+                } else if (msg.role === 'assistant') {
+                  addAssistantMessage(msg.content);
+                }
+              });
+            }
+
             // Update model badge if available
             const modelBadge = document.getElementById('model-badge');
             if (modelBadge && data.model) {
@@ -3456,6 +3735,17 @@
           if (messagesContainer) {
             messagesContainer.innerHTML = '';
             addSystemMessage(`Session loaded! Continue your conversation with ${data.characterName}.`);
+
+            // Display last 3 messages if available
+            if (data.messages && data.messages.length > 0) {
+              data.messages.forEach(msg => {
+                if (msg.role === 'user') {
+                  addUserMessage(msg.content);
+                } else if (msg.role === 'assistant') {
+                  addAssistantMessage(msg.content);
+                }
+              });
+            }
           }
 
           // Update model badge and currentModel variable if available
@@ -4259,6 +4549,17 @@
             if (typeof addSystemMessage === 'function') {
               addSystemMessage(`Session loaded! Continue your conversation with ${data.characterName}.`);
             }
+
+            // Display last 3 messages if available
+            if (data.messages && data.messages.length > 0) {
+              data.messages.forEach(msg => {
+                if (msg.role === 'user' && typeof addUserMessage === 'function') {
+                  addUserMessage(msg.content);
+                } else if (msg.role === 'assistant' && typeof addAssistantMessage === 'function') {
+                  addAssistantMessage(msg.content);
+                }
+              });
+            }
           }
 
           // Update model badge and currentModel variable if available
@@ -4343,6 +4644,71 @@
 
     }); // End DOMContentLoaded
   </script>
+
+  <!-- Character Browser Modal -->
+  <div class="modal fade" id="characterBrowserModal" tabindex="-1" aria-labelledby="characterBrowserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content" style="background-color: var(--card-bg-color); color: var(--text-color); max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1); flex-shrink: 0;">
+          <h5 class="modal-title" id="characterBrowserModalLabel">
+            <i class="fas fa-users me-2"></i><span data-i18n="character_browser_title">Character Browser</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="overflow-y: auto; flex: 1;">
+          <!-- Search Bar -->
+          <div class="mb-4">
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-search"></i></span>
+              <input type="text" class="form-control" id="character-browser-search" placeholder="Search characters by name, appearance, personality, topics..." data-i18n-placeholder="character_search_placeholder">
+            </div>
+            <div class="form-text mt-2">
+              <span id="character-browser-count">0 characters found</span>
+            </div>
+          </div>
+
+          <!-- Character Grid -->
+          <div id="character-browser-grid" class="row g-3">
+            <!-- Characters will be loaded here dynamically -->
+            <div class="col-12 text-center py-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-3 text-muted">Loading characters...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Character Detail Modal -->
+  <div class="modal fade" id="characterDetailModal" tabindex="-1" aria-labelledby="characterDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content" style="background-color: var(--card-bg-color); color: var(--text-color);">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1);">
+          <h5 class="modal-title" id="characterDetailModalLabel">
+            <i class="fas fa-user me-2"></i><span id="character-detail-name">Character Details</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Character Profile Display -->
+          <div id="character-detail-content">
+            <!-- Profile content will be loaded here -->
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top: 1px solid rgba(74, 144, 226, 0.1);">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-1"></i> Close
+          </button>
+          <button type="button" class="btn btn-primary" id="character-detail-select-btn">
+            <i class="fas fa-check me-1"></i> <span data-i18n="select_character_btn">Select Character</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Character Creator Modal -->
   <div class="modal fade" id="characterCreatorModal" tabindex="-1" aria-labelledby="characterCreatorModalLabel" aria-hidden="true">
