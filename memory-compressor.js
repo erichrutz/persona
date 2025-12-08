@@ -804,7 +804,7 @@ ${profile}`;
       this.lastProfileCompressionTime = new Date();
       this.isCompressingProfiles = false;
 
-      return { compressed: true, originalBytes, newBytes, reduction };
+      return { compressed: true, originalSize: originalBytes, compressedSize: newBytes, reduction };
     } catch (error) {
       logger.error('Error compressing character profile:', error);
       this.isCompressingProfiles = false;
@@ -843,7 +843,7 @@ ${profile}`;
       this.lastProfileCompressionTime = new Date();
       this.isCompressingProfiles = false;
 
-      return { compressed: true, originalBytes, newBytes, reduction };
+      return { compressed: true, originalSize: originalBytes, compressedSize: newBytes, reduction };
     } catch (error) {
       logger.error('Error compressing user profile:', error);
       this.isCompressingProfiles = false;

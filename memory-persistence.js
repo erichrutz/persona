@@ -123,43 +123,76 @@ class MemoryPersistence {
   // List all available memory sessions
   async listSessions() {
     if (!this.initialized) await this.initialize();
-    
+
     try {
       const files = await fs.readdir(this.storageDir);
       const sessions = [];
-      
+
       for (const file of files) {
+        // Only process .json files (skip .md and other files)
+        if (!file.endsWith('.json')) {
+          continue;
+        }
+
         if (file.endsWith(this.fileExtension)) {
           try {
             const filePath = path.join(this.storageDir, file);
             const content = await fs.readFile(filePath, 'utf8');
             const data = JSON.parse(content);
-            let characterName = "Custom Character"; // Default name
+            const nameRegex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
 
-            // Safely check if characterProfile exists and is a string
-            if (data.memoryState && 
-                data.memoryState.characterProfile && 
+            let characterName = "Custom Character"; // Default name
+            let userName = null; // Default to null if not found
+
+            // Extract character name from characterProfile
+            if (data.memoryState &&
+                data.memoryState.characterProfile &&
                 typeof data.memoryState.characterProfile === 'string') {
-              const regex = /NAME:[ \t]+(.*?)(?=[ \t]*[\r\n]*[ \t]*ID:)/i;
-              const match = data.memoryState.characterProfile.match(regex);
-              
+              const match = data.memoryState.characterProfile.match(nameRegex);
+
               if (match) {
                 characterName = match[1].trim();
               }
             }
-            
+
+            // Extract user name from userProfile (may not exist)
+            if (data.memoryState &&
+                data.memoryState.userProfile &&
+                typeof data.memoryState.userProfile === 'string') {
+              const match = data.memoryState.userProfile.match(nameRegex);
+
+              if (match) {
+                userName = match[1].trim();
+              }
+            }
+
+            // Extract message metadata
+            const messages = data.messages || [];
+            const messageCount = messages.length;
+
+            // First message date: use session timestamp as fallback
+            const firstMessageDate = data.timestamp;
+
+            // Last message date: use file modification time as fallback
+            const stats = await fs.stat(filePath);
+            const lastMessageDate = stats.mtime.toISOString();
+
             sessions.push({
               sessionId: data.sessionId,
               timestamp: data.timestamp,
-              characterName: characterName
+              characterName: characterName,
+              userName: userName,
+              messageCount: messageCount,
+              firstMessageDate: firstMessageDate,
+              lastMessageDate: lastMessageDate
             });
           } catch (parseError) {
             console.warn(`Could not parse memory file ${file}:`, parseError);
           }
         }
       }
-      
-      return sessions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      return sessions.sort((a, b) => new Date(b.lastMessageDate) - new Date(a.lastMessageDate));
     } catch (error) {
       console.error('Error listing memory sessions:', error);
       throw error;

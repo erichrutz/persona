@@ -15,15 +15,19 @@
   <script>
     // Initialize fallback localization immediately
     window.localization = {
-      english: { 
+      english: {
         app_subtitle: "Immersive Character Experience",
         new_session_btn: "New Session",
-        load_session_btn: "Load Session"
+        load_session_btn: "Load Session",
+        previous_chats_btn: "Previous Chats",
+        previous_chats_title: "Previous Chats"
       },
-      deutsch: { 
+      deutsch: {
         app_subtitle: "Immersive Charakter Erfahrung",
-        new_session_btn: "Neue Sitzung", 
-        load_session_btn: "Sitzung laden"
+        new_session_btn: "Neue Sitzung",
+        load_session_btn: "Sitzung laden",
+        previous_chats_btn: "Frühere Chats",
+        previous_chats_title: "Frühere Chats"
       }
     };
 
@@ -701,10 +705,42 @@
       .message {
         max-width: 90%;
       }
-      
+
       .character-selection {
         grid-template-columns: 1fr;
       }
+    }
+
+    /* Session Manager Styles */
+    #sessionManagerModal .card {
+      transition: all 0.3s ease;
+      border: 1px solid rgba(74, 144, 226, 0.1);
+    }
+
+    #sessionManagerModal .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(74, 144, 226, 0.15);
+      border-color: rgba(74, 144, 226, 0.3);
+    }
+
+    #sessionManagerModal .card-body {
+      padding: 1.25rem;
+    }
+
+    #session-search {
+      border: 1px solid rgba(74, 144, 226, 0.2);
+      transition: all 0.3s ease;
+    }
+
+    #session-search:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.15);
+    }
+
+    .input-group-text {
+      background-color: rgba(74, 144, 226, 0.05);
+      border: 1px solid rgba(74, 144, 226, 0.2);
+      color: var(--primary-color);
     }
   </style>
 </head>
@@ -729,6 +765,11 @@
           <li class="nav-item">
             <button id="load-session-btn" class="btn btn-outline-primary me-2">
               <i class="fas fa-folder-open me-1"></i> <span data-i18n="load_session_btn">Load Session</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button id="previous-chats-btn" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#sessionManagerModal">
+              <i class="fas fa-history me-1"></i> <span data-i18n="previous_chats_btn">Previous Chats</span>
             </button>
           </li>
           <li class="nav-item">
@@ -927,29 +968,35 @@
     <div id="chat-container" class="row g-4" style="display: none;">
       <div class="col-lg-8">
         <div class="card h-100">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center">
-              <span id="character-avatar" class="message-avatar d-inline-block me-2 bg-primary"></span>
-              <span id="character-name" class="fw-semibold">Character Name</span>
-              <div class="dropdown ms-2">
-                <span id="model-badge" class="badge bg-secondary small dropdown-toggle" style="font-size: 0.7rem; cursor: pointer;" data-bs-toggle="dropdown" aria-expanded="false"></span>
-                <ul class="dropdown-menu model-dropdown" aria-labelledby="model-badge">
-                  <li><a class="dropdown-item model-option" data-model="claude-sonnet-4-5-20250929" href="#">Claude 4.5 Sonnet</a></li>
-                  <li><a class="dropdown-item model-option" data-model="claude-3-7-sonnet-20250219" href="#">Claude 3.7 Sonnet</a></li>
-                  <li><a class="dropdown-item model-option" data-model="claude-3-5-sonnet-20240620" href="#">Claude 3.5 Sonnet</a></li>
-                  <li><a class="dropdown-item model-option" data-model="claude-3-opus-20240229" href="#">Claude 3 Opus</a></li>
-                  <li><a class="dropdown-item model-option" data-model="claude-3-sonnet-20240229" href="#">Claude 3 Sonnet</a></li>
-                  <li><a class="dropdown-item model-option" data-model="claude-3-haiku-20240307" href="#">Claude 3 Haiku</a></li>
-                </ul>
+          <div class="card-header" style="padding: 0.75rem 1.25rem;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="d-flex align-items-center">
+                <span id="character-avatar" class="message-avatar d-inline-block me-2 bg-primary"></span>
+                <span id="character-name" class="fw-semibold">Character Name</span>
+                <div class="dropdown ms-2">
+                  <span id="model-badge" class="badge bg-secondary small dropdown-toggle" style="font-size: 0.7rem; cursor: pointer;" data-bs-toggle="dropdown" aria-expanded="false"></span>
+                  <ul class="dropdown-menu model-dropdown" aria-labelledby="model-badge">
+                    <li><a class="dropdown-item model-option" data-model="claude-sonnet-4-5-20250929" href="#">Claude 4.5 Sonnet</a></li>
+                    <li><a class="dropdown-item model-option" data-model="claude-3-7-sonnet-20250219" href="#">Claude 3.7 Sonnet</a></li>
+                    <li><a class="dropdown-item model-option" data-model="claude-3-5-sonnet-20240620" href="#">Claude 3.5 Sonnet</a></li>
+                    <li><a class="dropdown-item model-option" data-model="claude-3-opus-20240229" href="#">Claude 3 Opus</a></li>
+                    <li><a class="dropdown-item model-option" data-model="claude-3-sonnet-20240229" href="#">Claude 3 Sonnet</a></li>
+                    <li><a class="dropdown-item model-option" data-model="claude-3-haiku-20240307" href="#">Claude 3 Haiku</a></li>
+                  </ul>
+                </div>
+              </div>
+              <div>
+                <button id="show-memory" class="btn btn-sm btn-outline-primary me-2">
+                  <i class="fas fa-brain me-1"></i> <span data-i18n="memory_btn">Memory</span>
+                </button>
+                <button id="compress-memory" class="btn btn-sm btn-primary">
+                  <i class="fas fa-compress-alt me-1"></i> <span data-i18n="compress_btn">Compress</span>
+                </button>
               </div>
             </div>
-            <div>
-              <button id="show-memory" class="btn btn-sm btn-outline-primary me-2">
-                <i class="fas fa-brain me-1"></i> <span data-i18n="memory_btn">Memory</span>
-              </button>
-              <button id="compress-memory" class="btn btn-sm btn-primary">
-                <i class="fas fa-compress-alt me-1"></i> <span data-i18n="compress_btn">Compress</span>
-              </button>
+            <div class="d-flex align-items-center" style="gap: 6px; min-height: 22px;">
+              <span id="header-location-badge" class="message-location-badge" style="display: none; margin: 0; font-size: 0.65rem; padding: 2px 8px;"></span>
+              <span id="header-clothing-badge" class="message-clothing-badge" style="display: none; margin: 0; font-size: 0.65rem; padding: 2px 8px;"></span>
             </div>
           </div>
           
@@ -1129,17 +1176,109 @@
                   
                   <div class="compression-stats">
                     <p>API calls since last compression: <span id="api-call-count">0</span>/10</p>
-                    <div class="progress">
+                    <div class="progress mb-3">
                       <div id="compression-progress-bar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
                     </div>
-                    
-                    <p class="mt-3">Last compression: <span id="last-compression-time">Never</span></p>
+
+                    <p>Last compression: <span id="last-compression-time">Never</span></p>
                     <p>Compression count: <span id="compression-count">0</span></p>
                     <p>Last reduction: <span id="last-compression-ratio">N/A</span></p>
-                    
-                    <button id="compress-now-btn" class="btn btn-sm btn-primary mt-2">
+                    <p>Average reduction: <span id="avg-compression-ratio">N/A</span></p>
+
+                    <button id="compress-now-btn" class="btn btn-sm btn-primary mt-2 mb-3">
                       <i class="fas fa-sync-alt me-1"></i> Compress Now
                     </button>
+
+                    <!-- Token Usage Section -->
+                    <h6 class="mt-4 mb-2">Token Usage</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm">
+                        <tbody>
+                          <tr>
+                            <td>Total Tokens:</td>
+                            <td class="text-end"><strong><span id="total-tokens">0</span></strong></td>
+                          </tr>
+                          <tr>
+                            <td>Input Tokens:</td>
+                            <td class="text-end"><span id="total-input-tokens">0</span></td>
+                          </tr>
+                          <tr>
+                            <td>Output Tokens:</td>
+                            <td class="text-end"><span id="total-output-tokens">0</span></td>
+                          </tr>
+                          <tr>
+                            <td>Avg per Message:</td>
+                            <td class="text-end"><span id="avg-tokens-per-msg">0</span></td>
+                          </tr>
+                          <tr>
+                            <td>Peak Input:</td>
+                            <td class="text-end"><span id="peak-input-tokens">0</span></td>
+                          </tr>
+                          <tr>
+                            <td>Messages Processed:</td>
+                            <td class="text-end"><span id="messages-processed">0</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- Memory Statistics Section -->
+                    <h6 class="mt-4 mb-2">Memory Statistics</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm">
+                        <tbody>
+                          <tr>
+                            <td>Memories Created:</td>
+                            <td class="text-end"><span id="memories-created">0</span></td>
+                          </tr>
+                          <tr>
+                            <td>Memories Compressed:</td>
+                            <td class="text-end"><span id="memories-compressed">0</span></td>
+                          </tr>
+                          <tr>
+                            <td>Current Long-Term:</td>
+                            <td class="text-end"><span id="current-longterm">0</span></td>
+                          </tr>
+                          <tr>
+                            <td>Short-Term:</td>
+                            <td class="text-end"><span id="current-shortterm">0</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- Current State Section -->
+                    <h6 class="mt-4 mb-2">Profile Sizes</h6>
+                    <div class="table-responsive">
+                      <table class="table table-sm">
+                        <tbody>
+                          <tr>
+                            <td>Character Profile:</td>
+                            <td class="text-end"><span id="char-profile-bytes">0</span> bytes</td>
+                          </tr>
+                          <tr>
+                            <td>User Profile:</td>
+                            <td class="text-end"><span id="user-profile-bytes">0</span> bytes</td>
+                          </tr>
+                          <tr>
+                            <td>Deep Memory:</td>
+                            <td class="text-end"><span id="deep-memory-length">0</span> chars</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- Topic Distribution Section -->
+                    <h6 class="mt-4 mb-2">Topic Distribution</h6>
+                    <div id="topic-distribution" class="small">
+                      <em class="text-muted">No data yet</em>
+                    </div>
+
+                    <!-- Compression History Section -->
+                    <h6 class="mt-4 mb-2">Recent Compressions</h6>
+                    <div id="compression-history" class="small">
+                      <em class="text-muted">No compressions yet</em>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1214,7 +1353,14 @@
     function getText(key) {
       return localization[currentLanguage][key] || key;
     }
-    
+
+    // Helper function to escape HTML (global utility)
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       // Function to update model badge
       function updateModelBadge(model) {
@@ -1296,9 +1442,11 @@
       const messagesContainer = document.getElementById('messages');
       const messageInput = document.getElementById('message-input');
       const sendMessageButton = document.getElementById('send-message');
-      const showMemoryButton = document.getElementById('show-memory');      
+      const showMemoryButton = document.getElementById('show-memory');
       const compressMemoryButton = document.getElementById('compress-memory');
       const memoryPanel = document.getElementById('memory-panel');
+      const headerLocationBadge = document.getElementById('header-location-badge');
+      const headerClothingBadge = document.getElementById('header-clothing-badge');
       const shortTermMemoryList = document.getElementById('short-term-memory');
       const longTermMemoryList = document.getElementById('long-term-memory');
       const sessionInfoElement = document.getElementById('session-info');
@@ -1549,12 +1697,17 @@
             if (memoryPanel.style.display !== 'none') {
               updateMemoryDisplay(data.memoryState);
             }
-                        
+
+            // Update header badges with current location and clothing
+            if (data.memoryState) {
+              updateHeaderBadges(data.memoryState.location, data.memoryState.clothing);
+            }
+
             // Update compression toggle
             if (compressionToggle && data.memoryState && data.memoryState.compressionEnabled !== undefined) {
               compressionToggle.checked = data.memoryState.compressionEnabled;
             }
-            
+
             // Update compression stats
             updateCompressionStats();
           } else {
@@ -1737,6 +1890,8 @@
       
       async function sendMessage() {
         const message = messageInput.value.trim();
+        console.log('SendMessage: activeSessionId =', activeSessionId);
+        console.log('SendMessage: message =', message);
         if (!message || !activeSessionId) return;
         
         // Hide welcome placeholder when first message is sent
@@ -1769,6 +1924,9 @@
           if (response.ok) {
             // Add assistant response to UI with date, location, and clothing badges
             addAssistantMessage(data.response, data.date, data.location, data.clothing);
+
+            // Update header badges with current location and clothing
+            updateHeaderBadges(data.location, data.clothing);
 
             // Update memory display if visible
             if (memoryPanel.style.display !== 'none') {
@@ -2070,6 +2228,118 @@
                       lastCompressionRatioElement.textContent = 'N/A';
                     }
                   }
+
+                  // Update average compression ratio
+                  const avgCompressionRatioElement = document.getElementById('avg-compression-ratio');
+                  if (avgCompressionRatioElement && stats.averageCompressionReduction !== undefined) {
+                    avgCompressionRatioElement.textContent = `${stats.averageCompressionReduction}%`;
+                  }
+
+                  // Update token usage statistics
+                  if (stats.tokenUsage) {
+                    const updateElement = (id, value) => {
+                      const el = document.getElementById(id);
+                      if (el) el.textContent = value.toLocaleString();
+                    };
+
+                    updateElement('total-tokens', stats.tokenUsage.totalTokens);
+                    updateElement('total-input-tokens', stats.tokenUsage.totalInputTokens);
+                    updateElement('total-output-tokens', stats.tokenUsage.totalOutputTokens);
+                    updateElement('avg-tokens-per-msg', stats.tokenUsage.averageTokensPerMessage);
+                    updateElement('peak-input-tokens', stats.tokenUsage.peakInputTokens);
+                    updateElement('messages-processed', stats.tokenUsage.messagesProcessed);
+                  }
+
+                  // Update memory statistics
+                  if (stats.memoryStats) {
+                    const updateElement = (id, value) => {
+                      const el = document.getElementById(id);
+                      if (el) el.textContent = value.toLocaleString();
+                    };
+
+                    updateElement('memories-created', stats.memoryStats.totalMemoriesCreated);
+                    updateElement('memories-compressed', stats.memoryStats.totalMemoriesCompressed);
+                    updateElement('current-longterm', stats.memoryStats.currentLongTermMemories);
+                  }
+
+                  // Update current state
+                  if (stats.currentState) {
+                    const updateElement = (id, value) => {
+                      const el = document.getElementById(id);
+                      if (el) el.textContent = value.toLocaleString();
+                    };
+
+                    updateElement('current-shortterm', stats.currentState.shortTermMemoryCount);
+                    updateElement('char-profile-bytes', stats.currentState.characterProfileBytes);
+                    updateElement('user-profile-bytes', stats.currentState.userProfileBytes);
+                    updateElement('deep-memory-length', stats.currentState.deepMemoryLength);
+                  }
+
+                  // Update topic distribution
+                  const topicDistElement = document.getElementById('topic-distribution');
+                  if (topicDistElement && stats.memoryStats && stats.memoryStats.topicDistribution) {
+                    const topics = stats.memoryStats.topicDistribution;
+                    const topicKeys = Object.keys(topics);
+
+                    if (topicKeys.length === 0) {
+                      topicDistElement.innerHTML = '<em class="text-muted">No data yet</em>';
+                    } else {
+                      // Sort topics by count (descending)
+                      topicKeys.sort((a, b) => topics[b] - topics[a]);
+
+                      // Create a list of topics
+                      let html = '<div class="table-responsive"><table class="table table-sm table-striped">';
+                      html += '<tbody>';
+
+                      topicKeys.forEach(topic => {
+                        const count = topics[topic];
+                        const percentage = stats.memoryStats.totalMemoriesCreated > 0
+                          ? ((count / stats.memoryStats.totalMemoriesCreated) * 100).toFixed(0)
+                          : 0;
+
+                        html += `<tr>
+                          <td class="text-truncate" style="max-width: 150px;" title="${topic}">${topic}</td>
+                          <td class="text-end">${count}</td>
+                          <td class="text-end text-muted">${percentage}%</td>
+                        </tr>`;
+                      });
+
+                      html += '</tbody></table></div>';
+                      topicDistElement.innerHTML = html;
+                    }
+                  }
+
+                  // Update compression history
+                  const compressionHistoryElement = document.getElementById('compression-history');
+                  if (compressionHistoryElement && stats.recentCompressions) {
+                    const history = stats.recentCompressions;
+
+                    if (history.length === 0) {
+                      compressionHistoryElement.innerHTML = '<em class="text-muted">No compressions yet</em>';
+                    } else {
+                      let html = '<div class="list-group list-group-flush">';
+
+                      // Show most recent compressions first (reverse order)
+                      [...history].reverse().forEach((entry, index) => {
+                        const date = new Date(entry.timestamp);
+                        const timeStr = date.toLocaleString();
+                        const reduction = entry.reductionPercent || 0;
+
+                        html += `<div class="list-group-item px-0 py-2">
+                          <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">${timeStr}</small>
+                            <span class="badge bg-${reduction > 80 ? 'success' : reduction > 60 ? 'primary' : 'secondary'}">${reduction}%</span>
+                          </div>
+                          <small class="text-muted">
+                            ${entry.beforeCounts.longTerm} → ${entry.afterCounts.longTerm} memories
+                          </small>
+                        </div>`;
+                      });
+
+                      html += '</div>';
+                      compressionHistoryElement.innerHTML = html;
+                    }
+                  }
                 }
               })
               .catch(error => console.error('Error fetching compression stats:', error));
@@ -2180,7 +2450,35 @@
         messagesContainer.appendChild(messageElement);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
-      
+
+      // Update header badges with current location and clothing
+      function updateHeaderBadges(location = null, clothing = null) {
+        // Update location badge
+        const hasLocation = location && location !== 'unknown' && location !== 'null' && location.trim() !== '';
+        if (hasLocation && headerLocationBadge) {
+          headerLocationBadge.innerHTML = `📍 ${location}`;
+          headerLocationBadge.style.display = 'inline-block';
+        } else if (headerLocationBadge) {
+          headerLocationBadge.style.display = 'none';
+        }
+
+        // Update clothing badge (only show character clothing in header)
+        let charClothing = '';
+        if (clothing && typeof clothing === 'object' && clothing.char) {
+          charClothing = clothing.char;
+        } else if (typeof clothing === 'string') {
+          charClothing = clothing;
+        }
+
+        const hasClothing = charClothing && charClothing !== 'unknown' && charClothing !== 'null' && charClothing.trim() !== '';
+        if (hasClothing && headerClothingBadge) {
+          headerClothingBadge.innerHTML = `👗 ${charClothing}`;
+          headerClothingBadge.style.display = 'inline-block';
+        } else if (headerClothingBadge) {
+          headerClothingBadge.style.display = 'none';
+        }
+      }
+
       // Handle deep memory save
       if (document.getElementById('save-deep-memory')) {
         document.getElementById('save-deep-memory').addEventListener('click', async () => {
@@ -2953,6 +3251,516 @@
       
       // Initialize character loading on page load
       loadAvailableCharacters();
+
+      // ===== Session Manager Functions =====
+      let allSessions = [];
+      let filteredSessions = [];
+
+      // Load sessions when modal is opened
+      document.getElementById('sessionManagerModal').addEventListener('show.bs.modal', async function() {
+        await loadSessions();
+      });
+
+      // Search functionality
+      document.getElementById('session-search').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        filterSessions(searchTerm);
+      });
+
+      async function loadSessions() {
+        const loadingEl = document.getElementById('sessions-loading');
+        const emptyEl = document.getElementById('sessions-empty');
+        const listEl = document.getElementById('sessions-list');
+
+        // Show loading state
+        loadingEl.style.display = 'block';
+        emptyEl.style.display = 'none';
+        listEl.innerHTML = '';
+
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl('/api/sessions')
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to load sessions: ${response.statusText}`);
+          }
+
+          allSessions = await response.json();
+          filteredSessions = [...allSessions];
+
+          loadingEl.style.display = 'none';
+
+          if (allSessions.length === 0) {
+            emptyEl.style.display = 'block';
+          } else {
+            renderSessions(filteredSessions);
+          }
+        } catch (error) {
+          console.error('Error loading sessions:', error);
+          loadingEl.style.display = 'none';
+          emptyEl.style.display = 'block';
+          listEl.innerHTML = `<div class="col-12"><div class="alert alert-danger">Error loading sessions: ${error.message}</div></div>`;
+        }
+      }
+
+      function filterSessions(searchTerm) {
+        if (!searchTerm) {
+          filteredSessions = [...allSessions];
+        } else {
+          filteredSessions = allSessions.filter(session => {
+            const characterMatch = session.characterName && session.characterName.toLowerCase().includes(searchTerm);
+            const userMatch = session.userName && session.userName.toLowerCase().includes(searchTerm);
+            return characterMatch || userMatch;
+          });
+        }
+
+        const emptyEl = document.getElementById('sessions-empty');
+        const listEl = document.getElementById('sessions-list');
+
+        if (filteredSessions.length === 0) {
+          emptyEl.style.display = 'block';
+          listEl.innerHTML = '';
+        } else {
+          emptyEl.style.display = 'none';
+          renderSessions(filteredSessions);
+        }
+      }
+
+      function renderSessions(sessions) {
+        const listEl = document.getElementById('sessions-list');
+        listEl.innerHTML = '';
+
+        sessions.forEach(session => {
+          const card = createSessionCard(session);
+          listEl.appendChild(card);
+        });
+      }
+
+      function createSessionCard(session) {
+        const col = document.createElement('div');
+        col.className = 'col-12';
+
+        const firstDate = new Date(session.firstMessageDate).toLocaleDateString();
+        const lastDate = new Date(session.lastMessageDate).toLocaleDateString();
+        const userName = session.userName || '<span class="text-muted">Unknown</span>';
+
+        col.innerHTML = `
+          <div class="card" style="transition: transform 0.2s;">
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-8">
+                  <h6 class="card-title mb-2">
+                    <i class="fas fa-user-circle me-1" style="color: var(--primary-color);"></i>
+                    <strong>Character:</strong> ${escapeHtml(session.characterName)}
+                  </h6>
+                  <p class="card-text small mb-1">
+                    <i class="fas fa-user me-1" style="color: var(--dark-accent);"></i>
+                    <strong>User:</strong> ${userName}
+                  </p>
+                  <p class="card-text small mb-1">
+                    <i class="fas fa-comments me-1" style="color: var(--dark-accent);"></i>
+                    <strong>Messages:</strong> ${session.messageCount}
+                  </p>
+                  <p class="card-text small text-muted mb-0">
+                    <i class="fas fa-calendar me-1"></i>
+                    <strong>First:</strong> ${firstDate} | <strong>Last:</strong> ${lastDate}
+                  </p>
+                </div>
+                <div class="col-md-4 d-flex flex-column justify-content-center align-items-end">
+                  <button class="btn btn-sm btn-primary mb-2 w-100 resume-btn" data-session-id="${session.sessionId}">
+                    <i class="fas fa-play me-1"></i> Resume
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary mb-2 w-100 view-json-btn" data-session-id="${session.sessionId}">
+                    <i class="fas fa-file-code me-1"></i> View JSON
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger w-100 delete-btn" data-session-id="${session.sessionId}" data-character-name="${escapeHtml(session.characterName)}">
+                    <i class="fas fa-trash me-1"></i> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Add event listeners
+        const resumeBtn = col.querySelector('.resume-btn');
+        const viewJsonBtn = col.querySelector('.view-json-btn');
+        const deleteBtn = col.querySelector('.delete-btn');
+
+        resumeBtn.addEventListener('click', () => {
+          resumeSessionHandler(session.sessionId);
+        });
+
+        viewJsonBtn.addEventListener('click', () => {
+          viewSessionJson(session.sessionId);
+        });
+
+        deleteBtn.addEventListener('click', () => {
+          deleteSessionConfirmHandler(session.sessionId, session.characterName);
+        });
+
+        return col;
+      }
+
+      // Resume session handler
+      async function resumeSessionHandler(sessionId) {
+        try {
+          // Load the session (using same approach as existing Load Session)
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl('/api/session'),
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                sessionId: sessionId,
+                apiKey: null, // Will use stored API key
+                language: 'english' // Default language
+              })
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            alert(`Error: ${data.error || 'Failed to load session'}`);
+            return;
+          }
+
+          // Update UI - matching the existing Load Session behavior
+          activeSessionId = data.sessionId;
+          console.log('Resume: Set activeSessionId to:', activeSessionId);
+
+          if (characterNameElement) characterNameElement.textContent = data.characterName;
+          if (sessionInfoElement) sessionInfoElement.textContent = `Active session: ${data.characterName}`;
+          if (saveStatusElement) saveStatusElement.textContent = 'Auto-saving enabled';
+          if (saveSessionButton) saveSessionButton.disabled = false;
+
+          // Set character avatar background color
+          if (typeof setCharacterAvatar === 'function') {
+            setCharacterAvatar(data.characterType);
+          }
+
+          // Hide setup and show chat
+          if (setupContainer) setupContainer.style.display = 'none';
+          if (sessionLoader) sessionLoader.style.display = 'none';
+          if (chatContainer) chatContainer.style.display = 'flex';
+          if (sessionInfoCard) sessionInfoCard.style.display = 'flex';
+
+          // Hide welcome placeholder
+          if (welcomePlaceholder) welcomePlaceholder.style.display = 'none';
+
+          // Clear messages and add system message
+          if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+            addSystemMessage(`Session loaded! Continue your conversation with ${data.characterName}.`);
+          }
+
+          // Update model badge and currentModel variable if available
+          const modelBadge = document.getElementById('model-badge');
+          if (data.model) {
+            currentModel = data.model;
+            updateModelBadge(data.model);
+          }
+
+          // Update memory display if visible
+          if (memoryPanel.style.display !== 'none') {
+            updateMemoryDisplay(data.memoryState);
+          }
+
+          // Update header badges with current location and clothing
+          if (data.memoryState) {
+            updateHeaderBadges(data.memoryState.location, data.memoryState.clothing);
+          }
+
+          // Update compression toggle
+          if (compressionToggle && data.memoryState && data.memoryState.compressionEnabled !== undefined) {
+            compressionToggle.checked = data.memoryState.compressionEnabled;
+          }
+
+          // Update compression stats
+          updateCompressionStats();
+
+          // Close the modal AFTER everything is set up
+          const modal = bootstrap.Modal.getInstance(document.getElementById('sessionManagerModal'));
+          if (modal) modal.hide();
+        } catch (error) {
+          console.error('Error resuming session:', error);
+          alert(`Error resuming session: ${error.message}`);
+        }
+      }
+
+      function deleteSessionConfirmHandler(sessionId, characterName) {
+        if (confirm(`Are you sure you want to delete the chat with ${characterName}?\n\nThis action cannot be undone.`)) {
+          deleteSessionHandler(sessionId);
+        }
+      }
+
+      async function deleteSessionHandler(sessionId) {
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl(`/api/session/${sessionId}`),
+            {
+              method: 'DELETE'
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to delete session: ${response.statusText}`);
+          }
+
+          // Reload sessions list
+          await loadSessions();
+
+          // If this was the active session, reset the UI
+          if (activeSessionId === sessionId) {
+            activeSessionId = null;
+            if (setupContainer) setupContainer.style.display = 'block';
+            if (chatContainer) chatContainer.style.display = 'none';
+            if (sessionInfoCard) sessionInfoCard.style.display = 'none';
+            const chatMessagesEl = document.getElementById('messages');
+            if (chatMessagesEl) chatMessagesEl.innerHTML = '';
+          }
+        } catch (error) {
+          console.error('Error deleting session:', error);
+          alert(`Error deleting session: ${error.message}`);
+        }
+      }
+
+      // Convert session data to readable Markdown format
+      function convertToReadable(sessionData) {
+        const charProfile = sessionData.characterProfile || '';
+        const userProfile = sessionData.userProfile || '';
+
+        // Extract character name
+        let charName = 'Unknown';
+        const charNameMatch = charProfile.match(/NAME:\s*(.+?)(?:\n|$)/i);
+        if (charNameMatch) charName = charNameMatch[1].trim();
+
+        // Extract user name - be careful with empty or invalid names
+        let userName = 'User';
+        if (userProfile && userProfile.trim()) {
+          // Match NAME: at the start of a line, followed by non-empty content
+          const userNameMatch = userProfile.match(/^NAME:\s*(.+?)$/im);
+          if (userNameMatch) {
+            const extractedName = userNameMatch[1].trim();
+            // Only use extracted name if it's valid (not empty, not "ID:", not just special chars)
+            if (extractedName &&
+                extractedName.length > 0 &&
+                !extractedName.startsWith('ID:') &&
+                !extractedName.match(/^[\/\*\s]+$/)) {
+              userName = extractedName;
+            }
+          }
+        }
+
+        const timestamp = sessionData.timestamp || '';
+        const date = sessionData.date || '';
+        const sessionId = sessionData.sessionId || '';
+
+        let output = `# ${charName} – Session ${date}\n\n`;
+        output += `**Session ID:** \`${sessionId}\`  \n`;
+        output += `**Started:** ${timestamp}\n\n`;
+        output += '='.repeat(80) + '\n\n';
+
+        // Process messages
+        const messages = sessionData.messages || [];
+        messages.forEach((msg, i) => {
+          const role = msg.role || '';
+          let content = msg.content || '';
+
+          // Extract location and clothing from assistant messages
+          let location = '';
+          let charClothing = '';
+          if (role === 'assistant') {
+            // Try to extract JSON block
+            const jsonMatch = content.match(/\n\s*\{.*?\}\s*$/s);
+            if (jsonMatch) {
+              try {
+                const memoryData = JSON.parse(jsonMatch[0].trim());
+                location = memoryData.location || '';
+                const clothingData = memoryData.clothing || {};
+                charClothing = typeof clothingData === 'object' ? (clothingData.char || '') : clothingData;
+              } catch (e) {}
+            }
+
+            // Remove JSON memory block
+            content = content.replace(/\n\s*\{.*?\}\s*$/s, '');
+
+            // Remove date lines
+            content = content.replace(/^\d{4}-\d{2}-\d{2}(?:\s+\d{4}-\d{2}-\d{2})?\s*/gm, '');
+          }
+
+          // Determine speaker - always use "User" for user messages if no name
+          let speaker = role === 'user' ? (userName || 'User') : charName;
+          const prefix = role === 'user' ? '→' : '←';
+
+          let context = '';
+          if (role === 'assistant') {
+            if (location && charClothing) {
+              context = `\n   📍 ${location}\n   👗 ${charClothing}`;
+            } else if (location) {
+              context = `\n   📍 ${location}`;
+            } else if (charClothing) {
+              context = `\n   👗 ${charClothing}`;
+            }
+          }
+
+          // Clean up content
+          content = content.trim();
+          content = content.replace(/\n{3,}/g, '\n\n');
+
+          // Clean up user messages
+          if (role === 'user') {
+            const lines = content.split('\n');
+            const cleanedLines = lines.filter(line => !line.match(/^[\*\s]*$/));
+            content = cleanedLines.join('\n').trim();
+            if (!content) return;
+          }
+
+          // Write message
+          if (i > 0) output += '\n';
+          output += `${prefix} **${speaker}**${context}\n\n`;
+          output += `${content}\n`;
+          output += '-'.repeat(80) + '\n';
+        });
+
+        // Add metadata section
+        output += '\n' + '='.repeat(80) + '\n';
+        output += '='.repeat(80) + '\n\n';
+        output += '## 📋 Session Details\n\n';
+        output += `**Character:** ${charName}  \n`;
+        output += `**User:** ${userName}  \n`;
+        output += `**Date:** ${date}  \n`;
+        output += `**Session ID:** ${sessionId}\n\n`;
+
+        // Short-term memory
+        const shortTerm = sessionData.memoryState?.shortTerm || [];
+        if (shortTerm.length > 0) {
+          output += '### 🧠 Short-term Memory\n\n';
+          shortTerm.forEach(item => {
+            const content = typeof item === 'object' ? (item.content || '') : item;
+            if (content) output += `• ${content}\n`;
+          });
+          output += '\n';
+        }
+
+        // History
+        const history = sessionData.history || [];
+        if (history.length > 0) {
+          output += '### 📜 History\n\n';
+          history.forEach(item => {
+            const change = item.change || '';
+            const ts = item.timestamp || '';
+            if (change) {
+              output += `• ${change}`;
+              if (ts) output += ` _${ts}_`;
+              output += '\n';
+            }
+          });
+          output += '\n';
+        }
+
+        return output;
+      }
+
+      // View session JSON
+      async function viewSessionJson(sessionId) {
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl(`/api/session/${sessionId}/json`)
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to load session: ${response.statusText}`);
+          }
+
+          const sessionData = await response.json();
+          let currentView = 'readable'; // Start with readable view
+
+          // Create and show modal with toggle buttons
+          const modal = document.createElement('div');
+          modal.className = 'modal fade';
+          modal.id = 'jsonViewModal';
+          modal.innerHTML = `
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">
+                    <i class="fas fa-file-alt me-2"></i>Session Data: ${sessionId}
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="mb-3 d-flex gap-2">
+                    <button class="btn btn-sm btn-primary" id="toggleViewBtn">
+                      <i class="fas fa-exchange-alt me-1"></i> <span id="toggleText">Switch to JSON</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" id="copyContentBtn">
+                      <i class="fas fa-copy me-1"></i> Copy to Clipboard
+                    </button>
+                  </div>
+                  <div id="contentDisplay" style="background-color: #f5f5f5; padding: 1rem; border-radius: 4px; max-height: 70vh; overflow: auto; white-space: pre-wrap; font-family: monospace;"></div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          document.body.appendChild(modal);
+
+          const bsModal = new bootstrap.Modal(modal);
+          bsModal.show();
+
+          const contentDisplay = document.getElementById('contentDisplay');
+          const toggleBtn = document.getElementById('toggleViewBtn');
+          const toggleText = document.getElementById('toggleText');
+          const copyBtn = document.getElementById('copyContentBtn');
+
+          // Function to update display
+          function updateDisplay() {
+            if (currentView === 'readable') {
+              const readableText = convertToReadable(sessionData);
+              contentDisplay.textContent = readableText;
+              toggleText.textContent = 'Switch to JSON';
+            } else {
+              contentDisplay.textContent = JSON.stringify(sessionData, null, 2);
+              toggleText.textContent = 'Switch to Readable';
+            }
+          }
+
+          // Initial display
+          updateDisplay();
+
+          // Toggle view
+          toggleBtn.addEventListener('click', () => {
+            currentView = currentView === 'readable' ? 'json' : 'readable';
+            updateDisplay();
+          });
+
+          // Copy functionality
+          copyBtn.addEventListener('click', () => {
+            const textToCopy = contentDisplay.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+              const originalHtml = copyBtn.innerHTML;
+              copyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+              setTimeout(() => {
+                copyBtn.innerHTML = originalHtml;
+              }, 2000);
+            });
+          });
+
+          // Remove modal from DOM when hidden
+          modal.addEventListener('hidden.bs.modal', () => {
+            modal.remove();
+          });
+        } catch (error) {
+          console.error('Error viewing session JSON:', error);
+          alert(`Error loading session data: ${error.message}`);
+        }
+      }
+
     });
 
     // ========================================
@@ -3244,6 +4052,295 @@
       document.getElementById('characterCreatorModal').addEventListener('shown.bs.modal', function() {
         creatorInput.focus();
       });
+
+      async function loadSessions() {
+        const loadingEl = document.getElementById('sessions-loading');
+        const emptyEl = document.getElementById('sessions-empty');
+        const listEl = document.getElementById('sessions-list');
+
+        // Show loading state
+        loadingEl.style.display = 'block';
+        emptyEl.style.display = 'none';
+        listEl.innerHTML = '';
+
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl('/api/sessions')
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to load sessions: ${response.statusText}`);
+          }
+
+          allSessions = await response.json();
+          filteredSessions = [...allSessions];
+
+          loadingEl.style.display = 'none';
+
+          if (allSessions.length === 0) {
+            emptyEl.style.display = 'block';
+          } else {
+            renderSessions(filteredSessions);
+          }
+        } catch (error) {
+          console.error('Error loading sessions:', error);
+          loadingEl.style.display = 'none';
+          emptyEl.style.display = 'block';
+          listEl.innerHTML = `<div class="col-12"><div class="alert alert-danger">Error loading sessions: ${error.message}</div></div>`;
+        }
+      }
+
+      function filterSessions(searchTerm) {
+        if (!searchTerm) {
+          filteredSessions = [...allSessions];
+        } else {
+          filteredSessions = allSessions.filter(session => {
+            const characterMatch = session.characterName && session.characterName.toLowerCase().includes(searchTerm);
+            const userMatch = session.userName && session.userName.toLowerCase().includes(searchTerm);
+            return characterMatch || userMatch;
+          });
+        }
+
+        const emptyEl = document.getElementById('sessions-empty');
+        const listEl = document.getElementById('sessions-list');
+
+        if (filteredSessions.length === 0) {
+          emptyEl.style.display = 'block';
+          listEl.innerHTML = '';
+        } else {
+          emptyEl.style.display = 'none';
+          renderSessions(filteredSessions);
+        }
+      }
+
+      function renderSessions(sessions) {
+        const listEl = document.getElementById('sessions-list');
+        listEl.innerHTML = '';
+
+        sessions.forEach(session => {
+          const card = createSessionCard(session);
+          listEl.appendChild(card);
+        });
+      }
+
+      function createSessionCard(session) {
+        const col = document.createElement('div');
+        col.className = 'col-12';
+
+        const firstDate = new Date(session.firstMessageDate).toLocaleDateString();
+        const lastDate = new Date(session.lastMessageDate).toLocaleDateString();
+        const userName = session.userName || '<span class="text-muted">Unknown</span>';
+
+        col.innerHTML = `
+          <div class="card" style="transition: transform 0.2s;">
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-8">
+                  <h6 class="card-title mb-2">
+                    <i class="fas fa-user-circle me-1" style="color: var(--primary-color);"></i>
+                    <strong>Character:</strong> ${escapeHtml(session.characterName)}
+                  </h6>
+                  <p class="card-text small mb-1">
+                    <i class="fas fa-user me-1" style="color: var(--dark-accent);"></i>
+                    <strong>User:</strong> ${userName}
+                  </p>
+                  <p class="card-text small mb-1">
+                    <i class="fas fa-comments me-1" style="color: var(--dark-accent);"></i>
+                    <strong>Messages:</strong> ${session.messageCount}
+                  </p>
+                  <p class="card-text small text-muted mb-0">
+                    <i class="fas fa-calendar me-1"></i>
+                    <strong>First:</strong> ${firstDate} | <strong>Last:</strong> ${lastDate}
+                  </p>
+                </div>
+                <div class="col-md-4 d-flex flex-column justify-content-center align-items-end">
+                  <button class="btn btn-sm btn-primary mb-2 w-100 resume-btn" data-session-id="${session.sessionId}">
+                    <i class="fas fa-play me-1"></i> Resume
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger w-100 delete-btn" data-session-id="${session.sessionId}" data-character-name="${escapeHtml(session.characterName)}">
+                    <i class="fas fa-trash me-1"></i> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Add event listeners
+        const resumeBtn = col.querySelector('.resume-btn');
+        const deleteBtn = col.querySelector('.delete-btn');
+
+        resumeBtn.addEventListener('click', () => {
+          window.resumeSession(session.sessionId);
+        });
+
+        deleteBtn.addEventListener('click', () => {
+          window.deleteSessionConfirm(session.sessionId, session.characterName);
+        });
+
+        return col;
+      }
+
+      // Global functions for button handlers
+      window.resumeSession = async function(sessionId) {
+        try {
+          // Load the session (using same approach as existing Load Session)
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl('/api/session'),
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                sessionId: sessionId,
+                apiKey: null, // Will use stored API key
+                language: 'english' // Default language
+              })
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            alert(`Error: ${data.error || 'Failed to load session'}`);
+            return;
+          }
+
+          // Update UI - matching the existing Load Session behavior
+          // CRITICAL: Set activeSessionId directly (not checking if defined, just set it)
+          activeSessionId = data.sessionId;
+          console.log('Resume: Set activeSessionId to:', activeSessionId);
+          console.log('Resume: Session data:', data);
+
+          // Debug: Check if it persists after a delay
+          setTimeout(() => {
+            console.log('Resume: activeSessionId after 100ms:', activeSessionId);
+          }, 100);
+          setTimeout(() => {
+            console.log('Resume: activeSessionId after 1000ms:', activeSessionId);
+          }, 1000);
+
+          const characterNameElement = document.getElementById('character-name');
+          const sessionInfoElement = document.getElementById('session-info');
+          const saveStatusElement = document.getElementById('save-status');
+          const saveSessionButton = document.getElementById('save-session-btn');
+          const setupContainer = document.getElementById('setup-container');
+          const sessionLoader = document.getElementById('session-loader');
+          const chatContainer = document.getElementById('chat-container');
+          const sessionInfoCard = document.getElementById('session-info-card');
+          const welcomePlaceholder = document.getElementById('welcome-placeholder');
+          const messagesContainer = document.getElementById('messages');
+          const memoryPanel = document.getElementById('memory-panel');
+          const compressionToggle = document.getElementById('compression-toggle');
+
+          if (characterNameElement) characterNameElement.textContent = data.characterName;
+          if (sessionInfoElement) sessionInfoElement.textContent = `Active session: ${data.characterName}`;
+          if (saveStatusElement) saveStatusElement.textContent = 'Auto-saving enabled';
+          if (saveSessionButton) saveSessionButton.disabled = false;
+
+          // Set character avatar background color
+          if (typeof setCharacterAvatar === 'function') {
+            setCharacterAvatar(data.characterType);
+          }
+
+          // Hide setup and show chat
+          if (setupContainer) setupContainer.style.display = 'none';
+          if (sessionLoader) sessionLoader.style.display = 'none';
+          if (chatContainer) chatContainer.style.display = 'flex';
+          if (sessionInfoCard) sessionInfoCard.style.display = 'flex';
+
+          // Hide welcome placeholder
+          if (welcomePlaceholder) welcomePlaceholder.style.display = 'none';
+
+          // Clear messages and add system message
+          if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+            if (typeof addSystemMessage === 'function') {
+              addSystemMessage(`Session loaded! Continue your conversation with ${data.characterName}.`);
+            }
+          }
+
+          // Update model badge and currentModel variable if available
+          const modelBadge = document.getElementById('model-badge');
+          if (data.model) {
+            // CRITICAL: Set currentModel directly
+            currentModel = data.model;
+            if (modelBadge && typeof updateModelBadge === 'function') {
+              updateModelBadge(data.model);
+            }
+          }
+
+          // Update memory display if visible
+          if (memoryPanel && memoryPanel.style.display !== 'none' && typeof updateMemoryDisplay === 'function') {
+            updateMemoryDisplay(data.memoryState);
+          }
+
+          // Update header badges with current location and clothing
+          if (data.memoryState && typeof updateHeaderBadges === 'function') {
+            updateHeaderBadges(data.memoryState.location, data.memoryState.clothing);
+          }
+
+          // Update compression toggle
+          if (compressionToggle && data.memoryState && data.memoryState.compressionEnabled !== undefined) {
+            compressionToggle.checked = data.memoryState.compressionEnabled;
+          }
+
+          // Update compression stats
+          if (typeof updateCompressionStats === 'function') {
+            updateCompressionStats();
+          }
+
+          // Close the modal AFTER everything is set up
+          const modal = bootstrap.Modal.getInstance(document.getElementById('sessionManagerModal'));
+          if (modal) modal.hide();
+        } catch (error) {
+          console.error('Error resuming session:', error);
+          alert(`Error resuming session: ${error.message}`);
+        }
+      };
+
+      window.deleteSessionConfirm = function(sessionId, characterName) {
+        if (confirm(`Are you sure you want to delete the chat with ${characterName}?\n\nThis action cannot be undone.`)) {
+          deleteSession(sessionId);
+        }
+      };
+
+      async function deleteSession(sessionId) {
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl(`/api/session/${sessionId}`),
+            {
+              method: 'DELETE'
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Failed to delete session: ${response.statusText}`);
+          }
+
+          // Reload sessions list
+          await loadSessions();
+
+          // If this was the active session, reset the UI
+          if (typeof activeSessionId !== 'undefined' && activeSessionId === sessionId) {
+            activeSessionId = null;
+            const setupContainer = document.getElementById('setup-container');
+            const chatContainer = document.getElementById('chat-container');
+            const sessionInfoCard = document.getElementById('session-info-card');
+            const chatMessagesEl = document.getElementById('chat-messages');
+
+            if (setupContainer) setupContainer.style.display = 'block';
+            if (chatContainer) chatContainer.style.display = 'none';
+            if (sessionInfoCard) sessionInfoCard.style.display = 'none';
+            if (chatMessagesEl) chatMessagesEl.innerHTML = '';
+          }
+        } catch (error) {
+          console.error('Error deleting session:', error);
+          alert(`Error deleting session: ${error.message}`);
+        }
+      }
+
     }); // End DOMContentLoaded
   </script>
 
@@ -3376,6 +4473,48 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-primary" id="saveServerConfig">Save Configuration</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Manager Modal -->
+  <div class="modal fade" id="sessionManagerModal" tabindex="-1" aria-labelledby="sessionManagerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(74, 144, 226, 0.1);">
+          <h5 class="modal-title" id="sessionManagerModalLabel">
+            <i class="fas fa-history me-2"></i><span data-i18n="previous_chats_title">Previous Chats</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="padding: 1.5rem;">
+          <!-- Search/Filter -->
+          <div class="mb-3">
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-search"></i></span>
+              <input type="text" id="session-search" class="form-control" placeholder="Search by character or user name..." />
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div id="sessions-loading" class="text-center py-5" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mt-2">Loading sessions...</p>
+          </div>
+
+          <!-- Empty State -->
+          <div id="sessions-empty" class="text-center py-5" style="display: none;">
+            <i class="fas fa-inbox fa-3x text-muted mb-3" style="opacity: 0.3;"></i>
+            <p class="text-muted">No previous chats found</p>
+          </div>
+
+          <!-- Sessions List -->
+          <div id="sessions-list" class="row g-3">
+            <!-- Session cards will be dynamically inserted here -->
+          </div>
         </div>
       </div>
     </div>

@@ -409,6 +409,23 @@ app.get('/api/memory/:sessionId', async (req, res) => {
   }
 });
 
+// Get raw session JSON data
+app.get('/api/session/:sessionId/json', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const sessionData = await memoryPersistence.loadMemory(sessionId);
+
+    if (!sessionData) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    res.json(sessionData);
+  } catch (error) {
+    logger.error('Error loading session JSON:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get relationship history for a session
 app.get('/api/history/:sessionId', async (req, res) => {
   try {

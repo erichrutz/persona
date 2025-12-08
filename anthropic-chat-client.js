@@ -116,7 +116,29 @@ class MemorySystem {
       compressionCount: 0,
       lastCompressionTime: null,
       memoriesBeforeLastCompression: 0,
-      memoriesAfterLastCompression: 0
+      memoriesAfterLastCompression: 0,
+
+      // Token tracking
+      tokenUsage: {
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalTokens: 0,
+        averageInputTokens: 0,
+        averageOutputTokens: 0,
+        peakInputTokens: 0,
+        peakOutputTokens: 0,
+        messagesProcessed: 0
+      },
+
+      // Compression history (max 50 entries)
+      compressionHistory: [],
+
+      // Memory lifecycle tracking
+      memoryStats: {
+        totalMemoriesCreated: 0,
+        totalMemoriesCompressed: 0,
+        topicDistribution: {}
+      }
     };
     this.characterName = options.characterName || 'AI Assistant';
   }
@@ -375,6 +397,20 @@ class MemorySystem {
       accessCount: 0,
       language // Track the language of the memory
     });
+
+    // Track memory creation statistics
+    if (this.compressionMetadata) {
+      this.compressionMetadata.memoryStats.totalMemoriesCreated++;
+
+      // Track topic distribution
+      if (topicGroup) {
+        const topicKey = subtopic ? `${topicGroup}:${subtopic}` : topicGroup;
+        if (!this.compressionMetadata.memoryStats.topicDistribution[topicKey]) {
+          this.compressionMetadata.memoryStats.topicDistribution[topicKey] = 0;
+        }
+        this.compressionMetadata.memoryStats.topicDistribution[topicKey]++;
+      }
+    }
 
     logger.debug(`Added to long-term memory (${language}):`, {
       content: information,
@@ -875,11 +911,42 @@ class MemorySystem {
   }
 
   // Record memory compression event
-  recordCompression(beforeCount, afterCount) {
+  recordCompression(beforeCount, afterCount, additionalData = {}) {
     this.compressionMetadata.compressionCount++;
-    this.compressionMetadata.lastCompressionTime = new Date().toISOString();
+    const timestamp = new Date().toISOString();
+    this.compressionMetadata.lastCompressionTime = timestamp;
     this.compressionMetadata.memoriesBeforeLastCompression = beforeCount;
     this.compressionMetadata.memoriesAfterLastCompression = afterCount;
+
+    // Calculate reduction
+    const reduction = beforeCount - afterCount;
+    const reductionPercent = beforeCount > 0 ? ((reduction / beforeCount) * 100).toFixed(1) : 0;
+
+    // Add to compression history (max 50 entries)
+    const historyEntry = {
+      timestamp,
+      apiCallNumber: this.compressionMetadata.totalApiCalls,
+      beforeCounts: {
+        longTerm: beforeCount,
+        charProfileBytes: additionalData.charProfileBytesBefore || 0,
+        userProfileBytes: additionalData.userProfileBytesBefore || 0
+      },
+      afterCounts: {
+        longTerm: afterCount,
+        charProfileBytes: additionalData.charProfileBytesAfter || 0,
+        userProfileBytes: additionalData.userProfileBytesAfter || 0
+      },
+      reductionPercent: parseFloat(reductionPercent),
+      compressionType: additionalData.compressionType || 'memory'
+    };
+
+    this.compressionMetadata.compressionHistory.push(historyEntry);
+
+    // Keep only last 50 entries
+    if (this.compressionMetadata.compressionHistory.length > 50) {
+      this.compressionMetadata.compressionHistory.shift();
+    }
+
     this.compressionMetadata.totalApiCalls = 0; // Reset API call counter
 
     // Auto-save if enabled
@@ -1339,6 +1406,36 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
       const assistantResponse = data.content[0].text;
 
+      // Track token usage from API response
+      if (data.usage && this.memory.compressionEnabled) {
+        const usage = data.usage;
+        const metadata = this.memory.compressionMetadata;
+
+        // Update totals
+        metadata.tokenUsage.totalInputTokens += usage.input_tokens || 0;
+        metadata.tokenUsage.totalOutputTokens += usage.output_tokens || 0;
+        metadata.tokenUsage.totalTokens += (usage.input_tokens || 0) + (usage.output_tokens || 0);
+        metadata.tokenUsage.messagesProcessed++;
+
+        // Update averages
+        metadata.tokenUsage.averageInputTokens = Math.round(
+          metadata.tokenUsage.totalInputTokens / metadata.tokenUsage.messagesProcessed
+        );
+        metadata.tokenUsage.averageOutputTokens = Math.round(
+          metadata.tokenUsage.totalOutputTokens / metadata.tokenUsage.messagesProcessed
+        );
+
+        // Update peaks
+        if (usage.input_tokens > metadata.tokenUsage.peakInputTokens) {
+          metadata.tokenUsage.peakInputTokens = usage.input_tokens;
+        }
+        if (usage.output_tokens > metadata.tokenUsage.peakOutputTokens) {
+          metadata.tokenUsage.peakOutputTokens = usage.output_tokens;
+        }
+
+        logger.debug(`Token usage - Input: ${usage.input_tokens}, Output: ${usage.output_tokens}, Total: ${usage.input_tokens + usage.output_tokens}`);
+      }
+
       // Add assistant response to conversation history
       const assistantMsg = { role: 'assistant', content: assistantResponse };
 
@@ -1359,10 +1456,27 @@ Your responses must reflect the cumulative emotional impact of these experiences
       // Check if we should compress memory
       if (this.memory.shouldCompressMemory()) {
         // Compress in background to not block the response
+        const beforeCount = this.memory.longTermMemory.length;
         const result = await this.compressMemory();
         if (result.compressed) {
           this.characterProfile = this.memory.longTermMemory[0].content;
           this.userProfile = this.memory.longTermMemory[1].content;
+
+          // Track compression statistics
+          const afterCount = 2; // Character + User profiles
+          const compressionData = {
+            compressionType: 'memory',
+            charProfileBytesBefore: result.profileCompression?.character?.originalSize || 0,
+            charProfileBytesAfter: result.profileCompression?.character?.compressedSize || 0,
+            userProfileBytesBefore: result.profileCompression?.user?.originalSize || 0,
+            userProfileBytesAfter: result.profileCompression?.user?.compressedSize || 0
+          };
+
+          this.memory.recordCompression(beforeCount, afterCount, compressionData);
+
+          // Track compressed memories count
+          this.memory.compressionMetadata.memoryStats.totalMemoriesCompressed += beforeCount;
+
           this.memory.longTermMemory = [];
         }
 
@@ -1788,15 +1902,63 @@ Your responses must reflect the cumulative emotional impact of these experiences
   }
 
   getCompressionStats() {
+    const metadata = this.memory.compressionMetadata;
+    const tokenUsage = metadata.tokenUsage;
+
+    // Calculate derived statistics
+    const avgCompressionReduction = metadata.compressionHistory.length > 0
+      ? (metadata.compressionHistory.reduce((sum, entry) => sum + entry.reductionPercent, 0) / metadata.compressionHistory.length).toFixed(1)
+      : 0;
+
+    const totalTokens = tokenUsage.totalTokens;
+    const avgTokensPerMessage = tokenUsage.messagesProcessed > 0
+      ? Math.round(totalTokens / tokenUsage.messagesProcessed)
+      : 0;
+
     return {
+      // Basic compression info
       enabled: this.memory.compressionEnabled,
-      apiCallsSinceLastCompression: this.memory.compressionMetadata.totalApiCalls,
+      apiCallsSinceLastCompression: metadata.totalApiCalls,
       compressionFrequency: this.compressionFrequency || 10,
-      lastCompressionTime: this.memory.compressionMetadata.lastCompressionTime,
-      memoriesBeforeLastCompression: this.memory.compressionMetadata.memoriesBeforeLastCompression,
-      memoriesAfterLastCompression: this.memory.compressionMetadata.memoriesAfterLastCompression,
-      compressionCount: this.memory.compressionMetadata.compressionCount,
-      isCurrentlyCompressing: false // This would need proper tracking
+      lastCompressionTime: metadata.lastCompressionTime,
+      memoriesBeforeLastCompression: metadata.memoriesBeforeLastCompression,
+      memoriesAfterLastCompression: metadata.memoriesAfterLastCompression,
+      compressionCount: metadata.compressionCount,
+      isCurrentlyCompressing: this.memoryCompressor?.isCompressing || false,
+
+      // Token usage statistics
+      tokenUsage: {
+        totalInputTokens: tokenUsage.totalInputTokens,
+        totalOutputTokens: tokenUsage.totalOutputTokens,
+        totalTokens: tokenUsage.totalTokens,
+        averageInputTokens: tokenUsage.averageInputTokens,
+        averageOutputTokens: tokenUsage.averageOutputTokens,
+        averageTokensPerMessage: avgTokensPerMessage,
+        peakInputTokens: tokenUsage.peakInputTokens,
+        peakOutputTokens: tokenUsage.peakOutputTokens,
+        messagesProcessed: tokenUsage.messagesProcessed
+      },
+
+      // Compression history (last 10 entries for overview)
+      recentCompressions: metadata.compressionHistory.slice(-10),
+      averageCompressionReduction: parseFloat(avgCompressionReduction),
+
+      // Memory lifecycle statistics
+      memoryStats: {
+        totalMemoriesCreated: metadata.memoryStats.totalMemoriesCreated,
+        totalMemoriesCompressed: metadata.memoryStats.totalMemoriesCompressed,
+        currentLongTermMemories: this.memory.longTermMemory.length,
+        topicDistribution: metadata.memoryStats.topicDistribution
+      },
+
+      // Current state
+      currentState: {
+        shortTermMemoryCount: this.memory.shortTermMemory.length,
+        longTermMemoryCount: this.memory.longTermMemory.length,
+        deepMemoryLength: this.memory.deepMemory?.length || 0,
+        characterProfileBytes: Buffer.byteLength(this.characterProfile || '', 'utf8'),
+        userProfileBytes: Buffer.byteLength(this.userProfile || '', 'utf8')
+      }
     };
   }
 
