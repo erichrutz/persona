@@ -52,12 +52,22 @@ class JsonExtractor {
    * @returns {object} - Ein Objekt mit den extrahierten Attributen.
    */
   static extractAttributes(inputString) {
-    const jsonStart = inputString.indexOf('{');
-    if (jsonStart === -1) {
-      return {}; // Kein JSON gefunden
+    // First, try to extract JSON from markdown code blocks (```json ... ```)
+    const markdownJsonMatch = inputString.match(/```json\s*\n?([\s\S]*?)\n?```/);
+    let jsonString = '';
+
+    if (markdownJsonMatch) {
+      // Found JSON in markdown code block
+      jsonString = markdownJsonMatch[1].trim();
+    } else {
+      // Fall back to original method - find first '{'
+      const jsonStart = inputString.indexOf('{');
+      if (jsonStart === -1) {
+        return {}; // Kein JSON gefunden
+      }
+      jsonString = inputString.slice(jsonStart);
     }
 
-    const jsonString = inputString.slice(jsonStart);
     let extractedAttributes = {};
 
     try {
@@ -1014,7 +1024,7 @@ PHRASES:`;
       date: options.date || 'unknown' // For tracking current date
     });
 
-    this.model = options.model || "claude-3-7-sonnet-20250219";
+    this.model = options.model || "claude-sonnet-4-5-20250929";
     this.temperature = options.temperature || 1.0;
     this.messages = options.messages || [];
     this.apiUrl = API_URL;
@@ -1049,17 +1059,29 @@ PHRASES:`;
     }
 
     try {
+      const memoryState = this.memory.getMemoryContents();
+
+      // Add MemoryCompressor state if it exists
+      if (this.memoryCompressor) {
+        memoryState.memoryCompressorState = {
+          apiCallCount: this.memoryCompressor.apiCallCount || 0,
+          lastCompressionTime: this.memoryCompressor.lastCompressionTime,
+          lastProfileCompressionTime: this.memoryCompressor.lastProfileCompressionTime
+        };
+      }
+
       const state = {
         sessionId: this.sessionId,
         messages: this.messages,
         characterProfile: this.characterProfile || '',
         userProfile: this.userProfile || '',
-        memoryState: this.memory.getMemoryContents(),
+        memoryState: memoryState,
         timestamp: new Date().toISOString(),
         clothing: this.memory.clothing,
         history: this.memory.history, // Include relationship history changes
         location: this.memory.location || 'unknown', // Include current location
-        date: this.memory.date || 'unknown' // Include current date
+        date: this.memory.date || 'unknown', // Include current date
+        model: this.model // Save the current model
       };
 
       return await this.persistence.saveMemory(this.sessionId, state);
@@ -1090,6 +1112,11 @@ PHRASES:`;
       this.location = loadedState.location || 'unknown'; // Load current location
       this.date = loadedState.date || 'unknown'; // Load current date
 
+      // Restore model if saved, otherwise keep the one passed in constructor
+      if (loadedState.model) {
+        this.model = loadedState.model;
+      }
+
       // Restore character profile if available
       if (loadedState.characterProfile) {
         this.characterProfile = loadedState.characterProfile;
@@ -1102,6 +1129,31 @@ PHRASES:`;
 
       // Load memory state
       await this.memory.loadFromStorage(this.sessionId);
+
+      // Restore MemoryCompressor state if it exists
+      if (loadedState.memoryState && loadedState.memoryState.memoryCompressorState) {
+        const compressorState = loadedState.memoryState.memoryCompressorState;
+
+        // Initialize memoryCompressor if it doesn't exist
+        if (!this.memoryCompressor) {
+          this.memoryCompressor = new MemoryCompressor({
+            apiKey: this.apiKey,
+            model: this.model,
+            characterName: this.characterName,
+            characterProfile: this.characterProfile,
+            userProfile: this.userProfile
+          });
+        }
+
+        // Restore the state
+        this.memoryCompressor.apiCallCount = compressorState.apiCallCount || 0;
+        if (compressorState.lastCompressionTime) {
+          this.memoryCompressor.lastCompressionTime = new Date(compressorState.lastCompressionTime);
+        }
+        if (compressorState.lastProfileCompressionTime) {
+          this.memoryCompressor.lastProfileCompressionTime = new Date(compressorState.lastProfileCompressionTime);
+        }
+      }
 
       return { success: true, loadedState };
     } catch (error) {
@@ -1482,13 +1534,13 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
       }
 
-      // Save state if persistence is enabled
+      // Track API call and potentially trigger compression
+      await this.memoryCompressor.trackApiCall(this.memory);
+
+      // Save state if persistence is enabled (after tracking API call to save updated count)
       if (this.persistence) {
         await this.saveState();
       }
-
-      // Track API call and potentially trigger compression
-      await this.memoryCompressor.trackApiCall(this.memory);
 
       // Return the response without the memory JSON part (if present)
       return this.cleanResponse(assistantResponse);
@@ -1852,8 +1904,13 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
   // Clean response by removing memory JSON
   cleanResponse(response) {
-    // Remove any JSON block at the end of the response
-    return response.replace(/\{[\s\S]*?\}\s*$/, '').trim();
+    // First, try to remove markdown code blocks with JSON
+    let cleaned = response.replace(/```json\s*\n?[\s\S]*?\n?```\s*$/m, '').trim();
+
+    // Then remove any remaining JSON block at the end of the response
+    cleaned = cleaned.replace(/\{[\s\S]*?\}\s*$/, '').trim();
+
+    return cleaned;
   }
 
   // Get current memory state

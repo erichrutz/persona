@@ -111,7 +111,12 @@ const localization = {
     "character_search_placeholder": "Search characters by name, appearance, personality, topics...",
     "select_character_btn": "Select Character",
     "previous_chats_btn": "Previous Chats",
-    "previous_chats_title": "Previous Chats"
+    "previous_chats_title": "Previous Chats",
+
+    // Dropdown Menus
+    "session_menu": "Session",
+    "character_menu": "Characters",
+    "settings_btn": "Settings"
   },
   
   "deutsch": {
@@ -223,7 +228,12 @@ const localization = {
     "character_search_placeholder": "Suche nach Name, Aussehen, Persönlichkeit, Themen...",
     "select_character_btn": "Charakter auswählen",
     "previous_chats_btn": "Frühere Chats",
-    "previous_chats_title": "Frühere Chats"
+    "previous_chats_title": "Frühere Chats",
+
+    // Dropdown Menus
+    "session_menu": "Sitzung",
+    "character_menu": "Charaktere",
+    "settings_btn": "Einstellungen"
   }
 };
 

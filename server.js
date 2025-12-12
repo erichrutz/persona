@@ -172,7 +172,7 @@ app.post('/api/session', async (req, res) => {
         persistence: memoryPersistence,
         sessionId: sessionId,
         model: model,
-        language: language || 'english'
+        language: language || 'deutsch'
       });
       
       // Load the state
@@ -191,9 +191,25 @@ app.post('/api/session', async (req, res) => {
         content: chatClient.cleanResponse(msg.content) // Remove JSON appendix
       })) : [];
 
+      // Extract character name from symbolic profile format
+      let characterName = 'AI Assistant';
+      if (loadResult.loadedState.characterProfile) {
+        const profile = loadResult.loadedState.characterProfile;
+        // Try to extract from symbolic format (NAME: xxx)
+        if (typeof profile === 'string') {
+          const nameMatch = profile.match(/NAME:\s*([^\n]+)/);
+          if (nameMatch) {
+            characterName = nameMatch[1].trim();
+          }
+        } else if (profile.name) {
+          // Fallback for old JSON format
+          characterName = profile.name;
+        }
+      }
+
       return res.json({
         sessionId: chatClient.sessionId,
-        characterName: loadResult.loadedState.characterProfile?.name || 'AI Assistant',
+        characterName: characterName,
         memoryState: chatClient.getMemoryState(),
         messages: lastMessages,
         characterType: loadResult.loadedState.characterType || 'custom'
@@ -231,14 +247,17 @@ app.post('/api/session', async (req, res) => {
       }
       
       // Create chat client
+      const finalModel = model || 'claude-sonnet-4-5-20250929';
+      logger.info(`Creating new session with model: ${finalModel} (received: ${model})`);
+
       const chatClient = new AnthropicChatClient({
         apiKey: apiKey || DEFAULT_API_KEY,
         characterProfile: profile,
         persistence: memoryPersistence,
         compressionEnabled: compressionEnabled !== undefined ? compressionEnabled : true,
         deepMemory: deepMemory || '',
-        model: model || 'claude-3-7-sonnet-20250219',
-        language: language || 'english',
+        model: finalModel,
+        language: language || 'deutsch',
         characterName: characterName,
         isJSON: isJSON
       });
