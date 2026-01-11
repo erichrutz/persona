@@ -60,6 +60,8 @@ class MemoryCompressor {
     this.lastProfileCompressionTime = new Date();
     this.isCompressingProfiles = false;
 
+    this.longTermCompressionLimit = options.longTermCompressionLimit || process.env.LONG_TERM_MEMORY_LIMIT || 20; // Max long-term memories after compression
+
     // Enhanced memory organization structure
     this.topicGroups = {
       'USER_IDENTITY': { 
@@ -142,7 +144,7 @@ class MemoryCompressor {
     
     try {
       // Skip if there's not enough to compress
-      if (memorySystem.longTermMemory.length <= 12) {
+      if (memorySystem.longTermMemory.length <= this.longTermCompressionLimit) {
         logger.info('Not enough long-term memories to compress');
         this.isCompressing = false;
         return { compressed: false, reason: 'Not enough memories' };
@@ -256,66 +258,6 @@ class MemoryCompressor {
     );
   }
 
-  // Make API request to compress memories
-  async requestMemoryCompression(memoriesText, category, targetCount) {
-    if (!this.apiKey) {
-      console.error('API key is required for memory compression');
-      return null;
-    }
-    
-    try {
-      // Create prompt for memory compression
-      const prompt = `You are an AI memory optimization system. Your task is to compress the following ${category} memories into a more compact form while preserving as much meaningful information as possible.
-
-Please merge redundant information, summarize extensive details, and create ${targetCount} consolidated memory items. Each memory should be prefixed with [${category}] and should be detailed enough to be useful later.
-
-MEMORIES TO COMPRESS:
-${memoriesText}
-
-INSTRUCTIONS:
-1. Merge similar or related information into coherent memories
-2. Preserve specific details, names, dates, and preferences
-3. Format each memory as "[${category}] Memory content"
-4. Provide exactly ${targetCount} compressed memories
-5. Ensure no critical information is lost
-
-COMPRESSED MEMORIES:`;
-      
-      // Make API request
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1024
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.content[0].text.trim();
-    } catch (error) {
-      logger.error('Error in memory compression request:', error);
-      // Log detailed API error information
-      if (error.response) {
-        logger.error('API response error details:', {
-          status: error.response.status,
-          headers: error.response.headers,
-          data: error.response.data
-        });
-      }
-      return null;
-    }
-  }
-
   // Extract all content within curly brackets from a profile
   extractCurlyBracketAttributes(profile) {
     const curlyBracketRegex = /\{([^}]+)\}/g;
@@ -408,82 +350,124 @@ COMPRESSED MEMORIES:`;
 
         const promptSymbolic = `MEMORY CONSOLIDATION INSTRUCTION
 
-## Instructions
-You are responsible for compressing and consolidating character memory data. You will receive three inputs:
-1. The existing character information (may be empty for first-time processing) of the character
-2. The existing character information (may be empty for first-time processing) of the user
-3. New long-term memory entries to be integrated
+Compress character data into dense attribute lists with symbolic markers. Prioritize current state and active dynamics.
 
-Your task is to create a single, coherent character profile for each user and character following this exact format separated by '---':
+## Output Format (required sections):
 
-NAME: [Character's full name]
+NAME: [Full name]
 ID: [Age/Gender/Occupation/Location]
-LOOKS: [Physical appearance details]
-CORE: [Fundamental personality traits]
-SPEECH: [Communication style and patterns]
-TOPICS: [Interests and knowledge areas]
-TRIGGERS: [Stimuli and resulting reactions]
-CONNECTIONS: [Relationships with other characters]
-USERRELATION: [${this.characterName}'s relationship with the user]
-WANTS: [Desires and goals]
+LOOKS: [Physical attributes only, comma-separated]
+CORE: [Personality traits with markers]
+SPEECH: [Communication patterns]
+TOPICS: [Knowledge/interests with intensity]
+TRIGGERS: [Stimulus→reaction pairs]
+CONNECTIONS: [Other characters, brief descriptions]
+USERRELATION: [Relationship attributes - focus on current arc]
+WANTS: [Active goals with priority markers]
 
-CRITICAL DATA PRESERVATION AND COMPRESSION RULES:
+## Compression Rules (in priority order):
 
-0. COMPRESS THE CONTENT OF THE SECTIONS TO THE MINIMUM AMOUNT OF TOKENS POSSIBLE.
+1. CURRENT STATE PRIORITY:
+   - Active traits > historical traits
+   - Present tense > past tense
+   - Unresolved dynamics > completed arcs
+   - Mark completed developments with ✓ then archive them
 
-1. PRESERVE ALL DATA: All character information (especially name and age) must be retained in the final output UNLESS it is explicitly contradicted or updated by newer information.
+2. INFORMATION HIERARCHY (compress accordingly):
+   CRITICAL (preserve): Current emotional state, active conflicts, immediate goals, relationship status
+   HIGH (compress lightly): Personality shifts, key backstory, major triggers, primary connections
+   MEDIUM (compress heavily): Speech patterns, interests, physical details
+   LOW (compress maximally): Resolved issues, minor connections, redundant descriptors
 
-2. DEVELOPMENT: The character profile, especially CORE and LOOKS, must reflect the most current state of the character personality traits. For LOOKS the clothing is irrelevant.
+3. DEDUPLICATION RULES:
+   - If trait appears in CORE, remove from USERRELATION
+   - Merge similar attributes: "desperate for stability, needs security" → "desperate for stability*"
+   - Remove redundant physical details: "thin frame, 53kg, muscle loss" → "thin frame, 53kg"
+   - Consolidate related emotions: "anxious, worried, stressed about debt" → "anxious about debt!"
 
-3. USER RELATIONSHIP PRIORITY: In the USERRELATION section of ${this.characterName}, always maintain and prioritize information about the relationship with the user. This relationship data must reflect the most current state based on chat history. COMPRESS THE CONTENT OF THE USERRELATION SECTION TO THE MINIMUM AMOUNT OF TOKENS POSSIBLE.
+4. USERRELATION OPTIMIZATION:
+   Structure: [Current dynamic] + [active tensions] + [key turning points] + [unresolved threads]
+   - Lead with present state
+   - Group related developments: "confronted him++, demanded honesty*, established boundaries++" 
+   - Archive completed arcs: "€230k debt✓, hired as CoS✓"
+   - Keep only unresolved emotional threads in detail
 
-4. CONNECTION EVOLUTION: Track how relationships evolve over time. If the relationship with the user or any other character changes, update the description to reflect the current state while preserving the history of relationship development where relevant.
+5. SYMBOLIC NOTATION (consistent usage):
+   ++ = Intense/primary trait
+   + = Present/notable
+   -- = Strong aversion
+   - = Dislike/weakness
+   ~ = Ambivalent/conflicted
+   → = Causal (trigger→response)
+   ! = Critical current factor
+   * = Hidden/internal trait
+   ✓ = Resolved/completed (archive context)
+   
+6. ATTRIBUTE COMPRESSION PATTERNS:
+   - Temporal: "three weeks investigating, discovered fraud, presented results" → "investigated 3wks→discovered fraud→presented++"
+   - Emotional arc: "shocked, overwhelmed, suspicious, cautiously hopeful" → "shocked→cautiously hopeful+"
+   - Physical: Remove clothing, keep only permanent/notable features
+   - Speech: Keep only distinctive patterns, drop generic descriptions
 
-5. OVERRIDE RULE: Newer information ONLY supersedes directly contradictory older information. For example, if a character was previously "unmarried" but is now "married to Alex," replace only that specific attribute.
+7. SECTION-SPECIFIC RULES:
+   
+   LOOKS: Permanent features only, 1 line max, remove temporary state
+   
+   CORE: Current personality state, active internal conflicts, remove resolved traits
+   
+   SPEECH: Only distinctive patterns, max 3-4 attributes
+   
+   TOPICS: Active interests with markers, remove low-engagement topics
+   
+   TRIGGERS: Keep high-impact only, use →format consistently
+   
+   CONNECTIONS: Name+relation only, detail only if currently relevant
+   
+   USERRELATION: Current arc first, major beats compressed, resolve✓ old arcs
+   
+   WANTS: Rank by urgency, remove achieved goals with ✓
 
-6. COMBINE RELATED INFORMATION: Where appropriate, merge related attributes using commas or symbolic notation rather than separate phrases.
+8. INTEGRATION OF NEW MEMORIES:
+   - Update markers if intensity changed (+ → ++)
+   - Replace contradicted information
+   - Add new developments in appropriate sections
+   - Archive superseded information with ✓
 
-7. DEDUPLICATION: Remove exact duplicates and merge similar information to eliminate redundancy while preserving all unique details.
+9. IMMUTABLE DATA:
+   - {Content in curly brackets} must remain exactly as written
+   - Never modify, compress, or remove {immutable} markers
 
-8. MAINTAIN SYMBOLS: Use symbolic notations to compress information:
-   - + or ++ = Interest/knowledge (++ = passionate)
-   - - or -- = Dislike/avoidance (-- = strong dislike)
-   - ~ = Neutral/ambivalent
-   - → = Trigger leads to response
-   - ! = Critical trait/trigger
-   - * = Hidden trait
-   - # = Contextual trait
-   - @ = Location-specific behavior
+10. LENGTH TARGET:
+    - LOOKS: ~30-50 tokens
+    - CORE: ~100-150 tokens  
+    - SPEECH: ~20-40 tokens
+    - TOPICS: ~30-50 tokens
+    - TRIGGERS: ~40-60 tokens
+    - CONNECTIONS: ~30-50 tokens
+    - USERRELATION: ~150-200 tokens
+    - WANTS: ~30-50 tokens
+    - TOTAL TARGET: ~400-600 tokens
 
-9. CRITICAL - IMMUTABLE ATTRIBUTES:
-   * ALL content within curly brackets {like this} MUST be preserved EXACTLY as written
-   * Attributes in curly brackets are IMMUTABLE and CANNOT be modified, compressed, or removed
-   * If an attribute appears as {attribute}, it must appear as {attribute} in the compressed output
-   * Do NOT change the content inside curly brackets, even if it seems redundant
-   * Do NOT remove curly brackets or their contents during compression
-
-10. FORMAT ADHERENCE: Follow the exact section structure shown above, with all sections present but kept as concise as possible.
-
-11. RESOLUTION OF CONTRADICTIONS: When direct contradictions exist, newer information takes precedence.
-
-12. Do NOT prefix the response with a date!
-
-Return ONLY the consolidated character profile without explanations or commentary.
+## Output Requirements:
+- No preamble, no date prefix, no explanations
+- One attribute per comma
+- Consistent symbol usage
+- No sentences or prose
+- Keep attribute format: "descriptor with context+marker"
 
 ## Personas
-* 'Character' is the person impersonated by the AI in this case ${this.characterName}
-* 'User' is the impersonation played by the human chat user
+* Character = ${this.characterName} (AI-controlled)
+* User = Human player
 
-## Previous Character
+## Previous Data
 ### ${this.characterName}
 ${this.characterProfile}
+
 ### User
 ${this.userProfile}
 
-## Memory Data
-${JSON.stringify(memoriesText)}
-
-`;
+## New Memories to Integrate
+${JSON.stringify(memoriesText)}`;
 
         // Make API request
         const response = await fetch(this.apiUrl, {
