@@ -414,9 +414,11 @@ WANTS: [Active goals with priority markers]
    LOOKS: Permanent features only, 1 line max, remove temporary state
    
    CORE: Current personality state, active internal conflicts, remove resolved traits
-   
-   SPEECH: Only distinctive patterns, max 3-4 attributes
-   
+
+   SPEECH: Distinctive communication patterns with CONCRETE examples of sentence structure/flow.
+          PRESERVE narrative style indicators (e.g., "uses flowing descriptions", "combines actions into compound sentences").
+          DO NOT reduce to abstract words like "emotional, descriptive" - keep style-defining phrases.
+
    TOPICS: Active interests with markers, remove low-engagement topics
    
    TRIGGERS: Keep high-impact only, use →format consistently
@@ -439,14 +441,14 @@ WANTS: [Active goals with priority markers]
 
 10. LENGTH TARGET:
     - LOOKS: ~30-50 tokens
-    - CORE: ~100-150 tokens  
-    - SPEECH: ~20-40 tokens
+    - CORE: ~100-150 tokens
+    - SPEECH: ~60-100 tokens (CRITICAL: preserve narrative style examples, not just abstract descriptors)
     - TOPICS: ~30-50 tokens
     - TRIGGERS: ~40-60 tokens
     - CONNECTIONS: ~30-50 tokens
     - USERRELATION: ~150-200 tokens
     - WANTS: ~30-50 tokens
-    - TOTAL TARGET: ~400-600 tokens
+    - TOTAL TARGET: ~500-700 tokens
 
 ## Output Requirements:
 - No preamble, no date prefix, no explanations
@@ -832,6 +834,132 @@ ${profile}`;
       logger.error('Error compressing user profile:', error);
       this.isCompressingProfiles = false;
       return { compressed: false, error: error.message };
+    }
+  }
+
+  // Convert history timeline to narrative prose
+  async compressHistoryToProse(history, characterName, language = 'english', existingDeepMemory = '') {
+    if (!history || history.length === 0) {
+      return {
+        success: false,
+        reason: 'No history entries to compress'
+      };
+    }
+
+    try {
+      // Sort history by timestamp to ensure chronological order
+      const sortedHistory = [...history].sort((a, b) =>
+        new Date(a.timestamp) - new Date(b.timestamp)
+      );
+
+      // Extract date range
+      const firstDate = sortedHistory[0].change.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+      const lastDate = sortedHistory[sortedHistory.length - 1].change.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+
+      // Build history list for prompt
+      const historyText = sortedHistory.map((entry, index) =>
+        `${index + 1}. ${entry.change}`
+      ).join('\n');
+
+      const outputLanguage = language === 'deutsch' ? 'German' : 'English';
+
+      // Build context section with existing deep memory
+      let contextSection = '';
+      if (existingDeepMemory && existingDeepMemory.trim() !== '') {
+        contextSection = `
+## EXISTING DEEP MEMORY (Previous Events):
+This is the summary of events that happened BEFORE the new timeline below.
+Use this as context to understand the full story, but DO NOT rewrite or repeat it.
+Only summarize the NEW timeline entries below.
+
+${existingDeepMemory.trim()}
+
+---
+`;
+      }
+
+      const promptText = `You are writing a "Previously on..." style recap for a TV series. Convert the timeline of events into a concise, factual summary in ${outputLanguage}.
+${contextSection}
+
+## Style Guide ("Previously on..." recap format):
+- Write in simple past tense, third person
+- State facts directly without embellishment
+- Use time markers: "On July 15th...", "Two weeks later...", "That evening..."
+- Connect related events into complete sentences
+- NO dramatic language, NO emotional descriptions, NO storytelling flourishes
+- Focus on WHAT HAPPENED, not how it felt or looked
+- Maximum length: 400-600 words (brief recap, not detailed story)
+
+## Example Style:
+❌ BAD (too detailed): "As the warm summer sun filtered through the leaves, Klara found herself lost in forbidden thoughts about her neighbor..."
+✅ GOOD (recap style): "Klara masturbated in her garden while fantasizing about her neighbor Erich."
+
+❌ BAD: "With trembling hands and a heart full of conflicted emotions, she slowly reached out to touch..."
+✅ GOOD: "She initiated physical contact. They kissed."
+
+## Requirements:
+1. Preserve chronological order EXACTLY
+2. Every event from the timeline must be mentioned
+3. Use paragraph breaks for temporal transitions (new day/week)
+4. Write complete sentences, not bullet points
+5. Neutral, factual tone - like a news report
+6. Output language: ${outputLanguage}
+
+## Timeline Entries:
+${historyText}
+
+## Character name: ${characterName}
+
+Write the recap summary (facts only, no storytelling):`;
+
+      // Make API request
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: "claude-3-7-sonnet-20250219",
+          messages: [{ role: 'user', content: promptText }],
+          max_tokens: 2048
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const proseText = data.content[0].text.trim();
+
+      // Calculate compression stats
+      const originalLength = historyText.length;
+      const compressedLength = proseText.length;
+      const compressionRatio = ((1 - compressedLength / originalLength) * 100).toFixed(1);
+
+      logger.info(`History compressed to recap: ${sortedHistory.length} entries → ${compressedLength} characters (${compressionRatio}% reduction)`);
+
+      return {
+        success: true,
+        original: sortedHistory,
+        prose: proseText,
+        metadata: {
+          dateRange: firstDate && lastDate ? `${firstDate} bis ${lastDate}` : 'unknown',
+          entryCount: sortedHistory.length,
+          originalLength,
+          compressedLength,
+          compressionRatio: `${compressionRatio}%`
+        }
+      };
+
+    } catch (error) {
+      logger.error('Error compressing history to prose:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 }

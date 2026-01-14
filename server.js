@@ -601,15 +601,15 @@ app.post('/api/compression/toggle', async (req, res) => {
 app.post('/api/deep-memory/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { content } = req.body;
-    
+    const { content, clearHistory } = req.body;
+
     if (!sessionId) {
       return res.status(400).json({ error: 'Session ID is required' });
     }
-    
+
     // Get chat client for this session
     let chatClient = activeSessions.get(sessionId);
-    
+
     // If not in active sessions, try to load it
     if (!chatClient) {
       chatClient = new AnthropicChatClient({
@@ -617,28 +617,37 @@ app.post('/api/deep-memory/:sessionId', async (req, res) => {
         persistence: memoryPersistence,
         sessionId: sessionId
       });
-      
+
       const loadResult = await chatClient.loadState(sessionId);
-      
+
       if (!loadResult.success) {
         return res.status(404).json({ error: 'Session not found' });
       }
-      
+
       // Add to active sessions
       activeSessions.set(sessionId, chatClient);
     }
-    
+
     // Set deep memory
     await chatClient.setDeepMemory(content);
-    
+
+    // Optionally clear history after transferring to deep memory
+    let historyCleared = false;
+    if (clearHistory === true) {
+      chatClient.memory.history = [];
+      historyCleared = true;
+      logger.info(`History cleared for session ${sessionId} after deep memory transfer`);
+    }
+
     // Save state
     await chatClient.saveState();
-    
+
     // Get updated memory state
     const memoryState = chatClient.getMemoryState();
-    
+
     res.json({
       success: true,
+      historyCleared,
       memoryState
     });
   } catch (error) {
@@ -823,22 +832,77 @@ app.post('/api/compression/compress', async (req, res) => {
   }
 });
 
+// Compress history to narrative prose
+app.post('/api/history/compress-to-prose', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
+    // Get chat client for this session
+    const chatClient = activeSessions.get(sessionId);
+
+    if (!chatClient) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Get history from memory
+    const history = chatClient.memory.history;
+
+    if (!history || history.length === 0) {
+      return res.status(400).json({
+        success: false,
+        reason: 'No history entries to compress'
+      });
+    }
+
+    // Check if memoryCompressor exists
+    if (!chatClient.memoryCompressor) {
+      return res.status(500).json({
+        error: 'Memory compressor not initialized for this session'
+      });
+    }
+
+    // Get existing deep memory for context
+    const existingDeepMemory = chatClient.memory.deepMemory || '';
+
+    // Call compression method
+    const result = await chatClient.memoryCompressor.compressHistoryToProse(
+      history,
+      chatClient.characterName || 'Character',
+      chatClient.language || 'english',
+      existingDeepMemory
+    );
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Error compressing history to prose:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get compression stats
 app.get('/api/compression/stats/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    
+
     if (!sessionId) {
       return res.status(400).json({ error: 'Session ID is required' });
     }
-    
+
     // Get chat client for this session
     const chatClient = activeSessions.get(sessionId);
-    
+
     if (!chatClient) {
       return res.status(404).json({ error: 'Session not found' });
     }
-    
+
     // Get compression stats
     const stats = chatClient.getCompressionStats();
     
