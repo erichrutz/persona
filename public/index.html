@@ -313,6 +313,37 @@
       display: flex;
       align-items: flex-start;
       margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .message-actions {
+      display: none;
+      width: 100%;
+      margin-top: 4px;
+      margin-left: 46px;
+      gap: 6px;
+    }
+
+    .message-container:hover .message-actions {
+      display: flex;
+    }
+
+    .message-action-btn {
+      padding: 2px 10px;
+      font-size: 0.72rem;
+      color: #6c757d;
+      background: none;
+      border: 1px solid rgba(108, 117, 125, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: opacity 0.15s, color 0.15s, background 0.15s;
+    }
+
+    .message-action-btn:hover {
+      opacity: 1;
+      color: #495057;
+      background: rgba(108, 117, 125, 0.08);
     }
     
     .message-bubble {
@@ -2267,7 +2298,108 @@
           saveStatusElement.textContent = 'Error saving';
         }
       }
-      
+
+      async function reloadMessage() {
+        if (!activeSessionId) return;
+
+        // Disable action buttons during reload
+        const activeReloadBtn = messagesContainer.querySelector('.message-action-btn');
+        const allActionBtns = messagesContainer.querySelectorAll('.message-action-btn');
+        allActionBtns.forEach(b => b.disabled = true);
+        if (activeReloadBtn) {
+          activeReloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+        saveStatusElement.textContent = 'Reloading...';
+
+        try {
+          // Remove the last two message containers (user + assistant) from the DOM
+          const messageContainers = messagesContainer.querySelectorAll('.message-container');
+          if (messageContainers.length >= 2) {
+            messageContainers[messageContainers.length - 1].remove();
+            messageContainers[messageContainers.length - 2].remove();
+          }
+
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl('/api/reload'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId: activeSessionId, model: currentModel })
+            });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            // Re-add the user message bubble
+            addUserMessage(data.lastUserMessage);
+            // Add the new assistant response
+            addAssistantMessage(data.response, data.date, data.location, data.clothing);
+            updateHeaderBadges(data.location, data.clothing);
+
+            if (memoryPanel.style.display !== 'none') {
+              updateMemoryDisplay(data.memoryState, data.characterProfile);
+            }
+            if (data.model) updateModelBadge(data.model);
+            updateCompressionStats();
+
+            lastSaveTime = new Date();
+            saveStatusElement.textContent = `Last saved: ${lastSaveTime.toLocaleTimeString()}`;
+          } else {
+            addSystemMessage(`Reload error: ${data.error}`);
+            saveStatusElement.textContent = 'Error reloading';
+          }
+        } catch (error) {
+          addSystemMessage(`Error reloading message: ${error.message}`);
+          saveStatusElement.textContent = 'Error reloading';
+          // Restore button states on error (buttons were not removed from DOM)
+          allActionBtns.forEach(b => b.disabled = false);
+          if (activeReloadBtn) activeReloadBtn.innerHTML = '<i class="fas fa-redo"></i> Regenerate';
+        }
+      }
+
+      async function editLastMessage() {
+        if (!activeSessionId) return;
+
+        const allActionBtns = messagesContainer.querySelectorAll('.message-action-btn');
+        allActionBtns.forEach(b => b.disabled = true);
+        saveStatusElement.textContent = 'Editing...';
+
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl('/api/delete-last'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId: activeSessionId })
+            });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            // Remove last two DOM message containers (assistant + user)
+            const messageContainers = messagesContainer.querySelectorAll('.message-container');
+            if (messageContainers.length >= 2) {
+              messageContainers[messageContainers.length - 1].remove();
+              messageContainers[messageContainers.length - 2].remove();
+            }
+
+            // Populate input field with the original user message
+            messageInput.value = data.lastUserMessage;
+            messageInput.style.height = 'auto';
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+            messageInput.focus();
+
+            saveStatusElement.textContent = 'Message deleted — edit and resend';
+          } else {
+            addSystemMessage(`Edit error: ${data.error}`);
+            saveStatusElement.textContent = 'Error';
+            allActionBtns.forEach(b => b.disabled = false);
+          }
+        } catch (error) {
+          addSystemMessage(`Error editing message: ${error.message}`);
+          saveStatusElement.textContent = 'Error';
+          allActionBtns.forEach(b => b.disabled = false);
+        }
+      }
+
       // Show/hide memory panel
       showMemoryButton.addEventListener('click', async () => {
         if (memoryPanel.style.display === 'none') {
@@ -2732,10 +2864,34 @@
 
         messageBubble.appendChild(messageElement);
         messageContainer.appendChild(messageBubble);
+
+        // Remove action buttons from any previous assistant message
+        messagesContainer.querySelectorAll('.message-actions').forEach(el => el.remove());
+
+        // Add action buttons below the bubble, visible on hover
+        const actionsBar = document.createElement('div');
+        actionsBar.className = 'message-actions';
+
+        const reloadBtn = document.createElement('button');
+        reloadBtn.className = 'message-action-btn';
+        reloadBtn.title = 'Regenerate response';
+        reloadBtn.innerHTML = '<i class="fas fa-redo"></i> Regenerate';
+        reloadBtn.addEventListener('click', reloadMessage);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'message-action-btn';
+        editBtn.title = 'Edit last message';
+        editBtn.innerHTML = '<i class="fas fa-pencil-alt"></i> Edit';
+        editBtn.addEventListener('click', editLastMessage);
+
+        actionsBar.appendChild(reloadBtn);
+        actionsBar.appendChild(editBtn);
+        messageContainer.appendChild(actionsBar);
+
         messagesContainer.appendChild(messageContainer);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
-      
+
       function addSystemMessage(message) {
         const messageElement = document.createElement('div');
         messageElement.className = 'system-message';

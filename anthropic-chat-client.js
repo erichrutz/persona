@@ -182,21 +182,41 @@ class MemorySystem {
     }
   }
 
+  // Helper function to intelligently truncate strings at 256 characters
+  truncateAtSeparator(text, maxLength = 256, separator = ';') {
+    if (!text || text.length <= maxLength) {
+      return text;
+    }
+
+    // Find the last separator before maxLength
+    const truncated = text.substring(0, maxLength);
+    const lastSeparatorIndex = truncated.lastIndexOf(separator);
+
+    // If a separator is found and it's not too early in the string (at least 50% of maxLength)
+    if (lastSeparatorIndex > maxLength * 0.5) {
+      return text.substring(0, lastSeparatorIndex + 1).trim();
+    }
+
+    // Otherwise, just cut at maxLength
+    return truncated.trim() + '...';
+  }
+
   extractShortTermMemory(inputString) {
     // First, find the JSON object within the string
     const jsonRegex = /"memorize-short-term":\s*"(.*?)"/;
     const jsonMatch = inputString.match(jsonRegex);
 
     if (!jsonMatch) {
-      return inputString;
+      return this.truncateAtSeparator(inputString);
     }
 
     try {
       // Parse the JSON string to an object
       const jsonObj = JSON.parse("{" + jsonMatch[0] + "}"); // Add missing curly braces
 
-      // Return the short-term memory if it exists
-      return jsonObj["memorize-short-term"] || null;
+      // Return the short-term memory if it exists, truncated to 256 characters
+      const result = jsonObj["memorize-short-term"] || null;
+      return result ? this.truncateAtSeparator(result) : null;
     } catch (error) {
       logger.error("Error parsing JSON for short-term memory:", error);
       logger.debug("JSON parse failed for input string:", inputString);
@@ -205,7 +225,7 @@ class MemorySystem {
       const shortTermRegex = /"memorize-short-term"\s*:\s*"([^"]+)"/;
       const shortTermMatch = inputString.match(shortTermRegex);
 
-      return shortTermMatch ? shortTermMatch[1] : null;
+      return shortTermMatch ? this.truncateAtSeparator(shortTermMatch[1]) : null;
     }
 
   }
@@ -227,8 +247,22 @@ class MemorySystem {
       // Parse the JSON string to an object
       const jsonObj = JSON.parse(jsonMatch[0]);
 
-      // Return the short-term memory if it exists
-      return jsonObj || { user: "", char: "" };
+      // Return the object if it exists
+      if (jsonObj) {
+        // If it's an object, truncate the stringified user and char properties
+        if (typeof jsonObj === 'object') {
+          const result = { user: "", char: "" };
+          if (jsonObj.user) {
+            result.user = this.truncateAtSeparator(String(jsonObj.user));
+          }
+          if (jsonObj.char) {
+            result.char = this.truncateAtSeparator(String(jsonObj.char));
+          }
+          return result;
+        }
+        return this.truncateAtSeparator(String(jsonObj));
+      }
+      return { user: "", char: "" };
     } catch (error) {
       logger.error("Error parsing JSON for long-term memory:", error);
       logger.debug("JSON parse failed for input string:", inputString);
@@ -237,7 +271,7 @@ class MemorySystem {
       const longTermRegex = /"memorize-long-term"\s*:\s*"([^"]+)"/;
       const longTermMatch = inputString.match(longTermRegex);
 
-      return longTermMatch ? longTermMatch[1] : null;
+      return longTermMatch ? this.truncateAtSeparator(longTermMatch[1]) : null;
     }
   }
 
@@ -1309,6 +1343,9 @@ Always reference user appearance, never contradict memory information, acknowled
       // For the first message, if there's an initial context, include it in the system prompt
       const isFirstMessage = this.messages.length === 0;
 
+      // Snapshot long-term memory count before this turn (used by reloadLastMessage)
+      this._ltmCountBeforeLastTurn = this.memory.longTermMemory.length;
+
       // Add user message to conversation history
       const userMsg = { role: 'user', content: userMessage };
       this.messages.push(userMsg);
@@ -1393,7 +1430,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
         model: this.model,
         messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
         system: fullSystemPrompt,
-        max_tokens: 3072
+        max_tokens: 4096
       };
 
       // Add temperature only if not default to save tokens
@@ -1407,44 +1444,71 @@ Your responses must reflect the cumulative emotional impact of these experiences
       let response;
 
       while (retryCount <= maxRetries) {
-        response = await fetch(this.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': this.apiKey,
-            'anthropic-version': '2023-06-01'
-          },
-          body: JSON.stringify(requestOptions)
-        });
+        try {
+          response = await fetch(this.apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': this.apiKey,
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify(requestOptions)
+          });
 
-        logger.debug(`API Response status: ${response.status}, attempt: ${retryCount + 1}`);
+          logger.debug(`API Response status: ${response.status}, attempt: ${retryCount + 1}`);
 
-        // If status is 529 (Overloaded), retry after a delay
-        if (response.status === 529) {
-          retryCount++;
-          if (retryCount <= maxRetries) {
-            const delayMs = 1000 * Math.pow(2, retryCount); // Exponential backoff: 2s, 4s, 8s
-            logger.info(`Received HTTP 529 (Overloaded), retrying in ${delayMs / 1000}s...`);
-            await new Promise(resolve => setTimeout(resolve, delayMs));
-            continue;
-          }
-        }
-
-        if (!response.ok) {
-          // Get the response body if possible for better error logging
-          let responseBody;
-          try {
-            responseBody = await response.text();
-            logger.error('API Response error body:', responseBody);
-          } catch (bodyError) {
-            logger.error('Could not read API error response body:', bodyError);
+          // If status is 529 (Overloaded), retry after a delay
+          if (response.status === 529) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              const delayMs = 1000 * Math.pow(2, retryCount); // Exponential backoff: 2s, 4s, 8s
+              logger.info(`Received HTTP 529 (Overloaded), retrying in ${delayMs / 1000}s...`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              continue;
+            }
           }
 
-          throw new Error(`API request failed with status ${response.status}: ${responseBody || 'No response body'}`);
-        }
+          if (!response.ok) {
+            // Get the response body if possible for better error logging
+            let responseBody;
+            try {
+              responseBody = await response.text();
+              logger.error('API Response error body:', responseBody);
+            } catch (bodyError) {
+              logger.error('Could not read API error response body:', bodyError);
+            }
 
-        // If we get here, the request was successful
-        break;
+            throw new Error(`API request failed with status ${response.status}: ${responseBody || 'No response body'}`);
+          }
+
+          // If we get here, the request was successful
+          break;
+        } catch (fetchError) {
+          // Handle network errors like ETIMEDOUT, ECONNREFUSED, fetch failed
+          const isFetchError = fetchError.message && (
+            fetchError.message.includes('fetch failed') ||
+            fetchError.message.includes('ETIMEDOUT') ||
+            fetchError.message.includes('ECONNREFUSED') ||
+            fetchError.message.includes('ENOTFOUND') ||
+            fetchError.cause?.code === 'ETIMEDOUT'
+          );
+
+          if (isFetchError) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              const delayMs = 1000 * Math.pow(2, retryCount); // Exponential backoff: 2s, 4s, 8s
+              logger.info(`Network error (${fetchError.message}), silently retrying in ${delayMs / 1000}s... (attempt ${retryCount}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              continue;
+            } else {
+              logger.error(`Network error after ${maxRetries} retries:`, fetchError);
+              throw fetchError;
+            }
+          }
+
+          // If it's not a network error, rethrow immediately
+          throw fetchError;
+        }
       }
 
       let data;
@@ -1568,6 +1632,65 @@ Your responses must reflect the cumulative emotional impact of these experiences
         return `Error: ${error.message}`;
       }
     }
+  }
+
+  // Shared rollback: removes the last user+assistant pair from all memory layers.
+  // Returns { success, lastUserMessage } or { success: false, reason }.
+  _rollbackLastTurn() {
+    if (this.messages.length < 2) {
+      return { success: false, reason: 'Not enough messages to roll back' };
+    }
+
+    const lastMsg = this.messages[this.messages.length - 1];
+    const secondLastMsg = this.messages[this.messages.length - 2];
+
+    if (lastMsg.role !== 'assistant' || secondLastMsg.role !== 'user') {
+      return { success: false, reason: 'Last message pair is not user+assistant' };
+    }
+
+    // Capture the user message before removing it (strip date prefix if present)
+    let lastUserMessage = secondLastMsg.content;
+    const datePrefixMatch = lastUserMessage.match(/^\d{4}-\d{2}-\d{2}\s+/);
+    if (datePrefixMatch) lastUserMessage = lastUserMessage.substring(datePrefixMatch[0].length);
+
+    // Restore long-term memory to count before last sendMessage
+    const ltmCountBeforeLastTurn = this._ltmCountBeforeLastTurn;
+    if (typeof ltmCountBeforeLastTurn === 'number') {
+      this.memory.longTermMemory = this.memory.longTermMemory.slice(0, ltmCountBeforeLastTurn);
+    }
+    this._ltmCountBeforeLastTurn = undefined;
+
+    // Roll back short-term memory
+    if (this.memory.shortTermMemory.length > 0) this.memory.shortTermMemory.pop();
+    if (this.memory.shortTermMemoryDetailled.length > 0) this.memory.shortTermMemoryDetailled.pop();
+
+    // Roll back API call counter
+    if (this.memory.compressionEnabled && this.memory.compressionMetadata.totalApiCalls > 0) {
+      this.memory.compressionMetadata.totalApiCalls--;
+    }
+
+    // Remove last user+assistant message pair
+    this.messages.splice(-2, 2);
+
+    return { success: true, lastUserMessage };
+  }
+
+  // Reload: roll back last turn and immediately resend the same user message
+  async reloadLastMessage() {
+    const rollback = this._rollbackLastTurn();
+    if (!rollback.success) return rollback;
+
+    const response = await this.sendMessage(rollback.lastUserMessage);
+    return { success: true, response, lastUserMessage: rollback.lastUserMessage };
+  }
+
+  // Edit: roll back last turn, save state, and return the original user message
+  async deleteLastMessage() {
+    const rollback = this._rollbackLastTurn();
+    if (!rollback.success) return rollback;
+
+    if (this.persistence) await this.saveState();
+    return { success: true, lastUserMessage: rollback.lastUserMessage };
   }
 
   // Add method to manually trigger memory compression

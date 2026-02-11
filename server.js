@@ -395,6 +395,112 @@ app.post('/api/message', async (req, res) => {
   }
 });
 
+// Reload last message: remove last user+assistant pair and resend
+app.post('/api/reload', async (req, res) => {
+  try {
+    const { sessionId, model } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
+    let chatClient = activeSessions.get(sessionId);
+
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId,
+        model: model
+      });
+
+      const loadResult = await chatClient.loadState(sessionId);
+
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      activeSessions.set(sessionId, chatClient);
+    }
+
+    if (model && model !== chatClient.model) {
+      chatClient.model = model;
+    }
+
+    const result = await chatClient.reloadLastMessage();
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.reason });
+    }
+
+    const memoryState = chatClient.getMemoryState();
+
+    // Strip JSON from response
+    let parsedResponse = result.response.replace(/\s*\{(?:\s*"[^"]+"\s*:\s*"(?:[^"\\]|\\.)*"\s*,?)+\}\s*$/, '').trim();
+
+    // Extract and remove date prefix if present
+    const dateMatch = parsedResponse.match(/^(\d{4}-\d{2}-\d{2})\s+/);
+    let displayDate = null;
+    if (dateMatch) {
+      displayDate = dateMatch[1];
+      parsedResponse = parsedResponse.substring(dateMatch[0].length).trim();
+    }
+
+    res.json({
+      response: parsedResponse,
+      lastUserMessage: result.lastUserMessage,
+      date: displayDate || memoryState.date,
+      location: memoryState.location,
+      clothing: memoryState.clothing?.char || memoryState.clothing?.clothing?.char,
+      memoryState,
+      model: chatClient.model,
+      characterProfile: chatClient.characterProfile
+    });
+  } catch (error) {
+    logger.error('Error reloading message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete last message: roll back last turn and return original user message for editing
+app.post('/api/delete-last', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
+    let chatClient = activeSessions.get(sessionId);
+
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId
+      });
+
+      const loadResult = await chatClient.loadState(sessionId);
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      activeSessions.set(sessionId, chatClient);
+    }
+
+    const result = await chatClient.deleteLastMessage();
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.reason });
+    }
+
+    res.json({ success: true, lastUserMessage: result.lastUserMessage });
+  } catch (error) {
+    logger.error('Error deleting last message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get memory state
 app.get('/api/memory/:sessionId', async (req, res) => {
   try {
