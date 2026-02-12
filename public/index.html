@@ -948,6 +948,37 @@
             </div>
           </div>
           
+          <!-- World Setting -->
+          <div class="card mt-3">
+            <div class="card-header">World Setting <span class="text-muted fw-normal" style="font-size:0.8rem">(Optional)</span></div>
+            <div class="card-body">
+              <div class="btn-group w-100 mb-3" role="group">
+                <input type="radio" class="btn-check" name="world-source" id="world-source-none" value="none" checked>
+                <label class="btn btn-outline-secondary btn-sm" for="world-source-none">None</label>
+                <input type="radio" class="btn-check" name="world-source" id="world-source-file" value="file">
+                <label class="btn btn-outline-secondary btn-sm" for="world-source-file">Load from file</label>
+                <input type="radio" class="btn-check" name="world-source" id="world-source-custom" value="custom">
+                <label class="btn btn-outline-secondary btn-sm" for="world-source-custom">Free text</label>
+              </div>
+
+              <div id="world-file-section" style="display:none">
+                <select class="form-select mb-2" id="world-file-select">
+                  <option value="">Loading worlds…</option>
+                </select>
+                <div id="world-file-preview" class="form-text" style="white-space:pre-wrap; max-height:120px; overflow-y:auto; font-size:0.78rem; color:#6c757d;"></div>
+              </div>
+
+              <div id="world-custom-section" style="display:none">
+                <div class="form-floating">
+                  <textarea class="form-control" id="world-custom-text" rows="4" style="height:120px"></textarea>
+                  <label for="world-custom-text">Describe your world</label>
+                </div>
+              </div>
+
+              <div class="form-text mt-2">The world setting is injected at the top of every prompt, before character and memory context. It cannot be changed after the session starts.</div>
+            </div>
+          </div>
+
           <!-- Deep Memory Configuration -->
           <div class="card mt-3">
             <div class="card-header">Deep Memory</div>
@@ -1077,6 +1108,7 @@
               </div>
             </div>
             <div class="d-flex align-items-center" style="gap: 6px; min-height: 22px;">
+              <span id="header-world-badge" style="display: none; margin: 0; font-size: 0.65rem; padding: 2px 8px; background: rgba(111,66,193,0.08); color: #6f42c1; border: 1px solid rgba(111,66,193,0.2); border-radius: 12px;">🌍 <span id="header-world-name"></span></span>
               <span id="header-location-badge" class="message-location-badge" style="display: none; margin: 0; font-size: 0.65rem; padding: 2px 8px;"></span>
               <span id="header-clothing-badge" class="message-clothing-badge" style="display: none; margin: 0; font-size: 0.65rem; padding: 2px 8px;"></span>
             </div>
@@ -1526,6 +1558,8 @@
       const memoryPanel = document.getElementById('memory-panel');
       const headerLocationBadge = document.getElementById('header-location-badge');
       const headerClothingBadge = document.getElementById('header-clothing-badge');
+      const headerWorldBadge = document.getElementById('header-world-badge');
+      const headerWorldName = document.getElementById('header-world-name');
       const shortTermMemoryList = document.getElementById('short-term-memory');
       const longTermMemoryList = document.getElementById('long-term-memory');
       const sessionInfoElement = document.getElementById('session-info');
@@ -1595,6 +1629,75 @@
           return null;
         }
       }
+
+      // ── World Setting ──────────────────────────────────────────────
+      let worldFileContent = ''; // content of the currently selected world file
+
+      async function loadAvailableWorlds() {
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl('/api/worlds'));
+          const worlds = await response.json();
+          const select = document.getElementById('world-file-select');
+          if (!select) return;
+          select.innerHTML = '<option value="">— Select a world —</option>';
+          worlds.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w.filename;
+            opt.textContent = w.name;
+            select.appendChild(opt);
+          });
+        } catch (error) {
+          console.error('Error loading worlds:', error);
+        }
+      }
+
+      // Radio toggle: show/hide world sections
+      document.querySelectorAll('input[name="world-source"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          const val = document.querySelector('input[name="world-source"]:checked').value;
+          document.getElementById('world-file-section').style.display = val === 'file' ? 'block' : 'none';
+          document.getElementById('world-custom-section').style.display = val === 'custom' ? 'block' : 'none';
+          if (val === 'file') loadAvailableWorlds();
+        });
+      });
+
+      // World file selection: load preview
+      document.getElementById('world-file-select').addEventListener('change', async function() {
+        const filename = this.value;
+        const preview = document.getElementById('world-file-preview');
+        worldFileContent = '';
+        if (!filename) { preview.textContent = ''; return; }
+        try {
+          const response = await window.ServerConfig.fetchWithCredentials(
+            window.ServerConfig.buildApiUrl(`/api/world/${filename}`));
+          const data = await response.json();
+          worldFileContent = data.content || '';
+          preview.textContent = worldFileContent.substring(0, 400) + (worldFileContent.length > 400 ? '…' : '');
+        } catch (e) {
+          preview.textContent = 'Could not load world file.';
+        }
+      });
+
+      function getSelectedWorldSetting() {
+        const source = document.querySelector('input[name="world-source"]:checked')?.value || 'none';
+        if (source === 'file') return worldFileContent;
+        if (source === 'custom') return document.getElementById('world-custom-text').value.trim();
+        return '';
+      }
+
+      function updateWorldBadge(worldSetting) {
+        if (!worldSetting || !worldSetting.trim()) {
+          headerWorldBadge.style.display = 'none';
+          return;
+        }
+        // Try to extract world name from WORLD: line
+        const match = worldSetting.match(/^WORLD:\s*(.+)/m);
+        const name = match ? match[1].trim() : 'World';
+        headerWorldName.textContent = name;
+        headerWorldBadge.style.display = 'inline-block';
+      }
+      // ── End World Setting ──────────────────────────────────────────
 
       // Character Browser functionality
       let allCharactersData = []; // Cache for full character data
@@ -2018,9 +2121,10 @@
               updateMemoryDisplay(data.memoryState);
             }
 
-            // Update header badges with current location and clothing
+            // Update header badges with current location, clothing, and world
             if (data.memoryState) {
               updateHeaderBadges(data.memoryState.location, data.memoryState.clothing);
+              updateWorldBadge(data.memoryState.worldSetting);
             }
 
             // Update compression toggle
@@ -2107,11 +2211,14 @@
         
         // Get deep memory if provided
         const deepMemory = document.getElementById('deep-memory').value.trim();
-        
+
         // Get selected language
         const languageSelect = document.getElementById('language-select');
         const selectedLanguage = languageSelect ? languageSelect.value : 'deutsch';
-        
+
+        // Get world setting
+        const worldSetting = getSelectedWorldSetting();
+
         // Prepare request data
         const requestData = {
           characterType: selectedCharacterType,
@@ -2120,7 +2227,8 @@
           compressionEnabled: compressionEnabled,
           deepMemory: deepMemory,
           model: selectedModel,
-          language: selectedLanguage
+          language: selectedLanguage,
+          worldSetting: worldSetting
         };
 
         console.log('Starting session with model:', selectedModel);
@@ -2188,6 +2296,9 @@
             // Add welcome message
             addSystemMessage(`Connected! You are now chatting with ${data.characterName}. Try asking about their appearance, background, or how they can help you.`);
                         
+            // Show world badge if a world was set
+            updateWorldBadge(worldSetting);
+
             // Initialize compression stats
             updateCompressionStats();
           } else {

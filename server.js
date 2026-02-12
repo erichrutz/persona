@@ -162,7 +162,7 @@ const DEFAULT_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 // Create or load a session
 app.post('/api/session', async (req, res) => {
   try {
-    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model, deepMemory, language } = req.body;
+    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model, deepMemory, language, worldSetting } = req.body;
     
     // Check if loading existing session
     if (sessionId) {
@@ -259,7 +259,8 @@ app.post('/api/session', async (req, res) => {
         model: finalModel,
         language: language || 'deutsch',
         characterName: characterName,
-        isJSON: isJSON
+        isJSON: isJSON,
+        worldSetting: worldSetting || ''
       });
       
       // Set initial context if provided
@@ -1090,6 +1091,61 @@ app.get('/api/character/:filename', (req, res) => {
     });
   } catch (error) {
     logger.error('Error loading character:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List available world files
+app.get('/api/worlds', (_req, res) => {
+  try {
+    const worldsDir = path.join(__dirname, 'worlds');
+
+    if (!fs.existsSync(worldsDir)) {
+      return res.json([]);
+    }
+
+    const files = fs.readdirSync(worldsDir);
+    const worlds = files
+      .filter(file => file.endsWith('.txt'))
+      .map(file => {
+        const filePath = path.join(worldsDir, file);
+        let displayName = path.basename(file, '.txt').replace(/_/g, ' ');
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          const nameMatch = content.match(/^WORLD:\s*(.+)/m);
+          if (nameMatch) displayName = nameMatch[1].trim();
+        } catch (e) {
+          logger.debug(`Could not read world file ${file}:`, e.message);
+        }
+        return { filename: file, name: displayName };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json(worlds);
+  } catch (error) {
+    logger.error('Error listing worlds:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Load a world file
+app.get('/api/world/:filename', (req, res) => {
+  try {
+    const { filename } = req.params;
+    // Sanitise: only allow .txt files with safe names
+    if (!filename.endsWith('.txt') || filename.includes('/') || filename.includes('..')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    const filePath = path.join(__dirname, 'worlds', filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'World file not found' });
+    }
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.json({ filename, content });
+  } catch (error) {
+    logger.error('Error loading world:', error);
     res.status(500).json({ error: error.message });
   }
 });

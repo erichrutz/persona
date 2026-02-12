@@ -1062,6 +1062,7 @@ PHRASES:`;
     this.temperature = options.temperature || 1.0;
     this.messages = options.messages || [];
     this.apiUrl = API_URL;
+    this.worldSetting = options.worldSetting || '';
 
 
     // Default system prompt if no character profile is provided
@@ -1115,7 +1116,8 @@ PHRASES:`;
         history: this.memory.history, // Include relationship history changes
         location: this.memory.location || 'unknown', // Include current location
         date: this.memory.date || 'unknown', // Include current date
-        model: this.model // Save the current model
+        model: this.model, // Save the current model
+        worldSetting: this.worldSetting || '' // Save world setting
       };
 
       return await this.persistence.saveMemory(this.sessionId, state);
@@ -1149,6 +1151,11 @@ PHRASES:`;
       // Restore model if saved, otherwise keep the one passed in constructor
       if (loadedState.model) {
         this.model = loadedState.model;
+      }
+
+      // Restore world setting if saved
+      if (loadedState.worldSetting !== undefined) {
+        this.worldSetting = loadedState.worldSetting;
       }
 
       // Restore character profile if available
@@ -1384,7 +1391,12 @@ Always reference user appearance, never contradict memory information, acknowled
 
       this.generatePrompt();
 
-      let fullSystemPrompt = this.systemPrompt;
+      // World setting precedes everything — it is the outermost context layer
+      let fullSystemPrompt = '';
+      if (this.worldSetting && this.worldSetting.trim()) {
+        fullSystemPrompt += `## WORLD SETTING\n${this.worldSetting.trim()}\n\n`;
+      }
+      fullSystemPrompt += this.systemPrompt;
 
       if (this.memory.clothing) {
         fullSystemPrompt += `\n\nLAST KNOWN CLOTHING - may change due to scenario; use this a reference:
@@ -2050,7 +2062,9 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
   // Get current memory state
   getMemoryState() {
-    return this.memory.getMemoryContents();
+    const state = this.memory.getMemoryContents();
+    state.worldSetting = this.worldSetting || '';
+    return state;
   }
 
   // Clear short-term memory but keep long-term memory
