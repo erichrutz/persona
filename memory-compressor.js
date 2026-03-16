@@ -471,7 +471,7 @@ ${this.userProfile}
 ## New Memories to Integrate
 ${JSON.stringify(memoriesText)}`;
 
-        // Make API request
+        // Make API request with streaming
         const response = await fetch(this.apiUrl, {
           method: 'POST',
           headers: {
@@ -480,18 +480,47 @@ ${JSON.stringify(memoriesText)}`;
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: "claude-3-7-sonnet-20250219", //"claude-3-haiku-20240307", 
+            model: "claude-sonnet-4-5-20250929",
             messages: [{ role: 'user', content: promptSymbolic }],
-            max_tokens: 1600
+            max_tokens: 1600,
+            stream: true
           })
         });
-        
+
         if (!response.ok) {
           throw new Error(`API request failed with status ${response.status}`);
         }
 
-        const data = await response.json();
-        const compressed = data.content[0].text.trim();
+        // Process streaming response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let compressed = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                  compressed += parsed.delta.text;
+                }
+              } catch (e) {
+                // Skip malformed JSON
+              }
+            }
+          }
+        }
+
+        compressed = compressed.trim();
 
         // Restore immutable curly bracket attributes for both character and user profiles
         const parts = compressed.split('---');
@@ -731,7 +760,8 @@ ${profile}`;
         body: JSON.stringify({
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1200
+          max_tokens: 1200,
+          stream: true
         })
       });
 
@@ -739,8 +769,36 @@ ${profile}`;
         throw new Error(`API request failed with status ${response.status}`);
       }
 
-      const data = await response.json();
-      const compressed = data.content[0].text.trim();
+      // Process streaming response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let compressed = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                compressed += parsed.delta.text;
+              }
+            } catch (e) {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+
+      compressed = compressed.trim();
 
       // Restore any immutable curly bracket attributes that were lost
       const restored = this.restoreCurlyBracketAttributes(compressed, profile);
@@ -912,7 +970,7 @@ ${historyText}
 
 Write the recap summary (facts only, no storytelling):`;
 
-      // Make API request
+      // Make API request with streaming
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -923,7 +981,8 @@ Write the recap summary (facts only, no storytelling):`;
         body: JSON.stringify({
           model: "claude-3-7-sonnet-20250219",
           messages: [{ role: 'user', content: promptText }],
-          max_tokens: 2048
+          max_tokens: 2048,
+          stream: true
         })
       });
 
@@ -931,8 +990,36 @@ Write the recap summary (facts only, no storytelling):`;
         throw new Error(`API request failed with status ${response.status}`);
       }
 
-      const data = await response.json();
-      const proseText = data.content[0].text.trim();
+      // Process streaming response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let proseText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                proseText += parsed.delta.text;
+              }
+            } catch (e) {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+
+      proseText = proseText.trim();
 
       // Calculate compression stats
       const originalLength = historyText.length;

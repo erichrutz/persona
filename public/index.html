@@ -97,14 +97,33 @@
           ...options,
           credentials: isCurrentOrigin ? 'same-origin' : 'include'
         };
-        
+
         // Debug logging
         if (!isCurrentOrigin) {
           console.log(`Making cross-origin request to: ${url}`);
           console.log(`Credentials mode: include`);
         }
-        
-        return fetch(url, enhancedOptions);
+
+        // Log request for debugging
+        if (window.DebugLogger) {
+          window.DebugLogger.logRequest(url, enhancedOptions);
+        }
+
+        return fetch(url, enhancedOptions)
+          .then(response => {
+            // Log response for debugging
+            if (window.DebugLogger) {
+              window.DebugLogger.logResponse(url, response.clone());
+            }
+            return response;
+          })
+          .catch(error => {
+            // Log error for debugging
+            if (window.DebugLogger) {
+              window.DebugLogger.logError(url, error);
+            }
+            throw error;
+          });
       },
       
       // Update placeholder images based on server configuration
@@ -142,11 +161,123 @@
     
     // Load configuration on page load
     window.ServerConfig.loadConfig();
-    
+
     // Update placeholder images when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
       window.ServerConfig.updatePlaceholderImages();
     });
+  </script>
+
+  <!-- Debug Logger -->
+  <script>
+    window.DebugLogger = {
+      logs: [],
+      maxLogs: 100,
+      enabled: localStorage.getItem('debugMode') === 'true',
+
+      logRequest: function(url, options) {
+        if (!this.enabled) return;
+        const log = {
+          timestamp: new Date().toISOString(),
+          type: 'REQUEST',
+          url: url,
+          method: options.method || 'GET',
+          headers: options.headers,
+          body: options.body ? this.tryParseJson(options.body) : null
+        };
+        this.addLog(log);
+      },
+
+      logResponse: function(url, response) {
+        if (!this.enabled) return;
+        response.text().then(text => {
+          const log = {
+            timestamp: new Date().toISOString(),
+            type: 'RESPONSE',
+            url: url,
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            body: this.tryParseJson(text)
+          };
+          this.addLog(log);
+        }).catch(err => {
+          console.error('Failed to read response body:', err);
+        });
+      },
+
+      logError: function(url, error) {
+        if (!this.enabled) return;
+        const log = {
+          timestamp: new Date().toISOString(),
+          type: 'ERROR',
+          url: url,
+          error: error.message,
+          stack: error.stack
+        };
+        this.addLog(log);
+      },
+
+      tryParseJson: function(str) {
+        try {
+          return JSON.parse(str);
+        } catch (e) {
+          return str;
+        }
+      },
+
+      addLog: function(log) {
+        this.logs.push(log);
+        if (this.logs.length > this.maxLogs) {
+          this.logs.shift();
+        }
+        this.updateUI();
+      },
+
+      updateUI: function() {
+        const debugPanel = document.getElementById('debug-log-content');
+        if (!debugPanel) return;
+
+        const html = this.logs.map(log => {
+          let badgeClass = 'bg-secondary';
+          if (log.type === 'ERROR') badgeClass = 'bg-danger';
+          else if (log.type === 'RESPONSE' && !log.ok) badgeClass = 'bg-warning';
+          else if (log.type === 'RESPONSE' && log.ok) badgeClass = 'bg-success';
+
+          return `
+            <div class="debug-log-entry mb-2 p-2 border-bottom">
+              <div class="d-flex justify-content-between align-items-start">
+                <span class="badge ${badgeClass}">${log.type}</span>
+                <small class="text-muted">${new Date(log.timestamp).toLocaleTimeString()}</small>
+              </div>
+              <div class="mt-1">
+                <strong>${log.method || ''} ${log.url}</strong>
+              </div>
+              ${log.status ? `<div class="text-muted">Status: ${log.status} ${log.statusText}</div>` : ''}
+              ${log.error ? `<div class="text-danger">Error: ${log.error}</div>` : ''}
+              ${log.body ? `<div class="mt-1"><pre class="mb-0" style="font-size: 10px; max-height: 150px; overflow: auto;">${JSON.stringify(log.body, null, 2)}</pre></div>` : ''}
+            </div>
+          `;
+        }).reverse().join('');
+
+        debugPanel.innerHTML = html || '<p class="text-muted">No logs yet</p>';
+      },
+
+      toggle: function() {
+        this.enabled = !this.enabled;
+        localStorage.setItem('debugMode', this.enabled);
+        if (!this.enabled) {
+          this.logs = [];
+          this.updateUI();
+        }
+        return this.enabled;
+      },
+
+      clear: function() {
+        this.logs = [];
+        this.updateUI();
+      }
+    };
   </script>
   <style>
     :root {
@@ -769,14 +900,228 @@
       word-wrap: break-word;
     }
 
-    /* For better mobile experience */
+    /* Mobile Optimization - Maximize screen space on iPhone */
     @media (max-width: 768px) {
-      .message {
-        max-width: 90%;
+      /* Reduce container padding */
+      .container-fluid {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
       }
 
+      /* Reduce navbar padding */
+      .navbar {
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+      }
+
+      .navbar .container-fluid {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+      }
+
+      /* Compact navbar brand */
+      .navbar-brand {
+        font-size: 1.2rem;
+      }
+
+      .app-subtitle {
+        display: none; /* Hide subtitle on mobile */
+      }
+
+      /* Reduce button padding */
+      .btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+      }
+
+      .btn-sm {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+      }
+
+      /* Compact session info */
+      #session-info-card {
+        padding: 8px 12px !important;
+        margin-bottom: 12px !important;
+      }
+
+      /* Optimize card spacing */
+      .card {
+        margin-bottom: 12px !important;
+      }
+
+      .card-header {
+        padding: 10px 12px !important;
+        font-size: 0.95rem;
+      }
+
+      .card-body {
+        padding: 12px !important;
+      }
+
+      /* Compact messages container */
+      #messages-container {
+        padding: 12px !important;
+        max-height: calc(100vh - 320px);
+      }
+
+      /* Optimize message bubbles */
+      .message {
+        max-width: 92%;
+        margin-bottom: 12px;
+      }
+
+      .message-content {
+        padding: 10px 14px;
+        font-size: 0.9rem;
+      }
+
+      /* Compact input area */
+      .input-section {
+        padding: 12px !important;
+      }
+
+      #user-input {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+      }
+
+      #send-button {
+        width: 46px;
+        height: 46px;
+      }
+
+      /* Reduce spacing between elements */
+      .my-4 {
+        margin-top: 12px !important;
+        margin-bottom: 12px !important;
+      }
+
+      .row.g-4 {
+        gap: 12px !important;
+      }
+
+      /* Optimize memory panel for mobile */
+      .memory-container {
+        padding: 8px !important;
+      }
+
+      .memory-item {
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+      }
+
+      /* Compact form elements */
+      .form-floating > label {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+      }
+
+      .form-floating > .form-control {
+        padding: 1rem 0.75rem;
+        font-size: 0.9rem;
+      }
+
+      .form-control {
+        font-size: 0.9rem;
+      }
+
+      /* Compact badges */
+      .message-date-badge,
+      .message-location-badge,
+      .message-clothing-badge {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        margin-bottom: 4px;
+      }
+
+      /* Stack character info vertically */
+      .d-flex.justify-content-between.align-items-center {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 8px;
+      }
+
+      /* Optimize modal for mobile */
+      .modal-dialog {
+        margin: 8px;
+        max-width: calc(100% - 16px);
+      }
+
+      .modal-body {
+        padding: 12px !important;
+      }
+
+      /* Character selection */
       .character-selection {
         grid-template-columns: 1fr;
+      }
+
+      /* Hide memory panel on mobile by default */
+      #memory-panel {
+        display: none !important;
+      }
+
+      /* Make chat container full width on mobile */
+      .col-lg-8 {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      /* Compact setup container */
+      #setup-container .card-body {
+        padding: 16px !important;
+      }
+
+      /* Smaller font sizes */
+      body {
+        font-size: 14px;
+      }
+
+      h5 {
+        font-size: 1.1rem;
+      }
+
+      /* Compact action buttons */
+      .message-actions {
+        gap: 4px !important;
+        margin-left: 0 !important;
+      }
+
+      .message-action-btn {
+        padding: 2px 8px;
+        font-size: 0.7rem;
+      }
+
+      /* Optimize navigation dropdown */
+      .dropdown-menu {
+        font-size: 0.85rem;
+      }
+
+      /* Reduce welcome container spacing */
+      .welcome-container {
+        padding: 16px !important;
+      }
+    }
+
+    /* Extra small devices (iPhone SE, etc) */
+    @media (max-width: 390px) {
+      .navbar-brand {
+        font-size: 1rem;
+      }
+
+      .btn {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+      }
+
+      #messages-container {
+        max-height: calc(100vh - 280px);
+      }
+
+      .message-content {
+        font-size: 0.85rem;
       }
     }
 
@@ -857,6 +1202,13 @@
                 <i class="fas fa-wand-magic-sparkles me-2"></i>Character Creator
               </a></li>
             </ul>
+          </li>
+
+          <!-- Debug Panel -->
+          <li class="nav-item me-2">
+            <button id="debug-panel-btn" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#debugModal">
+              <i class="fas fa-bug me-1"></i> Debug
+            </button>
           </li>
 
           <!-- Server Settings -->
@@ -1212,6 +1564,28 @@
                   <button id="save-clothing" class="btn btn-primary">
                     <i class="fas fa-save me-1"></i> Save Clothing Information
                   </button>
+
+                  <!-- Scene Description Generator -->
+                  <div class="card mt-4 bg-light">
+                    <div class="card-body">
+                      <h5 class="card-title">
+                        <i class="fas fa-image me-2"></i>AI Image Scene Description
+                      </h5>
+                      <p class="card-text text-muted small">Generate a scene description for AI image generators</p>
+                      <button id="generate-scene-btn" class="btn btn-success w-100 mb-3">
+                        <i class="fas fa-wand-magic-sparkles me-1"></i> Generate Scene Description
+                      </button>
+                      <div id="scene-description-container" style="display: none;">
+                        <div class="form-floating mb-2">
+                          <textarea class="form-control" id="scene-description-output" rows="6" style="height: 150px; font-family: monospace; font-size: 0.9rem;" readonly></textarea>
+                          <label for="scene-description-output">Generated Prompt</label>
+                        </div>
+                        <button id="copy-scene-btn" class="btn btn-secondary w-100">
+                          <i class="fas fa-copy me-1"></i> Copy to Clipboard
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -2960,8 +3334,12 @@
 
         // Parse markdown content
         try {
+          // Remove date prefix if present (e.g., "2023-05-10 " or "2023-05-10\n")
+          // Matches: YYYY-MM-DD followed by optional whitespace at the start
+          let cleanedMessage = message.replace(/^\d{4}-\d{2}-\d{2}\s*/m, '');
+
           // Render the markdown content
-          messageElement.innerHTML = marked.parse(message);
+          messageElement.innerHTML = marked.parse(cleanedMessage);
 
           // Find all code blocks and apply syntax highlighting
           messageElement.querySelectorAll('pre code').forEach((block) => {
@@ -3121,6 +3499,86 @@
         });
       }
       
+      // Handle scene description generation
+      if (document.getElementById('generate-scene-btn')) {
+        document.getElementById('generate-scene-btn').addEventListener('click', async () => {
+          if (!activeSessionId) {
+            addSystemMessage('No active session');
+            return;
+          }
+
+          const generateBtn = document.getElementById('generate-scene-btn');
+          const originalText = generateBtn.innerHTML;
+
+          try {
+            // Show loading state
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Generating...';
+
+            // Fetch scene description from API
+            const response = await window.ServerConfig.fetchWithCredentials(
+              window.ServerConfig.buildApiUrl(`/api/scene-description/${activeSessionId}`),
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+
+            const data = await response.json();
+
+            if (response.ok && data.prompt) {
+              // Display the generated prompt
+              const outputTextarea = document.getElementById('scene-description-output');
+              const container = document.getElementById('scene-description-container');
+
+              outputTextarea.value = data.prompt;
+              container.style.display = 'block';
+
+              addSystemMessage('Scene description generated successfully');
+            } else {
+              addSystemMessage(`Error generating scene description: ${data.error || 'Unknown error'}`);
+            }
+          } catch (error) {
+            console.error('Error generating scene description:', error);
+            addSystemMessage(`Error generating scene description: ${error.message}`);
+          } finally {
+            // Restore button state
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = originalText;
+          }
+        });
+      }
+
+      // Handle copy to clipboard
+      if (document.getElementById('copy-scene-btn')) {
+        document.getElementById('copy-scene-btn').addEventListener('click', async () => {
+          const outputTextarea = document.getElementById('scene-description-output');
+          const copyBtn = document.getElementById('copy-scene-btn');
+          const originalText = copyBtn.innerHTML;
+
+          try {
+            await navigator.clipboard.writeText(outputTextarea.value);
+
+            // Show success feedback
+            copyBtn.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+            copyBtn.classList.remove('btn-secondary');
+            copyBtn.classList.add('btn-success');
+
+            // Reset after 2 seconds
+            setTimeout(() => {
+              copyBtn.innerHTML = originalText;
+              copyBtn.classList.remove('btn-success');
+              copyBtn.classList.add('btn-secondary');
+            }, 2000);
+          } catch (error) {
+            console.error('Error copying to clipboard:', error);
+            addSystemMessage('Failed to copy to clipboard');
+          }
+        });
+      }
+
       // Handle location information save
       if (document.getElementById('save-location')) {
         document.getElementById('save-location').addEventListener('click', async () => {
@@ -3808,7 +4266,63 @@
         
         // Don't reload page anymore - changes are applied dynamically
       });
-      
+
+      // ===== Debug Modal Functions =====
+      const debugModal = document.getElementById('debugModal');
+      const toggleDebugBtn = document.getElementById('toggleDebugBtn');
+      const clearDebugLogsBtn = document.getElementById('clearDebugLogsBtn');
+      const debugStatus = document.getElementById('debug-status');
+      const logCount = document.getElementById('log-count');
+
+      // Update debug info when modal is shown
+      debugModal.addEventListener('show.bs.modal', function() {
+        updateDebugInfo();
+        updateDebugUI();
+      });
+
+      // Toggle debug logging
+      toggleDebugBtn.addEventListener('click', function() {
+        const enabled = window.DebugLogger.toggle();
+        updateDebugUI();
+      });
+
+      // Clear debug logs
+      clearDebugLogsBtn.addEventListener('click', function() {
+        window.DebugLogger.clear();
+        logCount.textContent = '0 logs';
+      });
+
+      function updateDebugUI() {
+        const enabled = window.DebugLogger.enabled;
+        if (enabled) {
+          debugStatus.textContent = 'Enabled';
+          debugStatus.className = 'badge bg-success ms-2';
+          toggleDebugBtn.innerHTML = '<i class="fas fa-stop me-1"></i> Disable Logging';
+          toggleDebugBtn.className = 'btn btn-sm btn-danger';
+        } else {
+          debugStatus.textContent = 'Disabled';
+          debugStatus.className = 'badge bg-secondary ms-2';
+          toggleDebugBtn.innerHTML = '<i class="fas fa-play me-1"></i> Enable Logging';
+          toggleDebugBtn.className = 'btn btn-sm btn-primary';
+        }
+        logCount.textContent = `${window.DebugLogger.logs.length} logs`;
+      }
+
+      function updateDebugInfo() {
+        document.getElementById('debug-server-url').textContent = window.ServerConfig.serverUrl;
+        document.getElementById('debug-origin').textContent = window.location.origin;
+        document.getElementById('debug-network-status').innerHTML = navigator.onLine
+          ? '<span class="badge bg-success">Online</span>'
+          : '<span class="badge bg-danger">Offline</span>';
+      }
+
+      // Update log count periodically when debug is enabled
+      setInterval(() => {
+        if (window.DebugLogger.enabled) {
+          logCount.textContent = `${window.DebugLogger.logs.length} logs`;
+        }
+      }, 1000);
+
       // Initialize character loading on page load
       loadAvailableCharacters();
 
@@ -5120,6 +5634,75 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-primary" id="saveServerConfig">Save Configuration</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug Modal -->
+  <div class="modal fade" id="debugModal" tabindex="-1" aria-labelledby="debugModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="debugModalLabel">
+            <i class="fas fa-bug me-2"></i>Debug Information
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Debug Toggle -->
+          <div class="mb-3 d-flex justify-content-between align-items-center">
+            <div>
+              <strong>Network Logging:</strong>
+              <span id="debug-status" class="badge bg-secondary ms-2">Disabled</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="toggleDebugBtn">
+              Enable Logging
+            </button>
+          </div>
+
+          <!-- Connection Info -->
+          <div class="card mb-3">
+            <div class="card-header">
+              <i class="fas fa-info-circle me-2"></i>Connection Information
+            </div>
+            <div class="card-body">
+              <table class="table table-sm mb-0">
+                <tr>
+                  <td><strong>Server URL:</strong></td>
+                  <td id="debug-server-url">-</td>
+                </tr>
+                <tr>
+                  <td><strong>Current Origin:</strong></td>
+                  <td id="debug-origin">-</td>
+                </tr>
+                <tr>
+                  <td><strong>Network Status:</strong></td>
+                  <td id="debug-network-status">-</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <!-- Clear Logs Button -->
+          <div class="mb-3">
+            <button type="button" class="btn btn-sm btn-outline-danger" id="clearDebugLogsBtn">
+              <i class="fas fa-trash me-1"></i> Clear Logs
+            </button>
+            <span class="text-muted ms-2" id="log-count">0 logs</span>
+          </div>
+
+          <!-- Debug Logs -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-list me-2"></i>Network Logs
+            </div>
+            <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+              <div id="debug-log-content">
+                <p class="text-muted">Enable logging to see network requests and responses</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ const cookieSession = require('cookie-session');
 require('dotenv').config(); // Load environment variables from .env file
 const { AnthropicChatClient, MemorySystem } = require('./anthropic-chat-client');
 const { MemoryPersistence } = require('./memory-persistence');
+const { SceneDescriptionGenerator } = require('./scene-description-generator');
 // JSON character profiles have been replaced by symbolic text profiles
 const characterProfiles = require('./character-profile-example');
 
@@ -66,20 +67,29 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
-      connectSrc: ["'self'", "*"],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: []
+// Configure helmet based on HTTPS usage
+// When using HTTP locally, we need to disable upgrade-insecure-requests
+const helmetConfig = USE_HTTPS
+  ? {
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
+          connectSrc: ["'self'", "*"],
+          fontSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+          objectSrc: ["'none'"],
+          upgradeInsecureRequests: []
+        }
+      }
     }
-  }
-}));
+  : {
+      // For HTTP mode: disable CSP entirely to avoid upgrade-insecure-requests
+      contentSecurityPolicy: false
+    };
+
+app.use(helmet(helmetConfig));
 
 // Set up session management
 app.use(cookieSession({
@@ -323,18 +333,18 @@ app.delete('/api/session/:sessionId', async (req, res) => {
   }
 });
 
-// Send a message
+// Send a message (with streaming support)
 app.post('/api/message', async (req, res) => {
   try {
-    const { sessionId, message, model } = req.body;
-    
+    const { sessionId, message, model, stream } = req.body;
+
     if (!sessionId || !message) {
       return res.status(400).json({ error: 'Session ID and message are required' });
     }
-    
+
     // Get chat client for this session
     let chatClient = activeSessions.get(sessionId);
-    
+
     // If not in active sessions, try to load it
     if (!chatClient) {
       chatClient = new AnthropicChatClient({
@@ -343,53 +353,97 @@ app.post('/api/message', async (req, res) => {
         sessionId: sessionId,
         model: model
       });
-      
+
       const loadResult = await chatClient.loadState(sessionId);
-      
+
       if (!loadResult.success) {
         return res.status(404).json({ error: 'Session not found' });
       }
-      
+
       // Add to active sessions
       activeSessions.set(sessionId, chatClient);
     }
-    
+
     // Update model if specified
     if (model && model !== chatClient.model) {
       chatClient.model = model;
       console.log(`Updated model to ${model} for session ${sessionId}`);
     }
-    
-    // Send message
-    const response = await chatClient.sendMessage(message);
 
-    // Get memory state
-    const memoryState = chatClient.getMemoryState();
+    // If streaming requested, set up SSE
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
 
-    await chatClient.saveState();
+      let fullResponse = '';
 
-    // Strip JSON from response
-    let parsedResponse = response.replace(/\s*\{(?:\s*"[^"]+"\s*:\s*"(?:[^"\\]|\\.)*"\s*,?)+\}\s*$/, '').trim();
+      // Send message with streaming callback
+      const response = await chatClient.sendMessage(message, (chunk) => {
+        fullResponse += chunk;
+        // Send chunk to client
+        res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
+      });
 
-    // Extract and remove date prefix if present (for UI display)
-    // Date is kept in conversation history for AI context, but removed from UI display
-    const dateMatch = parsedResponse.match(/^(\d{4}-\d{2}-\d{2})\s+/);
-    let displayDate = null;
-    if (dateMatch) {
-      displayDate = dateMatch[1];
-      parsedResponse = parsedResponse.substring(dateMatch[0].length).trim();
+      // Get memory state
+      const memoryState = chatClient.getMemoryState();
+      await chatClient.saveState();
+
+      // Strip JSON from response
+      let parsedResponse = response.replace(/\s*\{(?:\s*"[^"]+"\s*:\s*"(?:[^"\\]|\\.)*"\s*,?)+\}\s*$/, '').trim();
+
+      // Extract and remove date prefix if present
+      const dateMatch = parsedResponse.match(/^(\d{4}-\d{2}-\d{2})\s+/);
+      let displayDate = null;
+      if (dateMatch) {
+        displayDate = dateMatch[1];
+        parsedResponse = parsedResponse.substring(dateMatch[0].length).trim();
+      }
+
+      // Send final metadata
+      res.write(`data: ${JSON.stringify({
+        type: 'done',
+        date: displayDate || memoryState.date,
+        location: memoryState.location,
+        clothing: memoryState.clothing?.char || memoryState.clothing?.clothing?.char,
+        memoryState,
+        model: chatClient.model,
+        characterProfile: chatClient.characterProfile
+      })}\n\n`);
+
+      res.end();
+    } else {
+      // Non-streaming mode (backward compatibility)
+      const response = await chatClient.sendMessage(message);
+
+      // Get memory state
+      const memoryState = chatClient.getMemoryState();
+      await chatClient.saveState();
+
+      // Strip JSON from response
+      let parsedResponse = response.replace(/\s*\{(?:\s*"[^"]+"\s*:\s*"(?:[^"\\]|\\.)*"\s*,?)+\}\s*$/, '').trim();
+
+      // Extract and remove date prefix if present (for UI display)
+      // Date is kept in conversation history for AI context, but removed from UI display
+      const dateMatch = parsedResponse.match(/^(\d{4}-\d{2}-\d{2})\s+/);
+      let displayDate = null;
+      if (dateMatch) {
+        displayDate = dateMatch[1];
+        parsedResponse = parsedResponse.substring(dateMatch[0].length).trim();
+      }
+
+      // Include model info, date, location, and clothing in response
+      res.json({
+        response: parsedResponse,
+        date: displayDate || memoryState.date, // Use extracted date or fallback to memoryState
+        location: memoryState.location, // Include location for display
+        clothing: memoryState.clothing?.char || memoryState.clothing?.clothing?.char, // Include character clothing for display
+        memoryState,
+        model: chatClient.model,
+        characterProfile: chatClient.characterProfile
+      });
     }
-
-    // Include model info, date, location, and clothing in response
-    res.json({
-      response: parsedResponse,
-      date: displayDate || memoryState.date, // Use extracted date or fallback to memoryState
-      location: memoryState.location, // Include location for display
-      clothing: memoryState.clothing?.char || memoryState.clothing?.clothing?.char, // Include character clothing for display
-      memoryState,
-      model: chatClient.model,
-      characterProfile: chatClient.characterProfile
-    });
   } catch (error) {
     logger.error('Error sending message:', error);
     res.status(500).json({ error: error.message });
@@ -830,14 +884,14 @@ app.post('/api/location/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { characterLocation } = req.body;
-    
+
     if (!sessionId) {
       return res.status(400).json({ error: 'Session ID is required' });
     }
-    
+
     // Get chat client for this session
     let chatClient = activeSessions.get(sessionId);
-    
+
     // If not in active sessions, try to load it
     if (!chatClient) {
       chatClient = new AnthropicChatClient({
@@ -845,37 +899,87 @@ app.post('/api/location/:sessionId', async (req, res) => {
         persistence: memoryPersistence,
         sessionId: sessionId
       });
-      
+
       const loadResult = await chatClient.loadState(sessionId);
-      
+
       if (!loadResult.success) {
         return res.status(404).json({ error: 'Session not found' });
       }
-      
+
       // Add to active sessions
       activeSessions.set(sessionId, chatClient);
     }
-    
+
     // Update location information (only for character)
     if (characterLocation !== undefined) {
       chatClient.memory.location = characterLocation;
     }
-    
+
     // Log the update for debugging
     logger.debug('Updated location:', chatClient.memory.location);
-    
+
     // Save state
     await chatClient.saveState();
-    
+
     // Get updated memory state
     const memoryState = chatClient.getMemoryState();
-    
+
     res.json({
       success: true,
       memoryState
     });
   } catch (error) {
     logger.error('Error updating location information:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Generate scene description for AI image generation
+app.get('/api/scene-description/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
+    // Get chat client for this session
+    let chatClient = activeSessions.get(sessionId);
+
+    // If not in active sessions, try to load it
+    if (!chatClient) {
+      chatClient = new AnthropicChatClient({
+        apiKey: DEFAULT_API_KEY,
+        persistence: memoryPersistence,
+        sessionId: sessionId
+      });
+
+      const loadResult = await chatClient.loadState(sessionId);
+
+      if (!loadResult.success) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      // Add to active sessions
+      activeSessions.set(sessionId, chatClient);
+    }
+
+    // Gather data for scene description (including messages for context)
+    const sceneData = {
+      characterProfile: chatClient.characterProfile || '',
+      userProfile: chatClient.userProfile || '',
+      clothing: chatClient.memory?.clothing || {},
+      location: chatClient.memory?.location || '',
+      deepMemory: chatClient.memory?.deepMemory || '',
+      messages: chatClient.conversationHistory || [] // Include conversation history
+    };
+
+    // Generate scene description using AI (async)
+    const result = await SceneDescriptionGenerator.generate(sceneData, DEFAULT_API_KEY);
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Error generating scene description:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1173,7 +1277,7 @@ app.post('/api/character/generate', async (req, res) => {
     const messages = conversationHistory || [];
     messages.push({ role: 'user', content: description });
 
-    // Call Claude API directly (no memory system for character creation)
+    // Call Claude API directly with streaming (no memory system for character creation)
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -1185,7 +1289,8 @@ app.post('/api/character/generate', async (req, res) => {
         model: model || 'claude-3-haiku-20240307',
         max_tokens: 2000,
         system: systemPrompt,
-        messages: messages.slice(-6) // Keep last 6 messages for context
+        messages: messages.slice(-6), // Keep last 6 messages for context
+        stream: true
       })
     });
 
@@ -1194,8 +1299,34 @@ app.post('/api/character/generate', async (req, res) => {
       throw new Error(`API error: ${errorData.error?.message || response.statusText}`);
     }
 
-    const data = await response.json();
-    const fullResponse = data.content[0].text;
+    // Process streaming response
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullResponse = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+              fullResponse += parsed.delta.text;
+            }
+          } catch (e) {
+            // Skip malformed JSON
+          }
+        }
+      }
+    }
 
     // Extract profile between **** markers
     const profileMatch = fullResponse.match(/\*{4}([\s\S]*?)\*{4}/);

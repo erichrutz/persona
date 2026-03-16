@@ -935,7 +935,7 @@ class MemorySystem {
       // Update memory from loaded state
       this.shortTermMemory = loadedState.memoryState.shortTermMemory || [];
       this.longTermMemory = loadedState.memoryState.longTermMemory || [];
-      this.deepMemory = loadedState.memoryState.memoryState.deepMemory || '';
+      this.deepMemory = loadedState.memoryState.deepMemory || '';
       this.history = loadedState.memoryState.history || []; // Load relationship history
       this.location = loadedState.memoryState.location || 'unknown'; // Load current location
       this.date = loadedState.memoryState.date || 'unknown'; // Load current date
@@ -1335,7 +1335,8 @@ Always reference user appearance, never contradict memory information, acknowled
   }
 
   // Process user message and get response
-  async sendMessage(userMessage) {
+  // Optional onStreamChunk callback receives text chunks as they arrive
+  async sendMessage(userMessage, onStreamChunk = null) {
     try {
       // If memory compressor doesn't exist, create it
       if (!this.memoryCompressor) {
@@ -1442,7 +1443,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
         model: this.model,
         messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
         system: fullSystemPrompt,
-        max_tokens: 4096
+        max_tokens: 4096,
+        stream: true
       };
 
       // Add temperature only if not default to save tokens
@@ -1523,28 +1525,67 @@ Your responses must reflect the cumulative emotional impact of these experiences
         }
       }
 
-      let data;
+      // Process streaming response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let assistantResponse = '';
+      let usage = null;
+      let buffer = '';
+
       try {
-        data = await response.json();
-        if (!data || !data.content || !data.content[0] || !data.content[0].text) {
-          throw new Error('Invalid API response format');
+        while (true) {
+          const { done, value } = await reader.read();
+
+          // Decode chunk with stream: true to handle multi-byte characters
+          const chunk = decoder.decode(value, { stream: !done });
+          buffer += chunk;
+
+          if (done) break;
+
+          const lines = buffer.split('\n');
+          // Keep the last incomplete line in buffer
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+
+                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                  const textChunk = parsed.delta.text;
+                  assistantResponse += textChunk;
+
+                  // Call streaming callback if provided
+                  if (onStreamChunk && typeof onStreamChunk === 'function') {
+                    onStreamChunk(textChunk);
+                  }
+                } else if (parsed.type === 'message_delta' && parsed.usage) {
+                  usage = parsed.usage;
+                }
+              } catch (e) {
+                // Skip malformed JSON
+              }
+            }
+          }
+        }
+
+        if (!assistantResponse) {
+          throw new Error('Invalid API response format - no content received');
         }
       } catch (parseError) {
-        logger.error('Failed to parse API response JSON:', parseError);
-        // Get the raw response text for debugging
-        let responseText = '';
-        try {
-          // Need to clone the response since we already attempted to read it as JSON
-          const responseClone = response.clone();
-          responseText = await responseClone.text();
-          logger.debug('Raw API response text:', responseText.substring(0, 1000) + '...');
-        } catch (textError) {
-          logger.error('Failed to read raw response text:', textError);
-        }
+        logger.error('Failed to parse streaming API response:', parseError);
         throw new Error(`Failed to parse API response: ${parseError.message}`);
       }
 
-      const assistantResponse = data.content[0].text;
+      // Create data object for compatibility with existing code
+      const data = {
+        content: [{ text: assistantResponse }],
+        usage: usage
+      };
 
       // Track token usage from API response
       if (data.usage && this.memory.compressionEnabled) {
@@ -2018,9 +2059,9 @@ Your responses must reflect the cumulative emotional impact of these experiences
             {
               role: 'user',
               content: `Please categorize this information for long-term memory storage:
-              
+
               "${memoryItem}"
-              
+
               Respond with a JSON object containing:
               {
                 "category": "personal_info|preferences|factual_knowledge|important_context",
@@ -2029,7 +2070,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
               }`
             }
           ],
-          max_tokens: 250
+          max_tokens: 250,
+          stream: true
         })
       });
 
@@ -2038,8 +2080,36 @@ Your responses must reflect the cumulative emotional impact of these experiences
         throw new Error(`Categorization API request failed with status ${response.status}; ${error}`);
       }
 
-      const data = await response.json();
-      logger.debug('Memory categorization:', data.content[0].text);
+      // Process streaming response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let result = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                result += parsed.delta.text;
+              }
+            } catch (e) {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+
+      logger.debug('Memory categorization:', result);
 
       // Here you could further process the categorization to optimize memory
       // For example, set expiration dates, organize memories by category, etc.

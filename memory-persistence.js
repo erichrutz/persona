@@ -50,8 +50,9 @@ class MemoryPersistence {
         userProfile: memoryState.userProfile,
         clothing: memoryState.clothing,
         history: memoryState.history,
-        location: memoryState.location || 'unknown', // Default to 'unknown' if not provided
-        date: memoryState.date || 'unknown', // Default to 'unknown' if not provided
+        location: memoryState.location || 'unknown',
+        date: memoryState.date || 'unknown',
+        worldSetting: memoryState.worldSetting || '',
       };
       
       // Update cache first to improve performance
