@@ -368,6 +368,11 @@ WANTS: Goals, desires, motivations
 | `AUTH_PASSWORD` | *(none)* | Basic auth password |
 | `SESSION_KEY` | *(random)* | Cookie session encryption key |
 | `DEBUG_MODE` | `false` | Enable detailed debug logging |
+| `MODEL_DEFAULT` | `claude-sonnet-4-5-20250929` | Default model for all operations |
+| `MODEL_CHAT` | `MODEL_DEFAULT` | Model for chat conversations |
+| `MODEL_COMPRESSION` | `MODEL_DEFAULT` | Model for memory compression |
+| `MODEL_CHARACTER_CREATOR` | `MODEL_DEFAULT` | Model for character creation |
+| `MODEL_SCENE_GENERATOR` | `MODEL_DEFAULT` | Model for scene description generation |
 
 ### Model Selection
 
@@ -375,8 +380,28 @@ Persona supports multiple Claude models:
 
 - **Claude 4.5 Sonnet** *(default)*: Latest and most capable model, ideal for complex character interactions and rich storytelling
 - **Claude 4.5 Haiku**: Faster and more economical, suitable for lighter conversations or testing
+- **Claude 3.7/3.5 Sonnet**: Earlier versions for compatibility
 
-Select your preferred model in the UI settings or specify per-session via the API. Model availability and naming may vary—check the [Anthropic API documentation](https://docs.anthropic.com/claude/docs/models-overview) for current options.
+**Configuration Options:**
+
+1. **Environment Variables** (Recommended): Set model defaults in `.env` file
+   - `MODEL_DEFAULT` - Global default for all operations
+   - `MODEL_CHAT` - Override for chat conversations
+   - `MODEL_COMPRESSION` - Override for memory compression
+   - `MODEL_CHARACTER_CREATOR` - Override for character creation
+   - `MODEL_SCENE_GENERATOR` - Override for scene generation
+
+2. **UI Selection**: Choose model when creating a session (overrides `.env` defaults)
+
+3. **API Parameter**: Specify per-request via `model` parameter (highest priority)
+
+**Example `.env` configuration:**
+```bash
+MODEL_DEFAULT=claude-sonnet-4-5-20250929
+MODEL_COMPRESSION=claude-haiku-4-5-20251001  # Use faster model for compression
+```
+
+Model availability and naming may vary—check the [Anthropic API documentation](https://docs.anthropic.com/claude/docs/models-overview) for current options.
 
 ---
 

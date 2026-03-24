@@ -1,6 +1,11 @@
 // Memory Compression Extension for Anthropic Chat Client
 // This module extends the existing memory system to periodically compress long-term memories
+require('dotenv').config(); // Load environment variables
 const util = require('util');
+
+// Model configuration
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
 
 // Use the same logger from server if available, otherwise create one
 let logger;
@@ -480,7 +485,7 @@ ${JSON.stringify(memoriesText)}`;
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-5-20250929",
+            model: MODEL_COMPRESSION,
             messages: [{ role: 'user', content: promptSymbolic }],
             max_tokens: 1600,
             stream: true

@@ -1,10 +1,14 @@
 // Anthropic Chat Client with 2-Layer Memory System and Memory Compression
+require('dotenv').config(); // Load environment variables
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
 const { MemoryCompressor } = require('./memory-compressor');
-// const { flushCompileCache } = require('module'); // Unused import
+
+// Model configuration
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
 
 // Use the same logger from server if available, otherwise create one
 let logger;
@@ -1058,7 +1062,7 @@ PHRASES:`;
       date: options.date || 'unknown' // For tracking current date
     });
 
-    this.model = options.model || "claude-sonnet-4-5-20250929";
+    this.model = options.model || MODEL_CHAT;
     this.temperature = options.temperature || 1.0;
     this.messages = options.messages || [];
     this.apiUrl = API_URL;

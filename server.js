@@ -59,6 +59,13 @@ const KEY_PATH = process.env.KEY_PATH || '/etc/letsencrypt/live/yourdomain.com/p
 const USERNAME = process.env.AUTH_USERNAME || 'admin';
 const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 
+// Model configuration with fallback chain: specific > default > hardcoded
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
+const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
+const MODEL_CHARACTER_CREATOR = process.env.MODEL_CHARACTER_CREATOR || MODEL_DEFAULT;
+const MODEL_SCENE_GENERATOR = process.env.MODEL_SCENE_GENERATOR || MODEL_DEFAULT;
+
 // Set up middleware
 app.use(bodyParser.json());
 app.use(cors({
@@ -169,6 +176,19 @@ const DEFAULT_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
 // Routes
 
+// Get configuration (model defaults, etc.) - no auth required for UI config
+app.get('/api/config', (req, res) => {
+  res.json({
+    models: {
+      default: MODEL_DEFAULT,
+      chat: MODEL_CHAT,
+      compression: MODEL_COMPRESSION,
+      characterCreator: MODEL_CHARACTER_CREATOR,
+      sceneGenerator: MODEL_SCENE_GENERATOR
+    }
+  });
+});
+
 // Create or load a session
 app.post('/api/session', async (req, res) => {
   try {
@@ -257,7 +277,7 @@ app.post('/api/session', async (req, res) => {
       }
       
       // Create chat client
-      const finalModel = model || 'claude-sonnet-4-5-20250929';
+      const finalModel = model || MODEL_CHAT;
       logger.info(`Creating new session with model: ${finalModel} (received: ${model})`);
 
       const chatClient = new AnthropicChatClient({
@@ -1286,7 +1306,7 @@ app.post('/api/character/generate', async (req, res) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model || 'claude-sonnet-4-5-20250929',
+        model: model || MODEL_CHARACTER_CREATOR,
         max_tokens: 2000,
         system: systemPrompt,
         messages: messages.slice(-6), // Keep last 6 messages for context

@@ -1892,10 +1892,28 @@
           addSystemMessage(`Model switched to ${event.target.textContent}`);
         });
       });
-      
-      // Variable to store the currently selected model
-      let currentModel = 'claude-sonnet-4-5-20250929';
-      
+
+      // Variable to store the currently selected model (will be loaded from server config)
+      let currentModel = 'claude-sonnet-4-5-20250929'; // Fallback default
+      let serverConfig = null; // Will hold server configuration
+
+      // Load server configuration
+      async function loadServerConfig() {
+        try {
+          const response = await fetch(window.ServerConfig.buildApiUrl('/api/config'));
+          if (response.ok) {
+            serverConfig = await response.json();
+            currentModel = serverConfig.models.chat;
+            console.log('Loaded server config:', serverConfig);
+          }
+        } catch (error) {
+          console.warn('Could not load server config, using defaults:', error);
+        }
+      }
+
+      // Load config on page load
+      loadServerConfig();
+
       // Configure marked options for security and features
       marked.setOptions({
         gfm: true,
@@ -2581,7 +2599,7 @@
         
         // Get selected model
         const modelSelect = document.getElementById('model-select');
-        const selectedModel = modelSelect ? modelSelect.value : 'claude-sonnet-4-5-20250929';
+        const selectedModel = modelSelect ? modelSelect.value : (serverConfig?.models?.chat || 'claude-sonnet-4-5-20250929');
         
         // Get deep memory if provided
         const deepMemory = document.getElementById('deep-memory').value.trim();
@@ -4936,7 +4954,7 @@
             description: message,
             conversationHistory: creatorMessages.slice(0, -1), // Don't include last message (just sent)
             currentProfile: creatorProfile || null,
-            model: 'claude-sonnet-4-5-20250929'
+            model: serverConfig?.models?.characterCreator || 'claude-sonnet-4-5-20250929'
           })
         });
 
