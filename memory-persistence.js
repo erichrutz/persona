@@ -53,6 +53,7 @@ class MemoryPersistence {
         location: memoryState.location || 'unknown',
         date: memoryState.date || 'unknown',
         worldSetting: memoryState.worldSetting || '',
+        deepMemory: memoryState.deepMemory || '', // Add deepMemory to top level for consistent access
       };
       
       // Update cache first to improve performance

@@ -1117,7 +1117,8 @@ PHRASES:`;
         location: this.memory.location || 'unknown', // Include current location
         date: this.memory.date || 'unknown', // Include current date
         model: this.model, // Save the current model
-        worldSetting: this.worldSetting || '' // Save world setting
+        worldSetting: this.worldSetting || '', // Save world setting
+        deepMemory: this.memory.deepMemory || '' // Save deepMemory at top level for consistent access
       };
 
       return await this.persistence.saveMemory(this.sessionId, state);
@@ -1170,6 +1171,12 @@ PHRASES:`;
 
       // Load memory state
       await this.memory.loadFromStorage(this.sessionId);
+
+      // Restore deepMemory from top-level (fix for data structure mismatch)
+      // This ensures deepMemory is not lost when loading sessions
+      if (loadedState.deepMemory !== undefined) {
+        this.memory.deepMemory = loadedState.deepMemory;
+      }
 
       // Restore MemoryCompressor state if it exists
       if (loadedState.memoryState && loadedState.memoryState.memoryCompressorState) {

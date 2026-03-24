@@ -1286,7 +1286,7 @@ app.post('/api/character/generate', async (req, res) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model || 'claude-3-haiku-20240307',
+        model: model || 'claude-sonnet-4-5-20250929',
         max_tokens: 2000,
         system: systemPrompt,
         messages: messages.slice(-6), // Keep last 6 messages for context
@@ -1303,6 +1303,7 @@ app.post('/api/character/generate', async (req, res) => {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullResponse = '';
+    let usageData = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -1313,13 +1314,17 @@ app.post('/api/character/generate', async (req, res) => {
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
+          const dataStr = line.slice(6);
+          if (dataStr === '[DONE]') continue;
 
           try {
-            const parsed = JSON.parse(data);
+            const parsed = JSON.parse(dataStr);
             if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
               fullResponse += parsed.delta.text;
+            }
+            // Capture usage data from message_delta event
+            if (parsed.type === 'message_delta' && parsed.usage) {
+              usageData = parsed.usage;
             }
           } catch (e) {
             // Skip malformed JSON
@@ -1355,17 +1360,14 @@ app.post('/api/character/generate', async (req, res) => {
       validation = validateCharacterProfile(characterProfile);
     }
 
-    logger.info(`Character generation: ${completeness}% complete, ${data.usage.output_tokens} tokens`);
+    logger.info(`Character generation: ${completeness}% complete${usageData ? `, ${usageData.output_tokens} tokens` : ''}`);
 
     res.json({
       conversationResponse,
       characterProfile,
       completeness,
       validation,
-      usage: {
-        input_tokens: data.usage.input_tokens,
-        output_tokens: data.usage.output_tokens
-      }
+      usage: usageData || { input_tokens: 0, output_tokens: 0 }
     });
 
   } catch (error) {
