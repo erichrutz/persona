@@ -28,7 +28,7 @@ Imagine having a conversation where the character remembers **that coffee shop w
 
 Whether you're crafting intricate roleplay scenarios, developing story characters, exploring emotional connections, or simply enjoying long-form conversations with consistent AI personalities, Persona gives you the tools to create experiences that feel genuinely alive.
 
-**Ready to meet characters who actually remember you?**
+**Ready to meet characters who actually remember you?** · [FAQ](FAQ.md)
 
 ![alt text](images/main-chat.png)
 
@@ -641,6 +641,8 @@ Contributions are welcome! Feel free to:
 - Submit feature requests
 - Create pull requests with improvements
 - Share custom character profiles
+
+Have a question? Check the [FAQ](FAQ.md) first.
 
 ---
 

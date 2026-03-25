@@ -13,8 +13,6 @@ require('dotenv').config(); // Load environment variables from .env file
 const { AnthropicChatClient, MemorySystem } = require('./anthropic-chat-client');
 const { MemoryPersistence } = require('./memory-persistence');
 const { SceneDescriptionGenerator } = require('./scene-description-generator');
-// JSON character profiles have been replaced by symbolic text profiles
-const characterProfiles = require('./character-profile-example');
 
 // Enhanced logging setup
 const DEBUG = process.env.DEBUG_MODE || 'true';
