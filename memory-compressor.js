@@ -955,7 +955,7 @@ ${contextSection}
 
 ## Example Style:
 ❌ BAD (too detailed): "As the warm summer sun filtered through the leaves, Klara found herself lost in forbidden thoughts about her neighbor..."
-✅ GOOD (recap style): "Klara masturbated in her garden while fantasizing about her neighbor Erich."
+✅ GOOD (recap style): "Klara thought about their neighbor while alone in the garden."
 
 ❌ BAD: "With trembling hands and a heart full of conflicted emotions, she slowly reached out to touch..."
 ✅ GOOD: "She initiated physical contact. They kissed."
