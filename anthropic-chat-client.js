@@ -1654,8 +1654,12 @@ Your responses must reflect the cumulative emotional impact of these experiences
         const beforeCount = this.memory.longTermMemory.length;
         const result = await this.compressMemory();
         if (result.compressed) {
-          this.characterProfile = this.memory.longTermMemory[0].content;
-          this.userProfile = this.memory.longTermMemory[1].content;
+          // Read from compressor — it holds the most up-to-date profiles after
+          // both memory consolidation and any subsequent profile-level compression
+          this.characterProfile = this.memoryCompressor.characterProfile || this.characterProfile;
+          this.userProfile = (this.memoryCompressor.userProfile || '').trim()
+            ? this.memoryCompressor.userProfile
+            : this.userProfile;
 
           // Track compression statistics
           const afterCount = 2; // Character + User profiles
