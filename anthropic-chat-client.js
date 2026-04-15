@@ -1636,7 +1636,10 @@ Your responses must reflect the cumulative emotional impact of these experiences
       // Check if there's memory information to extract
       await this.processMemoryInformation(assistantMsg.content);
 
-      if (this.memory.date) assistantMsg.content = this.memory.date + ' ' + assistantMsg.content;
+      if (this.memory.date) {
+        const stripped = assistantMsg.content.replace(/^\d{4}-\d{2}-\d{2}\s+/, '');
+        assistantMsg.content = this.memory.date + ' ' + stripped;
+      }
 
       this.messages.push(assistantMsg);
 
@@ -2134,6 +2137,9 @@ Your responses must reflect the cumulative emotional impact of these experiences
   cleanResponse(response) {
     // First, try to remove markdown code blocks with JSON
     let cleaned = response.replace(/```json\s*\n?[\s\S]*?\n?```\s*$/m, '').trim();
+
+    // Strip any leading date the model may have echoed back
+    cleaned = cleaned.replace(/^\d{4}-\d{2}-\d{2}\s+/, '');
 
     // Then remove any remaining JSON block at the end of the response
     cleaned = cleaned.replace(/\{[\s\S]*?\}\s*$/, '').trim();

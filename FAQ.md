@@ -61,10 +61,11 @@ At [anthropic.com/legal/usage-policy](https://www.anthropic.com/legal/usage-poli
 ## Costs
 
 **How much does Persona cost to run?**
-Persona itself is free and open source. The only ongoing cost is Anthropic API usage. For casual daily use — a few conversations per day with typical session lengths — expect to spend roughly **€20 per month or less**. Heavier use (long sessions, many messages, frequent compression) will cost more.
+Persona itself is free and open source. The only ongoing cost is Anthropic API usage. For casual daily use — a few conversations per day with typical session lengths — expect to spend roughly **20$ per month or less**. If you just play around expect much less than that (**1-5$**). Heavier use (long sessions, many messages, frequent compression) will cost more.
+
 
 **How does that compare to commercial alternatives?**
-AI companion and character roleplay platforms of comparable quality typically charge **€10–25/month** for a subscription — and often impose message limits, content restrictions, or data-sharing terms on top of that. Running Persona yourself gives you the better quality, full control over your data, and no artificial limits, for roughly the same price range.
+AI companion and character roleplay platforms of comparable quality typically charge **10–25$/month** for a subscription — and often impose message limits, content restrictions, or data-sharing terms on top of that. Running Persona yourself gives you the better quality, full control over your data, and no artificial limits, for roughly the same price range.
 
 **Is the API billed like a subscription?**
 No. The Anthropic API is **pre-paid and pay-as-you-go**. You purchase credits upfront and they are drawn down as you use the API. There is no monthly subscription, no commitment, and no surprise bill at the end of the month. When your credits run out, API calls simply stop working until you add more.

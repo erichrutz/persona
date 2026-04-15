@@ -281,6 +281,29 @@ class MemoryCompressor {
     return attributes;
   }
 
+  // Extract curly bracket attributes with their originating section
+  extractCurlyBracketAttributesWithSections(profile) {
+    const attributes = new Map(); // content → { fullMatch, section }
+    const curlyBracketRegex = /\{([^}]+)\}/g;
+    const sectionHeaderRegex = /^([A-Z_]+):\s*/;
+    let currentSection = null;
+
+    for (const line of profile.split('\n')) {
+      const sectionMatch = line.match(sectionHeaderRegex);
+      if (sectionMatch) currentSection = sectionMatch[1];
+
+      let match;
+      while ((match = curlyBracketRegex.exec(line)) !== null) {
+        const content = match[1].trim();
+        if (content && !attributes.has(content)) {
+          attributes.set(content, { fullMatch: match[0], section: currentSection });
+        }
+      }
+    }
+
+    return attributes;
+  }
+
   // Detect the separator used in a section (comma, semicolon, pipe, or slash)
   detectSeparator(sectionContent) {
     // Count occurrences of different separators
@@ -300,48 +323,43 @@ class MemoryCompressor {
 
   // Restore curly bracket attributes that were lost during compression
   restoreCurlyBracketAttributes(compressedProfile, originalProfile) {
-    const originalAttributes = this.extractCurlyBracketAttributes(originalProfile);
+    const originalAttributes = this.extractCurlyBracketAttributesWithSections(originalProfile);
     const compressedAttributes = this.extractCurlyBracketAttributes(compressedProfile);
 
-    // Find attributes that were in original but missing in compressed
-    const missingAttributes = [];
-    originalAttributes.forEach((fullMatch, content) => {
+    // Group missing attributes by their original section
+    const missingBySection = new Map();
+    originalAttributes.forEach(({ fullMatch, section }, content) => {
       if (!compressedAttributes.has(content)) {
-        missingAttributes.push(fullMatch);
+        if (!missingBySection.has(section)) missingBySection.set(section, []);
+        missingBySection.get(section).push(fullMatch);
       }
     });
 
-    // If there are missing attributes, append them to the appropriate section
-    if (missingAttributes.length > 0) {
-      logger.debug(`Restoring ${missingAttributes.length} immutable attributes from curly brackets`);
+    if (missingBySection.size === 0) return compressedProfile;
 
-      // Try to find the best section to append to (prefer CORE or LOOKS)
-      const sections = ['CORE', 'LOOKS', 'TOPICS', 'TRIGGERS', 'CONNECTIONS'];
-      for (const section of sections) {
-        // Capture the entire section line (may span multiple lines)
-        const sectionRegex = new RegExp(`(${section}:\\s*[^\\n]+(?:\\n(?!\\w+:)[^\\n]+)*)`, 'i');
-        const match = compressedProfile.match(sectionRegex);
+    logger.debug(`Restoring ${[...missingBySection.values()].flat().length} immutable attributes from curly brackets`);
+
+    const fallbackSections = ['CORE', 'LOOKS', 'TOPICS', 'TRIGGERS', 'CONNECTIONS'];
+    let result = compressedProfile;
+
+    missingBySection.forEach((attributes, section) => {
+      const sectionsToTry = section ? [section, ...fallbackSections] : fallbackSections;
+
+      for (const candidate of sectionsToTry) {
+        const sectionRegex = new RegExp(`(${candidate}:\\s*[^\\n]+(?:\\n(?!\\w+:)[^\\n]+)*)`, 'i');
+        const match = result.match(sectionRegex);
         if (match) {
-          const sectionContent = match[1];
-
-          // Detect the separator used in this section
-          const separator = this.detectSeparator(sectionContent);
-
-          // Append missing attributes using the detected separator
-          const restoredAttributes = missingAttributes.join(`${separator} `);
-
-          return compressedProfile.replace(
-            sectionRegex,
-            `$1${separator} ${restoredAttributes}`
-          );
+          const separator = this.detectSeparator(match[1]);
+          result = result.replace(sectionRegex, `$1${separator} ${attributes.join(`${separator} `)}`);
+          return;
         }
       }
 
-      // If no suitable section found, append to the end with comma as default
-      return compressedProfile + '\n' + missingAttributes.join(', ');
-    }
+      // No section found at all — append to end
+      result += '\n' + attributes.join(', ');
+    });
 
-    return compressedProfile;
+    return result;
   }
 
   // Make API request to compress memories
