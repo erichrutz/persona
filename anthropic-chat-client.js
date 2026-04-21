@@ -1924,8 +1924,6 @@ Your responses must reflect the cumulative emotional impact of these experiences
   }
 
   async categorizeLongTermMemory(memory, type) {
-    // let topicGroup = null; // Unused variable
-    // let subtopic = null; // Unused variable
     const topicMatch = memory.match(/^\[([\w_]+)(?::([^\]]+))?\]/);
 
     // Language-specific keywords for auto-categorization
@@ -2013,9 +2011,6 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
     if (topicMatch) {
       // If memory already has topic formatting, preserve it
-      topicGroup = topicMatch[1];
-      subtopic = topicMatch[2] || null;
-
       // Add to long-term memory with existing categorization
       await this.memory.addToLongTermMemory(memory, language);
       logger.debug(`Added to long-term memory with existing topic formatting: ${memory}`);
