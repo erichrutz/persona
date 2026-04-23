@@ -191,7 +191,7 @@ app.get('/api/config', (req, res) => {
 // Create or load a session
 app.post('/api/session', async (req, res) => {
   try {
-    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model, deepMemory, language, worldSetting } = req.body;
+    const { sessionId, characterType, apiKey, customProfile, startScenario, compressionEnabled, model, deepMemory, language, worldSetting, mode, storyContext } = req.body;
     
     // Check if loading existing session
     if (sessionId) {
@@ -241,7 +241,8 @@ app.post('/api/session', async (req, res) => {
         characterName: characterName,
         memoryState: chatClient.getMemoryState(),
         messages: lastMessages,
-        characterType: loadResult.loadedState.characterType || 'custom'
+        characterType: loadResult.loadedState.characterType || 'custom',
+        mode: chatClient.mode || 'chat'
       });
     } else {
       // Create new session
@@ -289,7 +290,9 @@ app.post('/api/session', async (req, res) => {
         language: language || 'deutsch',
         characterName: characterName,
         isJSON: isJSON,
-        worldSetting: worldSetting || ''
+        worldSetting: worldSetting || '',
+        mode: mode || 'chat',
+        storyContext: storyContext || ''
       });
       
       // Set initial context if provided
@@ -310,7 +313,8 @@ app.post('/api/session', async (req, res) => {
       
       return res.json({
         sessionId: chatClient.sessionId,
-        characterName: characterName
+        characterName: characterName,
+        mode: chatClient.mode || 'chat'
       });
     }
   } catch (error) {

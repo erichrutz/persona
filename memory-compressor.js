@@ -59,6 +59,8 @@ class MemoryCompressor {
     this.characterName = options.characterName || 'AI Assistant';
     this.characterProfile = options.characterProfile || '';
     this.userProfile = options.userProfile || '';
+    this.storyContext = options.storyContext || '';
+    this.mode = options.mode || 'chat';
 
     // Profile compression settings
     this.profileByteThreshold = options.profileByteThreshold || 3096; // Compress profiles above this byte size
@@ -118,6 +120,13 @@ class MemoryCompressor {
     return userBytes > this.profileByteThreshold;
   }
 
+  // Check if story context exceeds byte threshold (story mode)
+  shouldCompressStoryContext() {
+    const storyBytes = Buffer.byteLength(this.storyContext, 'utf8');
+    logger.debug(`Story context size: ${storyBytes} bytes, Threshold: ${this.profileByteThreshold} bytes`);
+    return storyBytes > this.profileByteThreshold;
+  }
+
   // Track API calls and trigger compression when needed
   async trackApiCall(memorySystem) {
     this.apiCallCount++;
@@ -173,7 +182,11 @@ class MemoryCompressor {
       // Sync fresh profiles onto compressor so compressProfilesIfNeeded works
       // with the newly consolidated versions, not the pre-compression originals
       if (compressedMemories[0]?.content) this.characterProfile = compressedMemories[0].content;
-      if (compressedMemories[1]?.content) this.userProfile = compressedMemories[1].content;
+      if (this.mode === 'story') {
+        if (compressedMemories[1]?.content) this.storyContext = compressedMemories[1].content;
+      } else {
+        if (compressedMemories[1]?.content) this.userProfile = compressedMemories[1].content;
+      }
 
       // Update timestamps
       this.lastCompressionTime = new Date();
@@ -211,9 +224,15 @@ class MemoryCompressor {
       results.character = await this.compressCharacterProfile();
     }
 
-    // Compress user profile if needed
-    if (this.shouldCompressUserProfile()) {
-      results.user = await this.compressUserProfile();
+    // Compress user profile or story context depending on mode
+    if (this.mode === 'story') {
+      if (this.shouldCompressStoryContext()) {
+        results.user = await this.compressStoryContext();
+      }
+    } else {
+      if (this.shouldCompressUserProfile()) {
+        results.user = await this.compressUserProfile();
+      }
     }
 
     return results;
@@ -490,20 +509,20 @@ Output EXACTLY two profiles separated by the literal string ---  on its own line
 
 <${this.characterName} profile using the format above>
 ---
-<User profile using the same format above>
+<${this.mode === 'story' ? 'Story Context profile using the same format above, adapted for world/plot tracking' : 'User profile using the same format above'}>
 
 Both profiles must be present. The --- separator must appear on its own line between them.
 
 ## Personas
 * Character = ${this.characterName} (AI-controlled)
-* User = Human player
+* ${this.mode === 'story' ? 'Director = Story operator (no direct character in scene)' : 'User = Human player'}
 
 ## Previous Data
 ### ${this.characterName}
 ${this.characterProfile}
 
-### User
-${this.userProfile}
+### ${this.mode === 'story' ? 'Story Context' : 'User'}
+${this.mode === 'story' ? this.storyContext : this.userProfile}
 
 ## New Memories to Integrate
 ${JSON.stringify(memoriesText)}`;
@@ -567,8 +586,9 @@ ${JSON.stringify(memoriesText)}`;
         if (this.characterProfile) {
           restoredCharacter = this.restoreCurlyBracketAttributes(restoredCharacter, this.characterProfile);
         }
-        if (this.userProfile) {
-          restoredUser = this.restoreCurlyBracketAttributes(restoredUser, this.userProfile);
+        const secondProfile = this.mode === 'story' ? this.storyContext : this.userProfile;
+        if (secondProfile) {
+          restoredUser = this.restoreCurlyBracketAttributes(restoredUser, secondProfile);
         }
 
         // Rejoin with separator
@@ -641,7 +661,7 @@ ${JSON.stringify(memoriesText)}`;
         importance: 1,
         accessCount: 0,
         lastAccessed: null,
-        topic: 'USER',
+        topic: this.mode === 'story' ? 'STORY_CONTEXT' : 'USER',
         subtopic: 'PROFILE'
       });
 
@@ -927,6 +947,45 @@ ${profile}`;
       return { compressed: true, originalSize: originalBytes, compressedSize: newBytes, reduction };
     } catch (error) {
       logger.error('Error compressing user profile:', error);
+      this.isCompressingProfiles = false;
+      return { compressed: false, error: error.message };
+    }
+  }
+
+  // Compress story context if it exceeds threshold (story mode)
+  async compressStoryContext() {
+    if (this.isCompressingProfiles) {
+      return { compressed: false, reason: 'Compression in progress' };
+    }
+
+    if (!this.shouldCompressStoryContext()) {
+      return { compressed: false, reason: 'Below threshold' };
+    }
+
+    this.isCompressingProfiles = true;
+    const originalBytes = Buffer.byteLength(this.storyContext, 'utf8');
+    logger.info(`Compressing story context (${originalBytes} bytes)...`);
+
+    try {
+      const compressed = await this.requestProfileCompression(this.storyContext, 'Story Context');
+
+      if (!compressed) {
+        this.isCompressingProfiles = false;
+        return { compressed: false, reason: 'API failed' };
+      }
+
+      this.storyContext = compressed;
+      const newBytes = Buffer.byteLength(this.storyContext, 'utf8');
+      const reduction = ((1 - newBytes / originalBytes) * 100).toFixed(2);
+
+      logger.info(`Story context compressed: ${originalBytes} → ${newBytes} bytes (${reduction}% reduction)`);
+
+      this.lastProfileCompressionTime = new Date();
+      this.isCompressingProfiles = false;
+
+      return { compressed: true, originalSize: originalBytes, compressedSize: newBytes, reduction };
+    } catch (error) {
+      logger.error('Error compressing story context:', error);
       this.isCompressingProfiles = false;
       return { compressed: false, error: error.message };
     }

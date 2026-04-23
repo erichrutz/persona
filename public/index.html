@@ -409,6 +409,27 @@
       border-left: 1px solid rgba(255, 255, 255, 0.5);
       backdrop-filter: blur(4px);
     }
+
+    /* Director mode: stage-direction strip */
+    .director-directive {
+      width: 100%;
+      max-width: 100%;
+      margin: 6px 0 10px 0;
+      padding: 8px 16px;
+      background: rgba(108, 117, 125, 0.07);
+      border-left: 3px solid rgba(108, 117, 125, 0.35);
+      border-radius: 4px;
+      color: #6c757d;
+      font-style: italic;
+      font-size: 0.88rem;
+    }
+
+    .director-directive::before {
+      content: "▶ ";
+      font-style: normal;
+      font-size: 0.75rem;
+      opacity: 0.6;
+    }
     
     .assistant-message {
       background-color: rgba(255, 255, 255, 0.85);
@@ -1291,12 +1312,33 @@
             </div>
           </div>
           
+          <!-- Session Mode -->
+          <div class="mt-4">
+            <label class="form-label fw-semibold">Session Mode</label>
+            <div class="btn-group w-100 mb-2" role="group">
+              <input type="radio" class="btn-check" name="session-mode" id="session-mode-chat" value="chat" checked>
+              <label class="btn btn-outline-secondary btn-sm" for="session-mode-chat">💬 Chat</label>
+              <input type="radio" class="btn-check" name="session-mode" id="session-mode-story" value="story">
+              <label class="btn btn-outline-secondary btn-sm" for="session-mode-story">📖 Story Director</label>
+            </div>
+            <div class="form-text">In <strong>Story Director</strong> mode there is no user character — you send narrative directives and the character produces story prose.</div>
+          </div>
+
           <!-- Starting Scenario -->
           <div class="mt-4">
             <div class="form-floating mb-3">
               <textarea class="form-control" id="start-scenario" rows="3" style="height: 100px"></textarea>
-              <label for="start-scenario">Starting Scenario (Optional)</label>
-              <div class="form-text">Describe the initial context for your conversation with the character.</div>
+              <label for="start-scenario" id="start-scenario-label">Starting Scenario (Optional)</label>
+              <div class="form-text" id="start-scenario-hint">Describe the initial context for your conversation with the character.</div>
+            </div>
+          </div>
+
+          <!-- Story Context (story mode only) -->
+          <div class="mt-2" id="story-context-section" style="display:none">
+            <div class="form-floating mb-3">
+              <textarea class="form-control" id="story-context-input" rows="4" style="height: 120px"></textarea>
+              <label for="story-context-input">Story Context (Optional)</label>
+              <div class="form-text">World, setting, tone, active plot threads. Tracked as evolving story state alongside the character profile.</div>
             </div>
           </div>
           
@@ -1468,8 +1510,8 @@
           
           <!-- Welcome placeholder for empty chat -->
           <div id="welcome-placeholder" class="welcome-message">
-            <h2 data-i18n="welcome_title">Welcome to Your Intimate Experience</h2>
-            <p data-i18n="welcome_text">Your private conversation will appear here. Start by introducing yourself and sharing your desires.</p>
+            <h2 id="welcome-title" data-i18n="welcome_title">Welcome to Your Intimate Experience</h2>
+            <p id="welcome-text" data-i18n="welcome_text">Your private conversation will appear here. Start by introducing yourself and sharing your desires.</p>
             <div class="welcome-image-container my-4" style="max-width: 300px; margin: 0 auto; position: relative; overflow: hidden; border-radius: 15px; box-shadow: 0 8px 20px rgba(74, 144, 226, 0.25);">
               <img src="/api/placeholder/300/200" alt="Welcome illustration" class="img-fluid" style="transform: scale(1.05); transition: transform 0.5s ease;">
               <div style="position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(74, 144, 226, 0.1), rgba(74, 144, 226, 0.4)); backdrop-filter: blur(3px);"></div>
@@ -1504,13 +1546,13 @@
                 <button class="nav-link" id="long-term-tab" data-bs-toggle="tab" data-bs-target="#long-term-content" type="button" role="tab" data-i18n="long_term_label">Long-Term</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="clothing-tab" data-bs-toggle="tab" data-bs-target="#clothing-content" type="button" role="tab">Clothing</button>
+                <button class="nav-link" id="clothing-tab" data-bs-toggle="tab" data-bs-target="#clothing-content" type="button" role="tab"><span id="clothing-tab-label">Clothing</span></button>
               </li>
               <li class="nav-item" role="presentation">
                 <button class="nav-link" id="location-tab" data-bs-toggle="tab" data-bs-target="#location-content" type="button" role="tab">Location</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-content" type="button" role="tab">History</button>
+                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-content" type="button" role="tab"><span id="history-tab-label">History</span></button>
               </li>
               <li class="nav-item" role="presentation">
                 <button class="nav-link" id="deep-memory-tab" data-bs-toggle="tab" data-bs-target="#deep-memory-content" type="button" role="tab" data-i18n="deep_memory_panel_label">Deep Memory</button>
@@ -1547,7 +1589,7 @@
                       <p id="character-clothing" class="card-text">No information available</p>
                     </div>
                   </div>
-                  <div class="card mb-3 bg-light">
+                  <div class="card mb-3 bg-light" id="user-clothing-card">
                     <div class="card-body">
                       <h5 class="card-title">User's Clothing</h5>
                       <p id="user-clothing" class="card-text">No information available</p>
@@ -1557,7 +1599,7 @@
                     <textarea class="form-control" id="update-character-clothing" rows="2" style="height: 80px"></textarea>
                     <label for="update-character-clothing">Update Character's Clothing</label>
                   </div>
-                  <div class="form-floating mb-3">
+                  <div class="form-floating mb-3" id="update-user-clothing-section">
                     <textarea class="form-control" id="update-user-clothing" rows="2" style="height: 80px"></textarea>
                     <label for="update-user-clothing">Update User's Clothing</label>
                   </div>
@@ -1613,7 +1655,7 @@
                 <div class="memory-container h-100">
                   <div class="card mb-3">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                      <span>Relationship History</span>
+                      <span id="history-panel-title">Relationship History</span>
                       <button id="refresh-history" class="btn btn-sm btn-outline-primary">
                         <i class="fas fa-sync-alt"></i> Refresh
                       </button>
@@ -1896,6 +1938,7 @@
       // Variable to store the currently selected model (will be loaded from server config)
       let currentModel = 'claude-sonnet-4-5-20250929'; // Fallback default
       let serverConfig = null; // Will hold server configuration
+      let sessionMode = 'chat'; // 'chat' or 'story' — set when session starts/loads
 
       // Load server configuration
       async function loadServerConfig() {
@@ -2474,7 +2517,11 @@
             sessionInfoElement.textContent = `Active session: ${data.characterName}`;
             saveStatusElement.textContent = 'Auto-saving enabled';
             saveSessionButton.disabled = false;
-            
+
+            // Apply session mode from loaded session
+            sessionMode = data.mode || 'chat';
+            applySessionMode(sessionMode);
+
             // Set character avatar background color
             setCharacterAvatar(data.characterType);
             
@@ -2495,7 +2542,7 @@
             if (data.messages && data.messages.length > 0) {
               data.messages.forEach(msg => {
                 if (msg.role === 'user') {
-                  addUserMessage(msg.content);
+                  addUserTurn(msg.content);
                 } else if (msg.role === 'assistant') {
                   addAssistantMessage(msg.content);
                 }
@@ -2611,6 +2658,11 @@
         // Get world setting
         const worldSetting = getSelectedWorldSetting();
 
+        // Get selected session mode and story context
+        const selectedModeEl = document.querySelector('input[name="session-mode"]:checked');
+        const selectedMode = selectedModeEl ? selectedModeEl.value : 'chat';
+        const storyContextValue = document.getElementById('story-context-input').value.trim();
+
         // Prepare request data
         const requestData = {
           characterType: selectedCharacterType,
@@ -2620,7 +2672,9 @@
           deepMemory: deepMemory,
           model: selectedModel,
           language: selectedLanguage,
-          worldSetting: worldSetting
+          worldSetting: worldSetting,
+          mode: selectedMode,
+          storyContext: storyContextValue
         };
 
         console.log('Starting session with model:', selectedModel);
@@ -2656,13 +2710,17 @@
           if (response.ok) {
             // Save session ID
             activeSessionId = data.sessionId;
-            
+
+            // Apply session mode
+            sessionMode = data.mode || selectedMode || 'chat';
+            applySessionMode(sessionMode);
+
             // Update UI
             characterNameElement.textContent = data.characterName;
             sessionInfoElement.textContent = `Active session: ${data.characterName}`;
             saveStatusElement.textContent = 'Auto-saving enabled';
             saveSessionButton.disabled = false;
-            
+
             // Set character avatar background color
             setCharacterAvatar(selectedCharacterType);
             
@@ -2724,8 +2782,8 @@
         // Hide welcome placeholder when first message is sent
         welcomePlaceholder.style.display = 'none';
         
-        // Add user message to UI
-        addUserMessage(message);
+        // Add user message (or director directive) to UI
+        addUserTurn(message);
         messageInput.value = '';
         messageInput.style.height = 'auto';
         
@@ -2832,8 +2890,8 @@
           const data = await response.json();
 
           if (response.ok) {
-            // Re-add the user message bubble
-            addUserMessage(data.lastUserMessage);
+            // Re-add the user message bubble (or director directive)
+            addUserTurn(data.lastUserMessage);
             // Add the new assistant response
             addAssistantMessage(data.response, data.date, data.location, data.clothing);
             updateHeaderBadges(data.location, data.clothing);
@@ -3278,23 +3336,102 @@
       }
       
       // Helper functions for adding messages
+      // Apply UI changes whenever the session mode is set
+      function applySessionMode(mode) {
+        const isStory = mode === 'story';
+
+        // Welcome text
+        const welcomeTitle = document.getElementById('welcome-title');
+        const welcomeText = document.getElementById('welcome-text');
+        if (welcomeTitle) welcomeTitle.textContent = isStory ? 'Story Director' : 'Welcome to Your Intimate Experience';
+        if (welcomeText) welcomeText.textContent = isStory
+          ? 'Send narrative directives or scene descriptions. The character will respond in story form.'
+          : 'Your private conversation will appear here. Start by introducing yourself and sharing your desires.';
+
+        // Input placeholder
+        const messageInput = document.getElementById('message-input');
+        if (messageInput) messageInput.placeholder = isStory
+          ? 'Enter a narrative directive or scene description… (Shift+Enter for new line)'
+          : 'Type your message… (Shift+Enter for new line)';
+
+        // Tab labels
+        const clothingTabLabel = document.getElementById('clothing-tab-label');
+        if (clothingTabLabel) clothingTabLabel.textContent = isStory ? 'Appearance' : 'Clothing';
+
+        const historyTabLabel = document.getElementById('history-tab-label');
+        if (historyTabLabel) historyTabLabel.textContent = isStory ? 'Story Timeline' : 'History';
+
+        const historyPanelTitle = document.getElementById('history-panel-title');
+        if (historyPanelTitle) historyPanelTitle.textContent = isStory ? 'Story Timeline' : 'Relationship History';
+
+        // User clothing panel
+        const userClothingCard = document.getElementById('user-clothing-card');
+        if (userClothingCard) userClothingCard.style.display = isStory ? 'none' : '';
+        const updateUserClothingSection = document.getElementById('update-user-clothing-section');
+        if (updateUserClothingSection) updateUserClothingSection.style.display = isStory ? 'none' : '';
+      }
+
+      // Show/hide story context field based on mode radio selection
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('input[name="session-mode"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+            const isStory = radio.value === 'story' && radio.checked;
+            const storySection = document.getElementById('story-context-section');
+            const startScenarioLabel = document.getElementById('start-scenario-label');
+            const startScenarioHint = document.getElementById('start-scenario-hint');
+            if (storySection) storySection.style.display = isStory ? '' : 'none';
+            if (startScenarioLabel) startScenarioLabel.textContent = isStory ? 'Opening Scene / Premise (Optional)' : 'Starting Scenario (Optional)';
+            if (startScenarioHint) startScenarioHint.textContent = isStory
+              ? 'Describe the opening scene or story premise.'
+              : 'Describe the initial context for your conversation with the character.';
+          });
+        });
+      });
+
       function addUserMessage(message) {
         // Hide welcome placeholder when first message is sent
         if (welcomePlaceholder) {
           welcomePlaceholder.style.display = 'none';
         }
-        
+
         const messageContainer = document.createElement('div');
         messageContainer.className = 'message-container';
-        
+
         const messageElement = document.createElement('div');
         messageElement.className = 'message user-message';
         messageElement.textContent = message;
-        
+
         // Add to container and append to messages
         messageContainer.appendChild(messageElement);
         messagesContainer.appendChild(messageContainer);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      function addDirectorDirective(message) {
+        // Hide welcome placeholder when first directive is sent
+        if (welcomePlaceholder) {
+          welcomePlaceholder.style.display = 'none';
+        }
+
+        const messageContainer = document.createElement('div');
+        messageContainer.className = 'message-container';
+
+        const messageElement = document.createElement('div');
+        messageElement.className = 'director-directive';
+        messageElement.textContent = message;
+
+        messageContainer.appendChild(messageElement);
+        messagesContainer.appendChild(messageContainer);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // Unified: picks chat bubble or director directive based on current session mode
+      function addUserTurn(message) {
+        if (sessionMode === 'story') {
+          addDirectorDirective(message);
+        } else {
+          addUserMessage(message);
+        }
       }
       
       function addAssistantMessage(message, date = null, location = null, clothing = null) {
@@ -4553,7 +4690,7 @@
             if (data.messages && data.messages.length > 0) {
               data.messages.forEach(msg => {
                 if (msg.role === 'user') {
-                  addUserMessage(msg.content);
+                  addUserTurn(msg.content);
                 } else if (msg.role === 'assistant') {
                   addAssistantMessage(msg.content);
                 }
@@ -5366,8 +5503,8 @@
             // Display last 3 messages if available
             if (data.messages && data.messages.length > 0) {
               data.messages.forEach(msg => {
-                if (msg.role === 'user' && typeof addUserMessage === 'function') {
-                  addUserMessage(msg.content);
+                if (msg.role === 'user' && typeof addUserTurn === 'function') {
+                  addUserTurn(msg.content);
                 } else if (msg.role === 'assistant' && typeof addAssistantMessage === 'function') {
                   addAssistantMessage(msg.content);
                 }
