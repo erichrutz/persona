@@ -4662,6 +4662,10 @@
           activeSessionId = data.sessionId;
           console.log('Resume: Set activeSessionId to:', activeSessionId);
 
+          // Apply session mode from loaded session
+          sessionMode = data.mode || 'chat';
+          applySessionMode(sessionMode);
+
           if (characterNameElement) characterNameElement.textContent = data.characterName;
           if (sessionInfoElement) sessionInfoElement.textContent = `Active session: ${data.characterName}`;
           if (saveStatusElement) saveStatusElement.textContent = 'Auto-saving enabled';
@@ -5451,6 +5455,10 @@
           // CRITICAL: Set activeSessionId directly (not checking if defined, just set it)
           activeSessionId = data.sessionId;
           console.log('Resume: Set activeSessionId to:', activeSessionId);
+
+          // Apply session mode from loaded session
+          sessionMode = data.mode || 'chat';
+          applySessionMode(sessionMode);
           console.log('Resume: Session data:', data);
 
           // Debug: Check if it persists after a delay
