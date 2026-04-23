@@ -1387,7 +1387,11 @@
 
           <!-- Advanced Options -->
           <div class="card mt-3">
-            <div class="card-header">Advanced Options</div>
+            <div class="card-header" role="button" data-bs-toggle="collapse" data-bs-target="#advanced-options-body" aria-expanded="false" aria-controls="advanced-options-body" style="cursor:pointer; user-select:none;">
+              Advanced Options
+              <i class="fas fa-chevron-down float-end mt-1" id="advanced-options-chevron" style="font-size:0.8rem; transition: transform 0.2s;"></i>
+            </div>
+            <div class="collapse" id="advanced-options-body">
             <div class="card-body">
               <div class="form-check form-switch mb-3">
                 <input class="form-check-input" type="checkbox" id="enable-compression" checked>
@@ -1415,8 +1419,9 @@
                 <div class="form-text" data-i18n="language_help">Select the language for your conversation with the character.</div>
               </div>
             </div>
+            </div><!-- /.collapse -->
           </div>
-          
+
           <!-- Start Button -->
           <div class="mt-4 text-center">
             <button id="start-session" class="btn btn-primary btn-lg">
@@ -3386,6 +3391,18 @@
               : 'Describe the initial context for your conversation with the character.';
           });
         });
+
+        // Rotate chevron when Advanced Options collapses/expands
+        const advancedCollapse = document.getElementById('advanced-options-body');
+        const advancedChevron = document.getElementById('advanced-options-chevron');
+        if (advancedCollapse && advancedChevron) {
+          advancedCollapse.addEventListener('show.bs.collapse', () => {
+            advancedChevron.style.transform = 'rotate(180deg)';
+          });
+          advancedCollapse.addEventListener('hide.bs.collapse', () => {
+            advancedChevron.style.transform = 'rotate(0deg)';
+          });
+        }
       });
 
       function addUserMessage(message) {
