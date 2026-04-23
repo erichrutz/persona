@@ -1,5 +1,18 @@
 # Persona - Professional Character Simulation System
 
+## Versioning
+
+The application version is defined in `package.json` (`"version"`) and exposed via `GET /api/health`. **Increment it with every change** using semantic versioning:
+
+- **patch** (1.0.x) — bug fixes, minor corrections
+- **minor** (1.x.0) — new features, backward-compatible changes
+- **major** (x.0.0) — breaking changes
+
+`server.js` reads the version from `package.json` automatically — it is the only place to update.
+
+---
+
+
 ## Project Overview
 
 **Persona** is a sophisticated Node.js-based character simulation system that leverages Anthropic's Claude API to create immersive, memory-aware conversational experiences. The application enables role-playing interactions with AI-powered characters that maintain context, personality, and relationship dynamics across sessions.

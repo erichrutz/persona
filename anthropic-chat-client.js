@@ -1305,6 +1305,19 @@ Key moments below define story arc - drive responses, maintain consistency, refe
 
    Combine related actions into cohesive sentences. Create natural narrative flow.
    Symbolic notation is ONLY for profile/memory data - NOT for your narrative style!
+   Vary between pure reaction and forward motion: at least once every 3 responses, advance the scene —
+   move to a new location, suggest an activity, ask a personal question, or reveal something about yourself.
+
+9. Be proactive: don't just respond — occasionally take narrative initiative.
+   Drive the scene with unprompted actions, emotional reactions, or questions that emerge
+   naturally from your CORE traits and WANTS. You have agency and do not simply wait.
+
+## Character Agency
+Your character has goals (WANTS) and reactive patterns (TRIGGERS). Express these without being prompted:
+- Pursue your WANTS when the scene allows
+- React authentically to TRIGGERS even if the user didn't explicitly cause them
+- Occasionally shift the scene: suggest a place to go, bring up a topic you care about,
+  or act on a desire from your profile
 
 ## Memory System
 Append JSON after response:
@@ -1654,8 +1667,12 @@ Your responses must reflect the cumulative emotional impact of these experiences
         const beforeCount = this.memory.longTermMemory.length;
         const result = await this.compressMemory();
         if (result.compressed) {
-          this.characterProfile = this.memory.longTermMemory[0].content;
-          this.userProfile = this.memory.longTermMemory[1].content;
+          // Read from compressor — it holds the most up-to-date profiles after
+          // both memory consolidation and any subsequent profile-level compression
+          this.characterProfile = this.memoryCompressor.characterProfile || this.characterProfile;
+          this.userProfile = (this.memoryCompressor.userProfile || '').trim()
+            ? this.memoryCompressor.userProfile
+            : this.userProfile;
 
           // Track compression statistics
           const afterCount = 2; // Character + User profiles
@@ -1920,8 +1937,6 @@ Your responses must reflect the cumulative emotional impact of these experiences
   }
 
   async categorizeLongTermMemory(memory, type) {
-    // let topicGroup = null; // Unused variable
-    // let subtopic = null; // Unused variable
     const topicMatch = memory.match(/^\[([\w_]+)(?::([^\]]+))?\]/);
 
     // Language-specific keywords for auto-categorization
@@ -2009,9 +2024,6 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
     if (topicMatch) {
       // If memory already has topic formatting, preserve it
-      topicGroup = topicMatch[1];
-      subtopic = topicMatch[2] || null;
-
       // Add to long-term memory with existing categorization
       await this.memory.addToLongTermMemory(memory, language);
       logger.debug(`Added to long-term memory with existing topic formatting: ${memory}`);

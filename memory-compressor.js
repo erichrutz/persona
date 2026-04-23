@@ -169,7 +169,12 @@ class MemoryCompressor {
       
       // Update memory system with compressed memories
       memorySystem.longTermMemory = compressedMemories;
-      
+
+      // Sync fresh profiles onto compressor so compressProfilesIfNeeded works
+      // with the newly consolidated versions, not the pre-compression originals
+      if (compressedMemories[0]?.content) this.characterProfile = compressedMemories[0].content;
+      if (compressedMemories[1]?.content) this.userProfile = compressedMemories[1].content;
+
       // Update timestamps
       this.lastCompressionTime = new Date();
 
@@ -480,6 +485,15 @@ WANTS: [Active goals with priority markers]
 - No sentences or prose
 - Keep attribute format: "descriptor with context+marker"
 
+## Output Structure (REQUIRED)
+Output EXACTLY two profiles separated by the literal string ---  on its own line:
+
+<${this.characterName} profile using the format above>
+---
+<User profile using the same format above>
+
+Both profiles must be present. The --- separator must appear on its own line between them.
+
 ## Personas
 * Character = ${this.characterName} (AI-controlled)
 * User = Human player
@@ -505,7 +519,7 @@ ${JSON.stringify(memoriesText)}`;
           body: JSON.stringify({
             model: MODEL_COMPRESSION,
             messages: [{ role: 'user', content: promptSymbolic }],
-            max_tokens: 1600,
+            max_tokens: 3200,
             stream: true
           })
         });

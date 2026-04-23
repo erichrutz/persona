@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const basicAuth = require('express-basic-auth');
 const cookieSession = require('cookie-session');
 require('dotenv').config(); // Load environment variables from .env file
+const { version: APP_VERSION } = require('./package.json');
 const { AnthropicChatClient, MemorySystem } = require('./anthropic-chat-client');
 const { MemoryPersistence } = require('./memory-persistence');
 const { SceneDescriptionGenerator } = require('./scene-description-generator');
@@ -108,7 +109,7 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'Persona server is running',
-    version: '1.0.0',
+    version: APP_VERSION,
     timestamp: new Date().toISOString()
   });
 });

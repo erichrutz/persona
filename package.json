@@ -1,6 +1,6 @@
 {
     "name": "anthropic-character-impersonation",
-    "version": "1.0.0",
+    "version": "1.1.1",
     "description": "A chat client using Anthropic API with 2-layer memory and character impersonation",
     "main": "server.js",
     "scripts": {
