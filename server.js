@@ -59,7 +59,7 @@ const USERNAME = process.env.AUTH_USERNAME || 'admin';
 const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 
 // Model configuration with fallback chain: specific > default > hardcoded
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-6';
 const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
 const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
 const MODEL_CHARACTER_CREATOR = process.env.MODEL_CHARACTER_CREATOR || MODEL_DEFAULT;

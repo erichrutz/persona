@@ -6,7 +6,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-6';
 const MODEL_SCENE_GENERATOR = process.env.MODEL_SCENE_GENERATOR || MODEL_DEFAULT;
 
 class SceneDescriptionGenerator {

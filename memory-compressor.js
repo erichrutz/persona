@@ -4,7 +4,7 @@ require('dotenv').config(); // Load environment variables
 const util = require('util');
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-6';
 const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
 
 // Use the same logger from server if available, otherwise create one
