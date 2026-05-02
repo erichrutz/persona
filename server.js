@@ -59,7 +59,7 @@ const USERNAME = process.env.AUTH_USERNAME || 'admin';
 const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 
 // Model configuration with fallback chain: specific > default > hardcoded
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
 const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
 const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
 const MODEL_CHARACTER_CREATOR = process.env.MODEL_CHARACTER_CREATOR || MODEL_DEFAULT;
@@ -171,7 +171,7 @@ function getCharacterProfile(type) {
 }
 
 // Set default API key if available
-const DEFAULT_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const DEFAULT_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
 
 // Routes
 
@@ -1296,19 +1296,20 @@ app.post('/api/character/generate', async (req, res) => {
     const messages = conversationHistory || [];
     messages.push({ role: 'user', content: description });
 
-    // Call Claude API directly with streaming (no memory system for character creation)
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Call OpenAI-compatible API directly with streaming (no memory system for character creation)
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': DEFAULT_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Authorization': 'Bearer ' + DEFAULT_API_KEY
       },
       body: JSON.stringify({
         model: model || MODEL_CHARACTER_CREATOR,
         max_tokens: 2000,
-        system: systemPrompt,
-        messages: messages.slice(-6), // Keep last 6 messages for context
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages.slice(-6) // Keep last 6 messages for context
+        ],
         stream: true
       })
     });
@@ -1338,11 +1339,9 @@ app.post('/api/character/generate', async (req, res) => {
 
           try {
             const parsed = JSON.parse(dataStr);
-            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-              fullResponse += parsed.delta.text;
-            }
-            // Capture usage data from message_delta event
-            if (parsed.type === 'message_delta' && parsed.usage) {
+            const chunk = parsed.choices?.[0]?.delta?.content;
+            if (chunk) fullResponse += chunk;
+            if (parsed.usage) {
               usageData = parsed.usage;
             }
           } catch (e) {

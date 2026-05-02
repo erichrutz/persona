@@ -201,7 +201,7 @@ async function main() {
 
   const compressor = new MemoryCompressor({
     apiKey,
-    model: 'claude-3-7-sonnet-20250219',
+    model: process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b',
     characterName,
     characterProfile: sessionData.characterProfile || '',
     userProfile: sessionData.userProfile || ''

@@ -2,11 +2,11 @@
 // Uses Anthropic API to generate optimized prompts based on conversation context
 require('dotenv').config(); // Load environment variables
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
 const MODEL_SCENE_GENERATOR = process.env.MODEL_SCENE_GENERATOR || MODEL_DEFAULT;
 
 class SceneDescriptionGenerator {
@@ -179,24 +179,20 @@ ${context}${conversationText}
 
 Based on all the information above (merging details from CRITICAL SCENE CONTEXT with the profile sections), create a single-paragraph photorealistic image prompt that accurately captures who is in the scene and what is happening right now.`;
 
-      // Call Anthropic API with streaming
+      // Call OpenAI-compatible API with streaming
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
+          'Authorization': 'Bearer ' + apiKey
         },
         body: JSON.stringify({
-          model: MODEL_SCENE_GENERATOR, // Use configured model for quality image prompts
+          model: MODEL_SCENE_GENERATOR,
           max_tokens: 500,
           messages: [
-            {
-              role: 'user',
-              content: userPrompt
-            }
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
           ],
-          system: systemPrompt,
           stream: true
         })
       });
@@ -227,9 +223,8 @@ Based on all the information above (merging details from CRITICAL SCENE CONTEXT 
             try {
               const parsed = JSON.parse(data);
 
-              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                generatedPrompt += parsed.delta.text;
-              }
+              const chunk = parsed.choices?.[0]?.delta?.content;
+              if (chunk) generatedPrompt += chunk;
             } catch (e) {
               // Skip malformed JSON
             }

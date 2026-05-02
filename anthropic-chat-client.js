@@ -1,13 +1,13 @@
 // Anthropic Chat Client with 2-Layer Memory System and Memory Compression
 require('dotenv').config(); // Load environment variables
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
 const { MemoryCompressor } = require('./memory-compressor');
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
 const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
 
 // Use the same logger from server if available, otherwise create one
@@ -1462,11 +1462,13 @@ Your responses must reflect the cumulative emotional impact of these experiences
       // Log a shorter version of the prompt for debugging
       logger.debug('System prompt length:', fullSystemPrompt.length);
 
-      // Request options for Anthropic API with token optimization
+      // Request options for OpenAI-compatible API with token optimization
       const requestOptions = {
         model: this.model,
-        messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
-        system: fullSystemPrompt,
+        messages: [
+          { role: 'system', content: fullSystemPrompt },
+          ...this.messages.slice(-10) // Only use last 10 messages to reduce context
+        ],
         max_tokens: 4096,
         stream: true
       };
@@ -1487,8 +1489,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-api-key': this.apiKey,
-              'anthropic-version': '2023-06-01'
+              'Authorization': 'Bearer ' + this.apiKey
             },
             body: JSON.stringify(requestOptions)
           });
@@ -1579,15 +1580,16 @@ Your responses must reflect the cumulative emotional impact of these experiences
               try {
                 const parsed = JSON.parse(data);
 
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  const textChunk = parsed.delta.text;
+                const textChunk = parsed.choices?.[0]?.delta?.content;
+                if (textChunk) {
                   assistantResponse += textChunk;
 
                   // Call streaming callback if provided
                   if (onStreamChunk && typeof onStreamChunk === 'function') {
                     onStreamChunk(textChunk);
                   }
-                } else if (parsed.type === 'message_delta' && parsed.usage) {
+                }
+                if (parsed.usage) {
                   usage = parsed.usage;
                 }
               } catch (e) {
@@ -1615,11 +1617,13 @@ Your responses must reflect the cumulative emotional impact of these experiences
       if (data.usage && this.memory.compressionEnabled) {
         const usage = data.usage;
         const metadata = this.memory.compressionMetadata;
+        const inputTokens = usage.prompt_tokens || usage.input_tokens || 0;
+        const outputTokens = usage.completion_tokens || usage.output_tokens || 0;
 
         // Update totals
-        metadata.tokenUsage.totalInputTokens += usage.input_tokens || 0;
-        metadata.tokenUsage.totalOutputTokens += usage.output_tokens || 0;
-        metadata.tokenUsage.totalTokens += (usage.input_tokens || 0) + (usage.output_tokens || 0);
+        metadata.tokenUsage.totalInputTokens += inputTokens;
+        metadata.tokenUsage.totalOutputTokens += outputTokens;
+        metadata.tokenUsage.totalTokens += inputTokens + outputTokens;
         metadata.tokenUsage.messagesProcessed++;
 
         // Update averages
@@ -1631,11 +1635,11 @@ Your responses must reflect the cumulative emotional impact of these experiences
         );
 
         // Update peaks
-        if (usage.input_tokens > metadata.tokenUsage.peakInputTokens) {
-          metadata.tokenUsage.peakInputTokens = usage.input_tokens;
+        if (inputTokens > metadata.tokenUsage.peakInputTokens) {
+          metadata.tokenUsage.peakInputTokens = inputTokens;
         }
-        if (usage.output_tokens > metadata.tokenUsage.peakOutputTokens) {
-          metadata.tokenUsage.peakOutputTokens = usage.output_tokens;
+        if (outputTokens > metadata.tokenUsage.peakOutputTokens) {
+          metadata.tokenUsage.peakOutputTokens = outputTokens;
         }
 
         logger.debug(`Token usage - Input: ${usage.input_tokens}, Output: ${usage.output_tokens}, Total: ${usage.input_tokens + usage.output_tokens}`);
@@ -2076,8 +2080,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
+          'Authorization': 'Bearer ' + this.apiKey
         },
         body: JSON.stringify({
           model: this.model,
@@ -2125,9 +2128,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
             try {
               const parsed = JSON.parse(data);
-              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                result += parsed.delta.text;
-              }
+              const chunk = parsed.choices?.[0]?.delta?.content;
+              if (chunk) result += chunk;
             } catch (e) {
               // Skip malformed JSON
             }

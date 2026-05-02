@@ -4,7 +4,7 @@ require('dotenv').config(); // Load environment variables
 const util = require('util');
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
+const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
 const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
 
 // Use the same logger from server if available, otherwise create one
@@ -49,8 +49,8 @@ else {
 class MemoryCompressor {
   constructor(options = {}) {
     this.apiKey = options.apiKey || null;
-    this.apiUrl = options.apiUrl || 'https://api.anthropic.com/v1/messages';
-    this.model = options.model || "claude-3-7-sonnet-20250219";
+    this.apiUrl = options.apiUrl || 'https://openrouter.ai/api/v1/chat/completions';
+    this.model = options.model || MODEL_COMPRESSION;
     this.compressionFrequency = options.compressionFrequency || 10; // API calls before compression
     this.compressionRatio = options.compressionRatio || 0.6; // Target size after compression
     this.apiCallCount = 0;
@@ -513,8 +513,7 @@ ${JSON.stringify(memoriesText)}`;
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': this.apiKey,
-            'anthropic-version': '2023-06-01'
+            'Authorization': 'Bearer ' + this.apiKey
           },
           body: JSON.stringify({
             model: MODEL_COMPRESSION,
@@ -547,9 +546,8 @@ ${JSON.stringify(memoriesText)}`;
 
               try {
                 const parsed = JSON.parse(data);
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  compressed += parsed.delta.text;
-                }
+                const chunk = parsed.choices?.[0]?.delta?.content;
+                if (chunk) compressed += chunk;
               } catch (e) {
                 // Skip malformed JSON
               }
@@ -791,8 +789,7 @@ ${profile}`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
+          'Authorization': 'Bearer ' + this.apiKey
         },
         body: JSON.stringify({
           model: this.model,
@@ -825,9 +822,8 @@ ${profile}`;
 
             try {
               const parsed = JSON.parse(data);
-              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                compressed += parsed.delta.text;
-              }
+              const chunk = parsed.choices?.[0]?.delta?.content;
+              if (chunk) compressed += chunk;
             } catch (e) {
               // Skip malformed JSON
             }
@@ -1012,11 +1008,10 @@ Write the recap summary (facts only, no storytelling):`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
+          'Authorization': 'Bearer ' + this.apiKey
         },
         body: JSON.stringify({
-          model: "claude-3-7-sonnet-20250219",
+          model: this.model,
           messages: [{ role: 'user', content: promptText }],
           max_tokens: 2048,
           stream: true
@@ -1046,9 +1041,8 @@ Write the recap summary (facts only, no storytelling):`;
 
             try {
               const parsed = JSON.parse(data);
-              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                proseText += parsed.delta.text;
-              }
+              const chunk = parsed.choices?.[0]?.delta?.content;
+              if (chunk) proseText += chunk;
             } catch (e) {
               // Skip malformed JSON
             }
