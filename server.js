@@ -58,8 +58,10 @@ const KEY_PATH = process.env.KEY_PATH || '/etc/letsencrypt/live/yourdomain.com/p
 const USERNAME = process.env.AUTH_USERNAME || 'admin';
 const PASSWORD = process.env.AUTH_PASSWORD || 'securepassword';
 
-// Model configuration with fallback chain: specific > default > hardcoded
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
+const apiProvider = require('./api-provider');
+
+// Model configuration with fallback chain: specific > default > provider default
+const MODEL_DEFAULT = apiProvider.getDefaultModel();
 const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
 const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
 const MODEL_CHARACTER_CREATOR = process.env.MODEL_CHARACTER_CREATOR || MODEL_DEFAULT;
@@ -171,14 +173,14 @@ function getCharacterProfile(type) {
 }
 
 // Set default API key if available
-const DEFAULT_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-const API_BASE_URL = (process.env.API_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions';
+const DEFAULT_API_KEY = apiProvider.getApiKey();
 
 // Routes
 
 // Get configuration (model defaults, etc.) - no auth required for UI config
 app.get('/api/config', (req, res) => {
   res.json({
+    provider: apiProvider.PROVIDER,
     models: {
       default: MODEL_DEFAULT,
       chat: MODEL_CHAT,
@@ -1297,22 +1299,16 @@ app.post('/api/character/generate', async (req, res) => {
     const messages = conversationHistory || [];
     messages.push({ role: 'user', content: description });
 
-    // Call OpenAI-compatible API directly with streaming (no memory system for character creation)
-    const response = await fetch(API_BASE_URL, {
+    // Call API directly with streaming (no memory system for character creation)
+    const response = await fetch(apiProvider.getApiUrl(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + DEFAULT_API_KEY
-      },
-      body: JSON.stringify({
+      headers: apiProvider.getHeaders(DEFAULT_API_KEY),
+      body: JSON.stringify(apiProvider.buildRequestBody({
         model: model || MODEL_CHARACTER_CREATOR,
-        max_tokens: 2000,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.slice(-6) // Keep last 6 messages for context
-        ],
-        stream: true
-      })
+        messages: messages.slice(-6),
+        systemPrompt,
+        maxTokens: 2000
+      }))
     });
 
     if (!response.ok) {
@@ -1340,11 +1336,10 @@ app.post('/api/character/generate', async (req, res) => {
 
           try {
             const parsed = JSON.parse(dataStr);
-            const chunk = parsed.choices?.[0]?.delta?.content;
+            const chunk = apiProvider.extractTextChunk(parsed);
             if (chunk) fullResponse += chunk;
-            if (parsed.usage) {
-              usageData = parsed.usage;
-            }
+            const usageUpdate = apiProvider.extractUsage(parsed);
+            if (usageUpdate) usageData = usageUpdate;
           } catch (e) {
             // Skip malformed JSON
           }

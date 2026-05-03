@@ -193,9 +193,10 @@ async function main() {
   // Initialize memory compressor
   logSection('Compressing History to Recap');
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const provider = require('./api-provider');
+  const apiKey = provider.getApiKey();
   if (!apiKey) {
-    log('Error: ANTHROPIC_API_KEY not found in environment', 'red');
+    log('Error: No API key found. Set OPENROUTER_API_KEY or ANTHROPIC_API_KEY in environment', 'red');
     process.exit(1);
   }
 

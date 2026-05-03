@@ -1356,7 +1356,7 @@
               <div class="mb-3">
                 <label for="model-select" class="form-label">Model</label>
                 <select class="form-select" id="model-select">
-                  <option value="eva-unit-01/eva-qwen-2.5-72b" selected>EVA Qwen 2.5 72B</option>
+                  <!-- Options populated dynamically based on active provider -->
                 </select>
                 <div class="form-text">Select the model to use for this character.</div>
               </div>
@@ -1401,7 +1401,7 @@
             <label for="load-model-select" class="form-label" data-i18n="load_model_label">Model (optional)</label>
             <select class="form-select" id="load-model-select">
               <option value="" data-i18n="use_original_model">Use original model</option>
-              <option value="eva-unit-01/eva-qwen-2.5-72b">EVA Qwen 2.5 72B</option>
+              <!-- Options populated dynamically based on active provider -->
             </select>
             <div class="form-text" data-i18n="load_model_help">Select a different model or leave as is to use the original.</div>
           </div>
@@ -1436,8 +1436,8 @@
                 <span id="character-name" class="fw-semibold">Character Name</span>
                 <div class="dropdown ms-2">
                   <span id="model-badge" class="badge bg-secondary small dropdown-toggle" style="font-size: 0.7rem; cursor: pointer;" data-bs-toggle="dropdown" aria-expanded="false"></span>
-                  <ul class="dropdown-menu model-dropdown" aria-labelledby="model-badge">
-                    <li><a class="dropdown-item model-option" data-model="eva-unit-01/eva-qwen-2.5-72b" href="#">EVA Qwen 2.5 72B</a></li>
+                  <ul class="dropdown-menu model-dropdown" id="model-dropdown-list" aria-labelledby="model-badge">
+                    <!-- Options populated dynamically based on active provider -->
                   </ul>
                 </div>
               </div>
@@ -1865,28 +1865,10 @@
         modelBadge.textContent = displayName;
         modelBadge.style.display = 'inline-block';
       }
-      // Set up model switching
-      document.querySelectorAll('.model-option').forEach(option => {
-        option.addEventListener('click', event => {
-          event.preventDefault();
-          if (!activeSessionId) return;
-          
-          const newModel = event.target.getAttribute('data-model');
-          if (!newModel) return;
-          
-          // Update the model badge
-          updateModelBadge(newModel);
-          
-          // Store the current model for next message
-          currentModel = newModel;
-          
-          // Add system message about model change
-          addSystemMessage(`Model switched to ${event.target.textContent}`);
-        });
-      });
+      // Model switching is handled inside populateModelOptions
 
       // Variable to store the currently selected model (will be loaded from server config)
-      let currentModel = 'eva-unit-01/eva-qwen-2.5-72b'; // Fallback default
+      let currentModel = ''; // Will be set by loadServerConfig
       let serverConfig = null; // Will hold server configuration
 
       // Load server configuration
@@ -1897,9 +1879,63 @@
             serverConfig = await response.json();
             currentModel = serverConfig.models.chat;
             console.log('Loaded server config:', serverConfig);
+            populateModelOptions(serverConfig.provider || 'openai', serverConfig.models.chat);
           }
         } catch (error) {
           console.warn('Could not load server config, using defaults:', error);
+          populateModelOptions('openai', 'eva-unit-01/eva-qwen-2.5-72b');
+        }
+      }
+
+      const MODEL_OPTIONS = {
+        openai: [
+          { value: 'eva-unit-01/eva-qwen-2.5-72b', label: 'EVA Qwen 2.5 72B' }
+        ],
+        anthropic: [
+          { value: 'claude-sonnet-4-5-20250929', label: 'Claude 4.5 Sonnet' },
+          { value: 'claude-haiku-4-5-20251001', label: 'Claude 4.5 Haiku' },
+          { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
+          { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet' }
+        ]
+      };
+
+      function populateModelOptions(providerName, activeModel) {
+        const options = MODEL_OPTIONS[providerName] || MODEL_OPTIONS.openai;
+
+        // New session model-select
+        const modelSelect = document.getElementById('model-select');
+        if (modelSelect) {
+          modelSelect.innerHTML = options.map(o =>
+            `<option value="${o.value}"${o.value === activeModel ? ' selected' : ''}>${o.label}</option>`
+          ).join('');
+        }
+
+        // Load session model-select (keep blank option)
+        const loadModelSelect = document.getElementById('load-model-select');
+        if (loadModelSelect) {
+          const blank = loadModelSelect.querySelector('option[value=""]');
+          loadModelSelect.innerHTML = (blank ? blank.outerHTML : '<option value="">Use original model</option>') +
+            options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+        }
+
+        // In-chat model dropdown
+        const dropdownList = document.getElementById('model-dropdown-list');
+        if (dropdownList) {
+          dropdownList.innerHTML = options.map(o =>
+            `<li><a class="dropdown-item model-option" data-model="${o.value}" href="#">${o.label}</a></li>`
+          ).join('');
+          // Re-attach click handlers
+          dropdownList.querySelectorAll('.model-option').forEach(option => {
+            option.addEventListener('click', event => {
+              event.preventDefault();
+              if (!activeSessionId) return;
+              const newModel = event.target.getAttribute('data-model');
+              if (!newModel) return;
+              updateModelBadge(newModel);
+              currentModel = newModel;
+              addSystemMessage(`Model switched to ${event.target.textContent}`);
+            });
+          });
         }
       }
 

@@ -3,9 +3,10 @@
 require('dotenv').config(); // Load environment variables
 const util = require('util');
 
+const provider = require('./api-provider');
+
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
-const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || MODEL_DEFAULT;
+const MODEL_COMPRESSION = process.env.MODEL_COMPRESSION || provider.getDefaultModel();
 
 // Use the same logger from server if available, otherwise create one
 let logger;
@@ -49,7 +50,7 @@ else {
 class MemoryCompressor {
   constructor(options = {}) {
     this.apiKey = options.apiKey || null;
-    this.apiUrl = options.apiUrl || (process.env.API_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions';
+    this.apiUrl = options.apiUrl || provider.getApiUrl();
     this.model = options.model || MODEL_COMPRESSION;
     this.compressionFrequency = options.compressionFrequency || 10; // API calls before compression
     this.compressionRatio = options.compressionRatio || 0.6; // Target size after compression
@@ -511,16 +512,12 @@ ${JSON.stringify(memoriesText)}`;
         // Make API request with streaming
         const response = await fetch(this.apiUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + this.apiKey
-          },
-          body: JSON.stringify({
+          headers: provider.getHeaders(this.apiKey),
+          body: JSON.stringify(provider.buildRequestBody({
             model: MODEL_COMPRESSION,
             messages: [{ role: 'user', content: promptSymbolic }],
-            max_tokens: 3200,
-            stream: true
-          })
+            maxTokens: 3200
+          }))
         });
 
         if (!response.ok) {
@@ -546,7 +543,7 @@ ${JSON.stringify(memoriesText)}`;
 
               try {
                 const parsed = JSON.parse(data);
-                const chunk = parsed.choices?.[0]?.delta?.content;
+                const chunk = provider.extractTextChunk(parsed);
                 if (chunk) compressed += chunk;
               } catch (e) {
                 // Skip malformed JSON
@@ -787,16 +784,12 @@ ${profile}`;
 
       const response = await fetch(this.apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.apiKey
-        },
-        body: JSON.stringify({
+        headers: provider.getHeaders(this.apiKey),
+        body: JSON.stringify(provider.buildRequestBody({
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1200,
-          stream: true
-        })
+          maxTokens: 1200
+        }))
       });
 
       if (!response.ok) {
@@ -1006,16 +999,12 @@ Write the recap summary (facts only, no storytelling):`;
       // Make API request with streaming
       const response = await fetch(this.apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.apiKey
-        },
-        body: JSON.stringify({
+        headers: provider.getHeaders(this.apiKey),
+        body: JSON.stringify(provider.buildRequestBody({
           model: this.model,
           messages: [{ role: 'user', content: promptText }],
-          max_tokens: 2048,
-          stream: true
-        })
+          maxTokens: 2048
+        }))
       });
 
       if (!response.ok) {
@@ -1041,7 +1030,7 @@ Write the recap summary (facts only, no storytelling):`;
 
             try {
               const parsed = JSON.parse(data);
-              const chunk = parsed.choices?.[0]?.delta?.content;
+              const chunk = provider.extractTextChunk(parsed);
               if (chunk) proseText += chunk;
             } catch (e) {
               // Skip malformed JSON

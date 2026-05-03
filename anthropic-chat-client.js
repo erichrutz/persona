@@ -1,14 +1,12 @@
 // Anthropic Chat Client with 2-Layer Memory System and Memory Compression
 require('dotenv').config(); // Load environment variables
-const ANTHROPIC_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-const API_URL = (process.env.API_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions';
+const provider = require('./api-provider');
 const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
 const { MemoryCompressor } = require('./memory-compressor');
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
-const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
+const MODEL_CHAT = process.env.MODEL_CHAT || provider.getDefaultModel();
 
 // Use the same logger from server if available, otherwise create one
 let logger;
@@ -1021,7 +1019,7 @@ class AnthropicChatClient {
       this.characterProfile = arguments[1] || null;
       options = {};
     } else {
-      this.apiKey = options.apiKey || ANTHROPIC_API_KEY;
+      this.apiKey = options.apiKey || provider.getApiKey();
       this.characterProfile = options.characterProfile || null;
       logger.debug('Constructor: characterProfile set to:', this.characterProfile ? 'Profile exists' : 'null');
     }
@@ -1065,7 +1063,7 @@ PHRASES:`;
     this.model = options.model || MODEL_CHAT;
     this.temperature = options.temperature || 1.0;
     this.messages = options.messages || [];
-    this.apiUrl = API_URL;
+    this.apiUrl = provider.getApiUrl();
     this.worldSetting = options.worldSetting || '';
 
 
@@ -1465,21 +1463,16 @@ Your responses must reflect the cumulative emotional impact of these experiences
       // Log a shorter version of the prompt for debugging
       logger.debug('System prompt length:', fullSystemPrompt.length);
 
-      // Request options for OpenAI-compatible API with token optimization
-      const requestOptions = {
+      // Build provider-agnostic request options
+      const extra = {};
+      if (this.temperature !== 1.0) extra.temperature = this.temperature;
+      const requestOptions = provider.buildRequestBody({
         model: this.model,
-        messages: [
-          { role: 'system', content: fullSystemPrompt },
-          ...this.messages.slice(-10) // Only use last 10 messages to reduce context
-        ],
-        max_tokens: 4096,
-        stream: true
-      };
-
-      // Add temperature only if not default to save tokens
-      if (this.temperature !== 1.0) {
-        requestOptions.temperature = this.temperature;
-      }
+        messages: this.messages.slice(-10),
+        systemPrompt: fullSystemPrompt,
+        maxTokens: 4096,
+        extra
+      });
 
       // Prepare request to Anthropic API
       const maxRetries = 3;
@@ -1490,10 +1483,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
         try {
           response = await fetch(this.apiUrl, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + this.apiKey
-            },
+            headers: provider.getHeaders(this.apiKey),
             body: JSON.stringify(requestOptions)
           });
 
@@ -1582,19 +1572,15 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
               try {
                 const parsed = JSON.parse(data);
-
-                const textChunk = parsed.choices?.[0]?.delta?.content;
+                const textChunk = provider.extractTextChunk(parsed);
                 if (textChunk) {
                   assistantResponse += textChunk;
-
-                  // Call streaming callback if provided
                   if (onStreamChunk && typeof onStreamChunk === 'function') {
                     onStreamChunk(textChunk);
                   }
                 }
-                if (parsed.usage) {
-                  usage = parsed.usage;
-                }
+                const usageUpdate = provider.extractUsage(parsed);
+                if (usageUpdate) usage = usageUpdate;
               } catch (e) {
                 // Skip malformed JSON
               }
@@ -1620,8 +1606,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
       if (data.usage && this.memory.compressionEnabled) {
         const usage = data.usage;
         const metadata = this.memory.compressionMetadata;
-        const inputTokens = usage.prompt_tokens || usage.input_tokens || 0;
-        const outputTokens = usage.completion_tokens || usage.output_tokens || 0;
+        const inputTokens = usage.input_tokens || 0;
+        const outputTokens = usage.output_tokens || 0;
 
         // Update totals
         metadata.tokenUsage.totalInputTokens += inputTokens;
@@ -2081,16 +2067,12 @@ Your responses must reflect the cumulative emotional impact of these experiences
     try {
       const response = await fetch(this.apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.apiKey
-        },
-        body: JSON.stringify({
+        headers: provider.getHeaders(this.apiKey),
+        body: JSON.stringify(provider.buildRequestBody({
           model: this.model,
-          messages: [
-            {
-              role: 'user',
-              content: `Please categorize this information for long-term memory storage:
+          messages: [{
+            role: 'user',
+            content: `Please categorize this information for long-term memory storage:
 
               "${memoryItem}"
 
@@ -2100,11 +2082,9 @@ Your responses must reflect the cumulative emotional impact of these experiences
                 "priority": 1-5 (where 5 is highest priority),
                 "expiration": "never|days|weeks|months" (how long this should be remembered)
               }`
-            }
-          ],
-          max_tokens: 250,
-          stream: true
-        })
+          }],
+          maxTokens: 250
+        }))
       });
 
       if (!response.ok) {
@@ -2131,7 +2111,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
             try {
               const parsed = JSON.parse(data);
-              const chunk = parsed.choices?.[0]?.delta?.content;
+              const chunk = provider.extractTextChunk(parsed);
               if (chunk) result += chunk;
             } catch (e) {
               // Skip malformed JSON
