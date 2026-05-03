@@ -1320,15 +1320,18 @@ Your character has goals (WANTS) and reactive patterns (TRIGGERS). Express these
   or act on a desire from your profile
 
 ## Memory System
-Append JSON after response:
+After EVERY response, append this block EXACTLY — never skip it, never merge it into the narrative:
+
+\`\`\`json
 {
   "memorize-long-term": {"char": "NEW ${compressedProfile.core.name} facts (symbolic)", "user": "NEW user facts (symbolic)"},
   "memorize-short-term": "Summary (symbolic)",
   "clothing": {"char": "Current clothing, generate if unspecified", "user": "User clothing, generate if unspecified"},
-  "history": "MILESTONE DETECTION: Record significant events that advance character/relationship development or reveal new character aspects. Categories: relationship progression, personal revelations, trust changes, shared experiences, character growth moments. DUPLICATE CHECK: Scan timeline above - if similar event TYPE exists (trust established, secret shared, conflict resolved), leave EMPTY unless meaningfully different. Use symbolic syntax, 6-10 words maximum."
+  "history": "MILESTONE DETECTION: Record significant events that advance character/relationship development or reveal new character aspects. Categories: relationship progression, personal revelations, trust changes, shared experiences, character growth moments. DUPLICATE CHECK: Scan timeline above - if similar event TYPE exists (trust established, secret shared, conflict resolved), leave EMPTY unless meaningfully different. Use symbolic syntax, 6-10 words maximum.",
   "location": "Current location of ${compressedProfile.core.name} (NOT user). Generate if unknown.",
   "date": "Current date in roleplay. ALWAYS USE FORMAT: 'YYYY-MM-DD'. Generate if unknown from chat content"
 }
+\`\`\`
 
 Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
 `;
@@ -2155,8 +2158,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
     // Strip any leading date the model may have echoed back
     cleaned = cleaned.replace(/^\d{4}-\d{2}-\d{2}\s+/, '');
 
-    // Then remove any remaining JSON block at the end of the response
-    cleaned = cleaned.replace(/\{[\s\S]*?\}\s*$/, '').trim();
+    // Then remove any remaining JSON block at the end of the response (greedy to handle nested objects)
+    cleaned = cleaned.replace(/\{[\s\S]*\}\s*$/, '').trim();
 
     return cleaned;
   }
