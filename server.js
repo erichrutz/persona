@@ -172,6 +172,7 @@ function getCharacterProfile(type) {
 
 // Set default API key if available
 const DEFAULT_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+const API_BASE_URL = (process.env.API_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions';
 
 // Routes
 
@@ -1297,7 +1298,7 @@ app.post('/api/character/generate', async (req, res) => {
     messages.push({ role: 'user', content: description });
 
     // Call OpenAI-compatible API directly with streaming (no memory system for character creation)
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(API_BASE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

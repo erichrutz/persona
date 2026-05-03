@@ -3,7 +3,7 @@
 require('dotenv').config(); // Load environment variables
 
 const ANTHROPIC_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const API_URL = (process.env.API_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions';
 
 // Model configuration
 const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';

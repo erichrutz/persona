@@ -1,7 +1,7 @@
 // Anthropic Chat Client with 2-Layer Memory System and Memory Compression
 require('dotenv').config(); // Load environment variables
 const ANTHROPIC_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const API_URL = (process.env.API_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions';
 const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
 const { MemoryCompressor } = require('./memory-compressor');

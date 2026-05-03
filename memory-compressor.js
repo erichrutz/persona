@@ -49,7 +49,7 @@ else {
 class MemoryCompressor {
   constructor(options = {}) {
     this.apiKey = options.apiKey || null;
-    this.apiUrl = options.apiUrl || 'https://openrouter.ai/api/v1/chat/completions';
+    this.apiUrl = options.apiUrl || (process.env.API_BASE_URL || 'https://openrouter.ai/api/v1') + '/chat/completions';
     this.model = options.model || MODEL_COMPRESSION;
     this.compressionFrequency = options.compressionFrequency || 10; // API calls before compression
     this.compressionRatio = options.compressionRatio || 0.6; // Target size after compression
