@@ -193,15 +193,16 @@ async function main() {
   // Initialize memory compressor
   logSection('Compressing History to Recap');
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const provider = require('./api-provider');
+  const apiKey = provider.getApiKey();
   if (!apiKey) {
-    log('Error: ANTHROPIC_API_KEY not found in environment', 'red');
+    log('Error: No API key found. Set OPENROUTER_API_KEY or ANTHROPIC_API_KEY in environment', 'red');
     process.exit(1);
   }
 
   const compressor = new MemoryCompressor({
     apiKey,
-    model: 'claude-3-7-sonnet-20250219',
+    model: process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b',
     characterName,
     characterProfile: sessionData.characterProfile || '',
     userProfile: sessionData.userProfile || ''

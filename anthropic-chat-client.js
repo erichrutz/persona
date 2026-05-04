@@ -1,14 +1,12 @@
 // Anthropic Chat Client with 2-Layer Memory System and Memory Compression
 require('dotenv').config(); // Load environment variables
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const provider = require('./api-provider');
 const util = require('util');
 const { MemoryPersistence } = require('./memory-persistence');
 const { MemoryCompressor } = require('./memory-compressor');
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
-const MODEL_CHAT = process.env.MODEL_CHAT || MODEL_DEFAULT;
+const MODEL_CHAT = process.env.MODEL_CHAT || provider.getDefaultModel();
 
 // Use the same logger from server if available, otherwise create one
 let logger;
@@ -1021,7 +1019,7 @@ class AnthropicChatClient {
       this.characterProfile = arguments[1] || null;
       options = {};
     } else {
-      this.apiKey = options.apiKey || ANTHROPIC_API_KEY;
+      this.apiKey = options.apiKey || provider.getApiKey();
       this.characterProfile = options.characterProfile || null;
       logger.debug('Constructor: characterProfile set to:', this.characterProfile ? 'Profile exists' : 'null');
     }
@@ -1065,7 +1063,7 @@ PHRASES:`;
     this.model = options.model || MODEL_CHAT;
     this.temperature = options.temperature || 1.0;
     this.messages = options.messages || [];
-    this.apiUrl = API_URL;
+    this.apiUrl = provider.getApiUrl();
     this.worldSetting = options.worldSetting || '';
 
 
@@ -1320,15 +1318,18 @@ Your character has goals (WANTS) and reactive patterns (TRIGGERS). Express these
   or act on a desire from your profile
 
 ## Memory System
-Append JSON after response:
+After EVERY response, append this block EXACTLY — never skip it, never merge it into the narrative:
+
+\`\`\`json
 {
   "memorize-long-term": {"char": "NEW ${compressedProfile.core.name} facts (symbolic)", "user": "NEW user facts (symbolic)"},
   "memorize-short-term": "Summary (symbolic)",
   "clothing": {"char": "Current clothing, generate if unspecified", "user": "User clothing, generate if unspecified"},
-  "history": "MILESTONE DETECTION: Record significant events that advance character/relationship development or reveal new character aspects. Categories: relationship progression, personal revelations, trust changes, shared experiences, character growth moments. DUPLICATE CHECK: Scan timeline above - if similar event TYPE exists (trust established, secret shared, conflict resolved), leave EMPTY unless meaningfully different. Use symbolic syntax, 6-10 words maximum."
+  "history": "MILESTONE DETECTION: Record significant events that advance character/relationship development or reveal new character aspects. Categories: relationship progression, personal revelations, trust changes, shared experiences, character growth moments. DUPLICATE CHECK: Scan timeline above - if similar event TYPE exists (trust established, secret shared, conflict resolved), leave EMPTY unless meaningfully different. Use symbolic syntax, 6-10 words maximum.",
   "location": "Current location of ${compressedProfile.core.name} (NOT user). Generate if unknown.",
   "date": "Current date in roleplay. ALWAYS USE FORMAT: 'YYYY-MM-DD'. Generate if unknown from chat content"
 }
+\`\`\`
 
 Always reference user appearance, never contradict memory information, acknowledge when user mentions something you remember. MOST IMPORTANTLY, let key history moments shape ${compressedProfile.core.name}'s emotional state and responses to maintain narrative consistency.
 `;
@@ -1462,19 +1463,16 @@ Your responses must reflect the cumulative emotional impact of these experiences
       // Log a shorter version of the prompt for debugging
       logger.debug('System prompt length:', fullSystemPrompt.length);
 
-      // Request options for Anthropic API with token optimization
-      const requestOptions = {
+      // Build provider-agnostic request options
+      const extra = {};
+      if (this.temperature !== 1.0) extra.temperature = this.temperature;
+      const requestOptions = provider.buildRequestBody({
         model: this.model,
-        messages: this.messages.slice(-10), // Only use last 10 messages to reduce context
-        system: fullSystemPrompt,
-        max_tokens: 4096,
-        stream: true
-      };
-
-      // Add temperature only if not default to save tokens
-      if (this.temperature !== 1.0) {
-        requestOptions.temperature = this.temperature;
-      }
+        messages: this.messages.slice(-10),
+        systemPrompt: fullSystemPrompt,
+        maxTokens: 4096,
+        extra
+      });
 
       // Prepare request to Anthropic API
       const maxRetries = 3;
@@ -1485,11 +1483,7 @@ Your responses must reflect the cumulative emotional impact of these experiences
         try {
           response = await fetch(this.apiUrl, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': this.apiKey,
-              'anthropic-version': '2023-06-01'
-            },
+            headers: provider.getHeaders(this.apiKey),
             body: JSON.stringify(requestOptions)
           });
 
@@ -1578,18 +1572,15 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
               try {
                 const parsed = JSON.parse(data);
-
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  const textChunk = parsed.delta.text;
+                const textChunk = provider.extractTextChunk(parsed);
+                if (textChunk) {
                   assistantResponse += textChunk;
-
-                  // Call streaming callback if provided
                   if (onStreamChunk && typeof onStreamChunk === 'function') {
                     onStreamChunk(textChunk);
                   }
-                } else if (parsed.type === 'message_delta' && parsed.usage) {
-                  usage = parsed.usage;
                 }
+                const usageUpdate = provider.extractUsage(parsed);
+                if (usageUpdate) usage = usageUpdate;
               } catch (e) {
                 // Skip malformed JSON
               }
@@ -1615,11 +1606,13 @@ Your responses must reflect the cumulative emotional impact of these experiences
       if (data.usage && this.memory.compressionEnabled) {
         const usage = data.usage;
         const metadata = this.memory.compressionMetadata;
+        const inputTokens = usage.input_tokens || 0;
+        const outputTokens = usage.output_tokens || 0;
 
         // Update totals
-        metadata.tokenUsage.totalInputTokens += usage.input_tokens || 0;
-        metadata.tokenUsage.totalOutputTokens += usage.output_tokens || 0;
-        metadata.tokenUsage.totalTokens += (usage.input_tokens || 0) + (usage.output_tokens || 0);
+        metadata.tokenUsage.totalInputTokens += inputTokens;
+        metadata.tokenUsage.totalOutputTokens += outputTokens;
+        metadata.tokenUsage.totalTokens += inputTokens + outputTokens;
         metadata.tokenUsage.messagesProcessed++;
 
         // Update averages
@@ -1631,11 +1624,11 @@ Your responses must reflect the cumulative emotional impact of these experiences
         );
 
         // Update peaks
-        if (usage.input_tokens > metadata.tokenUsage.peakInputTokens) {
-          metadata.tokenUsage.peakInputTokens = usage.input_tokens;
+        if (inputTokens > metadata.tokenUsage.peakInputTokens) {
+          metadata.tokenUsage.peakInputTokens = inputTokens;
         }
-        if (usage.output_tokens > metadata.tokenUsage.peakOutputTokens) {
-          metadata.tokenUsage.peakOutputTokens = usage.output_tokens;
+        if (outputTokens > metadata.tokenUsage.peakOutputTokens) {
+          metadata.tokenUsage.peakOutputTokens = outputTokens;
         }
 
         logger.debug(`Token usage - Input: ${usage.input_tokens}, Output: ${usage.output_tokens}, Total: ${usage.input_tokens + usage.output_tokens}`);
@@ -2074,17 +2067,12 @@ Your responses must reflect the cumulative emotional impact of these experiences
     try {
       const response = await fetch(this.apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
+        headers: provider.getHeaders(this.apiKey),
+        body: JSON.stringify(provider.buildRequestBody({
           model: this.model,
-          messages: [
-            {
-              role: 'user',
-              content: `Please categorize this information for long-term memory storage:
+          messages: [{
+            role: 'user',
+            content: `Please categorize this information for long-term memory storage:
 
               "${memoryItem}"
 
@@ -2094,11 +2082,9 @@ Your responses must reflect the cumulative emotional impact of these experiences
                 "priority": 1-5 (where 5 is highest priority),
                 "expiration": "never|days|weeks|months" (how long this should be remembered)
               }`
-            }
-          ],
-          max_tokens: 250,
-          stream: true
-        })
+          }],
+          maxTokens: 250
+        }))
       });
 
       if (!response.ok) {
@@ -2125,9 +2111,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
 
             try {
               const parsed = JSON.parse(data);
-              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                result += parsed.delta.text;
-              }
+              const chunk = provider.extractTextChunk(parsed);
+              if (chunk) result += chunk;
             } catch (e) {
               // Skip malformed JSON
             }
@@ -2153,8 +2138,8 @@ Your responses must reflect the cumulative emotional impact of these experiences
     // Strip any leading date the model may have echoed back
     cleaned = cleaned.replace(/^\d{4}-\d{2}-\d{2}\s+/, '');
 
-    // Then remove any remaining JSON block at the end of the response
-    cleaned = cleaned.replace(/\{[\s\S]*?\}\s*$/, '').trim();
+    // Then remove any remaining JSON block at the end of the response (greedy to handle nested objects)
+    cleaned = cleaned.replace(/\{[\s\S]*\}\s*$/, '').trim();
 
     return cleaned;
   }

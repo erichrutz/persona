@@ -109,7 +109,7 @@ function printInfoPanel() {
     const longTermCount = stats.longTerm ? stats.longTerm.length : 0;
     const apiCalls = stats.compressionMetadata?.apiCallsSinceLastCompression || 0;
     const lastCompression = stats.compressionMetadata?.lastCompressionTime || 'Never';
-    const model = 'claude-3-7-sonnet-20250219';
+    const model = process.env.MODEL_DEFAULT || 'eva-unit-01/eva-qwen-2.5-72b';
 
     console.log('');
     console.log('--- Session Information ---');

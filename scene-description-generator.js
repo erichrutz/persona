@@ -2,12 +2,10 @@
 // Uses Anthropic API to generate optimized prompts based on conversation context
 require('dotenv').config(); // Load environment variables
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const provider = require('./api-provider');
 
 // Model configuration
-const MODEL_DEFAULT = process.env.MODEL_DEFAULT || 'claude-sonnet-4-5-20250929';
-const MODEL_SCENE_GENERATOR = process.env.MODEL_SCENE_GENERATOR || MODEL_DEFAULT;
+const MODEL_SCENE_GENERATOR = process.env.MODEL_SCENE_GENERATOR || provider.getDefaultModel();
 
 class SceneDescriptionGenerator {
   /**
@@ -117,7 +115,7 @@ class SceneDescriptionGenerator {
    * @param {string} apiKey - Anthropic API key
    * @returns {Promise<object>} - Object with prompt property
    */
-  static async generate(sessionData, apiKey = ANTHROPIC_API_KEY) {
+  static async generate(sessionData, apiKey = provider.getApiKey()) {
     if (!sessionData) {
       return { prompt: 'No session data available.' };
     }
@@ -179,26 +177,15 @@ ${context}${conversationText}
 
 Based on all the information above (merging details from CRITICAL SCENE CONTEXT with the profile sections), create a single-paragraph photorealistic image prompt that accurately captures who is in the scene and what is happening right now.`;
 
-      // Call Anthropic API with streaming
-      const response = await fetch(API_URL, {
+      const response = await fetch(provider.getApiUrl(), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: MODEL_SCENE_GENERATOR, // Use configured model for quality image prompts
-          max_tokens: 500,
-          messages: [
-            {
-              role: 'user',
-              content: userPrompt
-            }
-          ],
-          system: systemPrompt,
-          stream: true
-        })
+        headers: provider.getHeaders(apiKey),
+        body: JSON.stringify(provider.buildRequestBody({
+          model: MODEL_SCENE_GENERATOR,
+          messages: [{ role: 'user', content: userPrompt }],
+          systemPrompt,
+          maxTokens: 500
+        }))
       });
 
       if (!response.ok) {
@@ -227,9 +214,8 @@ Based on all the information above (merging details from CRITICAL SCENE CONTEXT 
             try {
               const parsed = JSON.parse(data);
 
-              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                generatedPrompt += parsed.delta.text;
-              }
+              const chunk = provider.extractTextChunk(parsed);
+              if (chunk) generatedPrompt += chunk;
             } catch (e) {
               // Skip malformed JSON
             }
