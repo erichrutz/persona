@@ -50,7 +50,7 @@ const localization = {
     "enable_compression_label": "Enable Memory Compression",
     "compression_help": "Periodically summarizes conversation history to optimize performance.",
     "model_label": "Model",
-    "model_help": "Select the model to use for this character.",
+    "model_help": "Select the Claude model to use for this character.",
     "language_label": "Language",
     "language_help": "Select the language for your conversation with the character.",
     
@@ -167,7 +167,7 @@ const localization = {
     "enable_compression_label": "Gedächtniskompression aktivieren",
     "compression_help": "Fasst regelmäßig den Gesprächsverlauf zusammen, um die Leistung zu optimieren.",
     "model_label": "Modell",
-    "model_help": "Wählen Sie das Modell für diesen Charakter.",
+    "model_help": "Wählen Sie das Claude-Modell für diesen Charakter.",
     "language_label": "Sprache",
     "language_help": "Wählen Sie die Sprache für Ihr Gespräch mit dem Charakter.",
     
